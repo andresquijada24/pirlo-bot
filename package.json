@@ -1,0 +1,48 @@
+{
+  "name": "pirlo-bot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PIRLO BOT — bot de Discord multiclub para estadísticas y gestión de clubes de EA SPORTS FC 27.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx watch src/dev-server.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run lint && npm run format:check && npm run typecheck && npm run test",
+    "commands:register": "tsx scripts/register-commands.ts",
+    "db:start": "supabase start",
+    "db:new": "supabase migration new",
+    "db:reset:local": "supabase db reset --local",
+    "db:types": "supabase gen types typescript --local > src/db/types.gen.ts"
+  },
+  "dependencies": {
+    "@discordjs/rest": "^2.4.0",
+    "@hono/node-server": "^1.13.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "discord-api-types": "^0.37.100",
+    "hono": "^4.6.0",
+    "pino": "^9.5.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.12.0",
+    "@types/node": "^22.7.0",
+    "eslint": "^9.12.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.3.3",
+    "supabase": "^1.200.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.8.0",
+    "vitest": "^2.1.0"
+  }
+}

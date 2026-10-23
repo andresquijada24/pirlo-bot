@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Usa el lockfile si existe; si no, lo resuelve (primer arranque del proyecto).
+      - name: Instalar dependencias
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      - name: Lint
+        run: npm run lint
+
+      # Temporalmente informativo: el primer commit se escribió sin poder ejecutar Prettier.
+      # Quitar continue-on-error tras el primer `npm run format`.
+      - name: Formato
+        run: npm run format:check
+        continue-on-error: true
+
+      - name: Tipos
+        run: npm run typecheck
+
+      - name: Pruebas
+        run: npm test
+
+      - name: Comprobar que no se suben secretos
+        run: |
+          if git ls-files | grep -E '(^|/)\.env($|\.)' | grep -v '\.env\.example$'; then
+            echo "Se encontró un archivo .env versionado." && exit 1
+          fi

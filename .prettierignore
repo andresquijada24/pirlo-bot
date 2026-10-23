@@ -1,0 +1,7 @@
+dist
+coverage
+node_modules
+package-lock.json
+src/db/types.gen.ts
+supabase/.temp
+.vercel

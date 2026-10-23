@@ -1,0 +1,16 @@
+# Dependencias y build
+node_modules/
+dist/
+coverage/
+
+# Secretos — NUNCA subir
+.env
+.env.*
+!.env.example
+
+# Herramientas
+.vercel/
+supabase/.temp/
+supabase/.branches/
+*.log
+.DS_Store

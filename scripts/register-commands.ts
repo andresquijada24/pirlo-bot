@@ -16,7 +16,7 @@ import { DiscordAPIError, REST } from '@discordjs/rest';
 import { Routes } from 'discord-api-types/v10';
 import { z } from 'zod';
 import { commands } from '../src/discord/commands/index.js';
-import { explainDiscordError } from '../src/discord/registration-errors.js';
+import { diagnoseRegistration, explainDiscordError } from '../src/discord/registration-errors.js';
 
 /** Servidor que solo es una referencia: nunca se registran comandos en él desde este script. */
 const REFERENCE_GUILD_ID = '853894813169614848';
@@ -64,12 +64,24 @@ async function main() {
   if (guildId === REFERENCE_GUILD_ID) {
     fail('Ese es el servidor de referencia: no se registran comandos en él sin autorización.');
   }
+  // Diagnóstico previo: a qué aplicación pertenece el token y en qué servidores está el bot.
+  const app = (await rest.get(Routes.currentApplication())) as { id: string; name: string };
+  const guilds = (await rest.get(Routes.userGuilds())) as { id: string; name: string }[];
+  console.log(`Token de la aplicación "${app.name}" (${app.id}); el bot está en ${guilds.length} servidor(es).`);
+  const problem = diagnoseRegistration({
+    expectedAppId: appId,
+    tokenApp: { id: app.id, name: app.name },
+    guildId,
+    botGuilds: guilds.map((g) => ({ id: g.id, name: g.name })),
+  });
+  if (problem) fail(problem);
+
   await rest.put(Routes.applicationGuildCommands(appId, guildId), { body });
   console.log(`Registrados ${body.length} comandos en el servidor de pruebas:`);
   for (const c of body) console.log(`  /${c.name}`);
 }
 
 main().catch((err: unknown) => {
-  if (err instanceof DiscordAPIError) fail(explainDiscordError(err.status, err.code));
+  if (err instanceof DiscordAPIError) fail(`${explainDiscordError(err.status, err.code)} [código ${err.code}]`);
   fail(`Error inesperado al registrar comandos: ${err instanceof Error ? err.name : 'desconocido'}`);
 });

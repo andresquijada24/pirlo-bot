@@ -73,3 +73,44 @@ describe('GET /api/health', () => {
     expect(await res.json()).toEqual({ ok: true, service: 'pirlo-bot' });
   });
 });
+
+describe('POST /api/cron/sync', () => {
+  const SECRET = 'secreto-de-prueba-largo';
+  const make = (cron: Parameters<typeof createApp>[0]['cron']) =>
+    createApp({ discordPublicKey: '0'.repeat(64), repos: null, ...(cron ? { cron } : {}) });
+  const call = (app: ReturnType<typeof make>, token?: string) =>
+    app.request('/api/cron/sync', {
+      method: 'POST',
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+    });
+
+  it('sin CRON_SECRET configurado responde 503', async () => {
+    expect((await call(make(undefined), SECRET)).status).toBe(503);
+  });
+
+  it('sin token o con token incorrecto responde 401 y no sincroniza', async () => {
+    let calls = 0;
+    const app = make({ secret: SECRET, sync: async () => (calls++, { status: 'ok' }) });
+    expect((await call(app)).status).toBe(401);
+    expect((await call(app, 'otro')).status).toBe(401);
+    expect(calls).toBe(0);
+  });
+
+  it('con el token correcto ejecuta la sincronización', async () => {
+    const app = make({ secret: SECRET, sync: async () => ({ status: 'ok', inserted: 2 }) });
+    const res = await call(app, SECRET);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ status: 'ok', inserted: 2 });
+  });
+
+  it('sin proveedor configurado responde que se omite', async () => {
+    const res = await call(make({ secret: SECRET, sync: null }), SECRET);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ status: 'omitida' });
+  });
+
+  it('si la sincronización falla responde 502 con el mensaje seguro', async () => {
+    const app = make({ secret: SECRET, sync: async () => ({ status: 'error', message: 'Clave rechazada' }) });
+    expect((await call(app, SECRET)).status).toBe(502);
+  });
+});

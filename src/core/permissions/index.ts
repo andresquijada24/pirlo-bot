@@ -32,6 +32,7 @@ export type Action =
   | 'stats.correct'
   | 'season.manage'
   | 'club.configure'
+  | 'sync.view'
   | 'sync.run';
 
 type Requirement = 'servidor' | 'miembro' | ClubRole;
@@ -52,6 +53,7 @@ export const ACTION_REQUIREMENTS: Record<Action, Requirement> = {
   'stats.correct': 'dt',
   'season.manage': 'admin',
   'club.configure': 'admin',
+  'sync.view': 'dt',
   'sync.run': 'admin',
 };
 

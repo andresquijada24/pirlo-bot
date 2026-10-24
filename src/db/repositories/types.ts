@@ -7,6 +7,8 @@ import type {
   PositionCode,
   Season,
 } from '../../core/types.js';
+import type { SessionStatRow } from '../../core/stats/service.js';
+import type { SyncRepository } from '../../sync/types.js';
 
 /**
  * Contratos de acceso a datos.
@@ -82,6 +84,20 @@ export interface AuditRepository {
   log(entry: AuditEntry): Promise<void>;
 }
 
+export interface StatsRepository {
+  /** Totales por temporada a nivel sesión. seasonId null = todas (incluye sesiones sin temporada). */
+  sessionRows(clubId: string, seasonId: string | null): Promise<SessionStatRow[]>;
+}
+
+export interface ExternalPlayerRepository {
+  /**
+   * Vincula al jugador con la ficha externa de ese gamertag y le asigna sus estadísticas.
+   * Devuelve cuántas fichas quedaron vinculadas (0 si el proveedor aún no informó ese gamertag).
+   * Lanza CONFLICT si el gamertag ya pertenece a otro jugador del club.
+   */
+  linkGamertag(clubId: string, playerId: string, gamertag: string, actorDiscordId: string): Promise<number>;
+}
+
 export interface Repositories {
   clubs: ClubRepository;
   memberships: MembershipRepository;
@@ -89,4 +105,7 @@ export interface Repositories {
   channels: ChannelRepository;
   seasons: SeasonRepository;
   audit: AuditRepository;
+  stats: StatsRepository;
+  externalPlayers: ExternalPlayerRepository;
+  sync: SyncRepository;
 }

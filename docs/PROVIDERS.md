@@ -19,7 +19,7 @@ Todos implementan el contrato `StatsProvider` de `src/providers/types.ts`.
 
 | Proveedor | Acceso | Granularidad | Estado |
 | --- | --- | --- | --- |
-| `maritimo` | API `api_v1` de solo lectura de maritimo.app | Sesión | Conector listo y probado contra el contrato. **Pendiente**: que maritimo.app publique `api_v1`. |
+| `maritimo` | API `api_v1` de solo lectura de maritimo.app | Sesión | Conector y sincronización listos y probados contra el contrato. **Pendiente**: que maritimo.app publique `api_v1`. |
 | `ourproclub` | Resúmenes de OurProClub | Sesión | Fase 6. Leerlos directamente de Discord requeriría permisos que hoy la regla 10 no permite. |
 | `ea` | — | — | Stub. EA rechaza las consultas desde servidores. |
 | `manual` | Registro por DT/capitán desde Discord | Partido | Fase 7. |
@@ -28,8 +28,10 @@ Todos implementan el contrato `StatsProvider` de `src/providers/types.ts`.
 
 - Contrato: [`docs/integrations/maritimo-api-v1.md`](integrations/maritimo-api-v1.md).
 - Conector: `src/providers/maritimo/` (`MaritimoStatsProvider`).
-- Variables: `MARITIMO_API_BASE_URL`, `MARITIMO_API_KEY` (clave de solo lectura emitida por
-  maritimo.app; solo en Vercel).
+- Variables (solo en Vercel): `MARITIMO_API_BASE_URL`, `MARITIMO_API_KEY` (clave de solo
+  lectura emitida por maritimo.app) y `MARITIMO_CLUB_ID` (uuid del club de PIRLO BOT que recibe
+  los datos; se ve con `/club sincronizacion`). El club debe tener `stats_provider = 'maritimo'`:
+  si no coincide, la sincronización se omite (aislamiento).
 - Datos que Marítimo **no** tiene y PIRLO BOT muestra como "sin dato": estadísticas por partido
   individual, porterías imbatidas y temporadas (en PIRLO BOT cada club define las suyas y las
   sesiones se asignan por fecha).
@@ -37,3 +39,29 @@ Todos implementan el contrato `StatsProvider` de `src/providers/types.ts`.
   cuentan en los totales.
 - Jugadores sin vincular: sus estadísticas se guardan con el id del proveedor
   (`player_session_stats.source_player_id`) y pasan al jugador de PIRLO BOT al vincularlo.
+
+### Sincronización
+
+- `src/sync/engine.ts` descarga lo cambiado desde el último cursor (jugadores, sesiones y
+  borrados) y lo aplica con funciones atómicas e idempotentes de la base de datos
+  (`sync_apply_players`, `sync_apply_session`, `sync_apply_deletion`). Repetir una pasada no
+  duplica nada; una sesión con la misma versión se salta.
+- Cursor: la hora de servidor más antigua de las descargas. Si se agota el tiempo (45 s), se
+  guarda la versión de la última sesión aplicada y la siguiente pasada continúa desde ahí.
+- Correcciones en origen: se aplican y quedan en `stat_revisions` con el motivo
+  "sincronización maritimo". Una sesión borrada en origen se elimina, con copia completa en
+  `audit_log` (`sync.session_deleted`). Un jugador borrado queda inactivo.
+- Temporada de cada sesión: la temporada cuyo rango de fechas la incluye o, si las temporadas no
+  tienen fechas, la más reciente creada en o antes del día de juego. Las sesiones anteriores a la
+  primera temporada quedan sin temporada y cuentan en el historial (`temporada: Todas`).
+- Disparo: `POST /api/cron/sync` con `Authorization: Bearer <CRON_SECRET>`, que llama el
+  workflow **Sincronizar Marítimo** cada 15 minutos (o a mano). Sin el secreto `CRON_SECRET` en
+  GitHub, el workflow no hace nada.
+
+### Vinculación de jugadores
+
+- Al aprobar `/vincular`, el gamertag de la solicitud se vincula solo con la ficha de Marítimo
+  del mismo gamertag (sin distinguir mayúsculas), si no pertenece ya a otro jugador.
+- Un DT o admin puede vincularlo después con `/plantilla gamertag`. Las estadísticas ya
+  importadas pasan al jugador en ese momento, y las nuevas llegan asignadas.
+- Un gamertag nunca se reasigna en silencio: si ya pertenece a otro jugador del club, se rechaza.

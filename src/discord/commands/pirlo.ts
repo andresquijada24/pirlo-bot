@@ -11,12 +11,17 @@ const HELP = [
   '**Plantilla**',
   '`/vincular` — pide unirte al club',
   '`/solicitudes` — aprueba o rechaza solicitudes (DT/admin)',
-  '`/plantilla ver` · `rol` · `posiciones` · `baja`',
+  '`/plantilla ver` · `rol` · `posiciones` · `gamertag` · `baja`',
+  '',
+  '**Estadísticas**',
+  '`/stats` — tus estadísticas (o las de otro jugador)',
+  '`/ranking` — goleadores, asistencias, nota, pases, entradas…',
+  '`/club sincronizacion` — estado de la sincronización (DT/admin)',
   '',
   '**Información**',
   '`/club info` · `/temporada ver`',
   '',
-  'Próximamente: estadísticas, rankings, convocatorias y alineaciones.',
+  'Próximamente: convocatorias y alineaciones.',
 ].join('\n');
 
 export const pirloCommand: SlashCommand = {

@@ -1,5 +1,5 @@
 import type { Repositories } from '../../db/repositories/types.js';
-import { conflict, notFound, permissionDenied } from '../errors.js';
+import { conflict, notFound, permissionDenied, validation } from '../errors.js';
 import { assertCan, assertCanManageMember, can } from '../permissions/index.js';
 import type { ClubContext, ClubRole, LinkRequest, Membership, PositionCode } from '../types.js';
 import { displayNameSchema, gamertagSchema, parse } from '../validation.js';
@@ -133,4 +133,31 @@ export async function removeMember(
     entity: 'membership',
     entityId: membershipId,
   });
+}
+
+/**
+ * Vincula a un miembro con su gamertag del proveedor (p. ej. Marítimo) para asignarle sus
+ * estadísticas. Solo DT o admin, y respetando la jerarquía (un DT no reasigna a otro DT).
+ * Devuelve cuántas fichas externas se vincularon: 0 significa que el proveedor todavía no
+ * informó ese gamertag; se vinculará solo cuando llegue.
+ */
+export async function linkGamertag(
+  repos: Pick<Repositories, 'memberships' | 'externalPlayers'>,
+  ctx: ClubContext,
+  membershipId: string,
+  gamertag: string,
+): Promise<{ target: Membership; gamertag: string; linked: number }> {
+  assertCan(ctx, 'roster.manage');
+  const target = await repos.memberships.findActiveById(ctx.club.id, membershipId);
+  if (!target) throw notFound('Miembro');
+  if (target.id !== ctx.membership?.id) assertCanManageMember(ctx, target);
+  const gt = parse(gamertagSchema, gamertag);
+  if (!gt) throw validation('Indica un gamertag.');
+  const linked = await repos.externalPlayers.linkGamertag(
+    ctx.club.id,
+    target.playerId,
+    gt,
+    ctx.actor.discordUserId,
+  );
+  return { target, gamertag: gt, linked };
 }

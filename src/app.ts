@@ -1,10 +1,13 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { Hono } from 'hono';
+import { isDomainError } from './core/errors.js';
 import type { APIInteraction } from 'discord-api-types/v10';
 import type { Repositories } from './db/repositories/types.js';
 import { commandsByName, componentHandlers } from './discord/commands/index.js';
 import type { ComponentHandler, SlashCommand } from './discord/commands/types.js';
 import { routeInteraction } from './discord/router.js';
 import { verifyDiscordRequest } from './discord/verify.js';
+import type { SyncResult } from './sync/engine.js';
 
 export interface AppDeps {
   discordPublicKey: string;
@@ -13,6 +16,15 @@ export interface AppDeps {
   commands?: ReadonlyMap<string, SlashCommand>;
   components?: ReadonlyMap<string, ComponentHandler>;
   log?: { warn: (obj: object, msg: string) => void; error: (obj: object, msg: string) => void };
+  /** Tarea programada de sincronización. `sync` es null si el proveedor no está configurado. */
+  cron?: { secret: string | undefined; sync: (() => Promise<SyncResult>) | null };
+}
+
+/** Compara el token sin filtrar información por el tiempo de respuesta. */
+function sameSecret(given: string, expected: string): boolean {
+  const a = createHash('sha256').update(given).digest();
+  const b = createHash('sha256').update(expected).digest();
+  return timingSafeEqual(a, b);
 }
 
 /** Crea la app HTTP. Se inyectan dependencias para poder probarla sin red ni secretos reales. */
@@ -49,6 +61,33 @@ export function createApp(deps: AppDeps) {
 
     // routeInteraction nunca lanza: los errores ya vienen convertidos en respuesta.
     return c.json(await routeInteraction(interaction, routerDeps));
+  });
+
+  /*
+   * Sincronización programada (la invoca el workflow "Sincronizar Marítimo").
+   * Protegida con `Authorization: Bearer <CRON_SECRET>`. Nunca devuelve secretos ni datos de
+   * jugadores: solo conteos y el estado.
+   */
+  app.post('/api/cron/sync', async (c) => {
+    const secret = deps.cron?.secret;
+    if (!secret) return c.json({ error: 'CRON_SECRET no configurado' }, 503);
+    const auth = c.req.header('authorization') ?? '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+    if (!token || !sameSecret(token, secret)) return c.json({ error: 'No autorizado' }, 401);
+
+    const sync = deps.cron?.sync;
+    if (!sync) return c.json({ status: 'omitida', message: 'Proveedor no configurado' });
+    try {
+      const result = await sync();
+      return c.json(result, result.status === 'error' ? 502 : 200);
+    } catch (err) {
+      // p. ej. otra sincronización en curso (CONFLICT) o base de datos no disponible.
+      deps.log?.error({ err }, 'No se pudo iniciar la sincronización');
+      if (isDomainError(err) && err.code === 'CONFLICT') {
+        return c.json({ status: 'error', message: err.message }, 409);
+      }
+      return c.json({ status: 'error', message: 'Error interno' }, 500);
+    }
   });
 
   return app;

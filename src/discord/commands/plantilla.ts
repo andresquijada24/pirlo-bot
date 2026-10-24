@@ -1,5 +1,5 @@
 import { DomainError, validation } from '../../core/errors.js';
-import { assignRole, listRoster, removeMember, setPositions } from '../../core/roster/service.js';
+import { assignRole, linkGamertag, listRoster, removeMember, setPositions } from '../../core/roster/service.js';
 import { POSITION_CODES, type ClubRole, type Membership, type PositionCode } from '../../core/types.js';
 import { CONTEXT_GUILD, OT } from '../constants.js';
 import { optId, optString } from '../interaction.js';
@@ -80,6 +80,22 @@ export const plantillaCommand: SlashCommand = {
       },
       {
         type: OT.Subcommand,
+        name: 'gamertag',
+        description: 'Vincula el gamertag del juego para asignarle sus estadísticas (DT o admin)',
+        options: [
+          userOption('Miembro de la plantilla'),
+          {
+            type: OT.String,
+            name: 'gamertag',
+            description: 'Gamertag tal como aparece en las estadísticas',
+            required: true,
+            max_length: 40,
+          },
+          clubOption,
+        ],
+      },
+      {
+        type: OT.Subcommand,
         name: 'baja',
         description: 'Da de baja a un miembro; conserva su historial (DT o admin)',
         options: [userOption('Miembro de la plantilla'), clubOption],
@@ -131,6 +147,18 @@ export const plantillaCommand: SlashCommand = {
         if (!target) throw new DomainError('NOT_A_MEMBER', 'No formas parte de la plantilla de este club.');
         await setPositions(ctx.repos, c, target.id, positions);
         return ok(`Posiciones de ${escapeMd(target.displayName)}: ${[...new Set(positions)].join(', ')}.`);
+      }
+
+      case 'gamertag': {
+        const member = await memberOf(ctx, c.club.id, 'usuario');
+        const res = await linkGamertag(ctx.repos, c, member.id, optString(ctx.command, 'gamertag') ?? '');
+        const who = escapeMd(res.target.displayName);
+        const gt = escapeMd(res.gamertag);
+        return ok(
+          res.linked > 0
+            ? `${who} quedó vinculado a **${gt}**. Sus estadísticas ya cuentan para él.`
+            : `Gamertag de ${who}: **${gt}**. Aún no hay estadísticas con ese nombre; se asignarán solas cuando lleguen.`,
+        );
       }
 
       case 'baja': {

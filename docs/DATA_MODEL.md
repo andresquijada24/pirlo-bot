@@ -46,6 +46,7 @@ nunca `0`.
 | Tabla                | Propósito                                                        |
 | -------------------- | ---------------------------------------------------------------- |
 | `external_refs`      | proveedor + id externo ↔ id interno; evita duplicados            |
+| `external_players`   | plantilla informada por el proveedor (gamertag, posiciones) y su vínculo con `players` |
 | `provider_sync_runs` | cursor incremental, conteos, errores                             |
 | `stat_revisions`     | valor anterior/nuevo, motivo, autor, fecha (correcciones)        |
 | `audit_log`          | quién hizo qué en cada club                                      |

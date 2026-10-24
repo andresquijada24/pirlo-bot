@@ -1,41 +1,35 @@
-import {
-  ApplicationCommandOptionType,
-  InteractionResponseType,
-  MessageFlags,
-} from 'discord-api-types/v10';
+import { CONTEXT_GUILD, OT } from '../constants.js';
+import { embed, reply } from '../responses.js';
 import type { SlashCommand } from './types.js';
 
-/**
- * /pirlo ayuda — único comando de la Fase 1.
- * Sirve para comprobar de extremo a extremo que el endpoint responde.
- */
+const HELP = [
+  '**Primeros pasos**',
+  '`/club registrar` — registra tu club (requiere "Gestionar servidor")',
+  '`/club canal` — elige canales de anuncios, convocatorias…',
+  '`/temporada crear` — crea la temporada actual',
+  '',
+  '**Plantilla**',
+  '`/vincular` — pide unirte al club',
+  '`/solicitudes` — aprueba o rechaza solicitudes (DT/admin)',
+  '`/plantilla ver` · `rol` · `posiciones` · `baja`',
+  '',
+  '**Información**',
+  '`/club info` · `/temporada ver`',
+  '',
+  'Próximamente: estadísticas, rankings, convocatorias y alineaciones.',
+].join('\n');
+
 export const pirloCommand: SlashCommand = {
+  needsDatabase: false,
   definition: {
     name: 'pirlo',
     description: 'Información general de PIRLO BOT',
-    options: [
-      {
-        type: ApplicationCommandOptionType.Subcommand,
-        name: 'ayuda',
-        description: 'Muestra qué puede hacer PIRLO BOT',
-      },
-    ],
+    contexts: [CONTEXT_GUILD],
+    options: [{ type: OT.Subcommand, name: 'ayuda', description: 'Muestra qué puede hacer PIRLO BOT' }],
   },
   async execute() {
-    return {
-      type: InteractionResponseType.ChannelMessageWithSource,
-      data: {
-        flags: MessageFlags.Ephemeral,
-        embeds: [
-          {
-            title: 'PIRLO BOT',
-            description:
-              'Estadísticas y gestión de clubes de EA SPORTS FC 27.\n\n' +
-              'Próximamente: plantillas, convocatorias, alineaciones, rankings y récords.',
-            color: 0x1e90ff,
-          },
-        ],
-      },
-    };
+    return reply(null, {
+      embeds: [embed({ title: 'PIRLO BOT', description: HELP, footer: { text: 'EA SPORTS FC 27 · Pro Clubs' } })],
+    });
   },
 };

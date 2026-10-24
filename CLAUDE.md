@@ -54,7 +54,7 @@ Discord → HTTPS firmado (Ed25519) → `api/index.ts` (Vercel, Hono) → `src/d
 ## Plan de fases
 
 1. Proyecto independiente y repositorio ✅
-2. Supabase y base de datos
+2. Supabase y base de datos ✅
 3. Núcleo multiclub y permisos
 4. Discord y comandos slash
 5. MARÍTIMO CF como primer proveedor

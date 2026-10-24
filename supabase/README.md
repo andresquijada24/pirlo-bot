@@ -24,6 +24,8 @@ MARÍTIMO CF.
 6. `fk_indexes` — índices para todas las claves foráneas.
 7. `core_operations` — solicitudes de vinculación y funciones atómicas (`register_club`,
    `approve_link_request`, `create_season`), ejecutables solo por el servidor.
+8. `session_stats` — estadísticas por sesión (OurProClub/Marítimo), sesiones duplicadas,
+   historial de correcciones por sesión y totales por temporada.
 
 ## Pruebas
 

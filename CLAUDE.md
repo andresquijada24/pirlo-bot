@@ -56,7 +56,7 @@ Discord → HTTPS firmado (Ed25519) → `api/index.ts` (Vercel, Hono) → `src/d
 1. Proyecto independiente y repositorio ✅
 2. Supabase y base de datos ✅
 3. Núcleo multiclub y permisos ✅
-4. Discord y comandos slash
+4. Discord y comandos slash ✅
 5. MARÍTIMO CF como primer proveedor
 6. Proveedores de otros clubes
 7. Rankings, estadísticas, convocatorias y alineaciones

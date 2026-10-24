@@ -1,3 +1,5 @@
+import type { webcrypto } from 'node:crypto';
+
 /**
  * Verificación de firma Ed25519 de las interacciones HTTP de Discord.
  * Discord exige rechazar con 401 cualquier petición cuya firma no sea válida.
@@ -6,7 +8,7 @@
  * Usa WebCrypto nativo (Node >= 22), sin dependencias externas.
  */
 
-const keyCache = new Map<string, Promise<CryptoKey>>();
+const keyCache = new Map<string, Promise<webcrypto.CryptoKey>>();
 
 function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
   if (hex.length % 2 !== 0 || !/^[0-9a-f]*$/i.test(hex)) {
@@ -19,7 +21,7 @@ function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
   return out;
 }
 
-function importPublicKey(publicKeyHex: string): Promise<CryptoKey> {
+function importPublicKey(publicKeyHex: string): Promise<webcrypto.CryptoKey> {
   let key = keyCache.get(publicKeyHex);
   if (!key) {
     key = crypto.subtle.importKey('raw', hexToBytes(publicKeyHex), { name: 'Ed25519' }, false, [

@@ -4,68 +4,110 @@
  * Principios:
  * - Cada proveedor declara sus CAPACIDADES. No se asume que todos ofrecen lo mismo.
  * - Un dato que la fuente no ofrece es `null`, nunca `0`. PIRLO BOT no inventa estadísticas.
- * - La sincronización es incremental mediante un cursor opaco propio de cada proveedor.
+ * - Sincronización incremental: se pide "lo que cambió desde <fecha>" y el proveedor devuelve
+ *   también la hora del servidor, que será el punto de partida de la siguiente sincronización.
+ * - Granularidad explícita: un proveedor puede informar por PARTIDO o por SESIÓN (varios
+ *   partidos seguidos, como los resúmenes de OurProClub).
  *
- * Implementaciones previstas: maritimo (API autenticada), ourproclub (acceso autorizado),
- * ea (stub hasta tener acceso verificable) y manual (registro por DT/capitán).
+ * Implementaciones: maritimo (API api_v1), ourproclub, ea (stub) y manual.
  */
 
 export type ProviderId = 'maritimo' | 'ourproclub' | 'ea' | 'manual';
 
 export interface ProviderCapabilities {
+  granularity: 'partido' | 'sesion';
   goals: boolean;
   assists: boolean;
   tackles: boolean;
-  /** 'verified': la fuente confirma portería imbatida; 'unverified': solo se puede deducir. */
+  passes: boolean;
+  rating: boolean;
+  /** 'verified': la fuente confirma portería imbatida; 'none': no hay dato. */
   cleanSheets: 'verified' | 'unverified' | 'none';
-  sessions: boolean;
-  seasons: boolean;
-}
-
-/** Referencia mínima a un club que necesita un proveedor. Nunca incluye secretos. */
-export interface ClubRef {
-  clubId: string;
-  externalClubId: string | null;
+  /** El proveedor informa registros borrados. */
+  deletions: boolean;
 }
 
 export interface ExternalPlayer {
   externalId: string;
-  displayName: string;
-  gamertag: string | null;
-  position: string | null;
+  gamertag: string;
+  platform: 'ps' | 'xbox' | 'pc' | null;
+  positions: string[];
+  shirtNumber: number | null;
+  active: boolean;
+  updatedAt: string;
 }
 
-export interface ExternalPlayerStats {
-  externalPlayerId: string;
-  positionPlayed: string | null;
+/** Métricas de un jugador en una sesión. Cada métrica ausente es null. */
+export interface ExternalSessionPlayerStats {
+  /** Id estable del jugador en el proveedor; null si no tiene ficha en el club de origen. */
+  externalPlayerId: string | null;
+  /** Nombre tal como lo publica la fuente (puede cambiar con el tiempo). */
+  gamertag: string;
+  matchesPlayed: number | null;
+  rating: number | null;
   goals: number | null;
   assists: number | null;
+  goalsManual: number | null;
+  assistsManual: number | null;
+  shots: number | null;
+  dribbles: number | null;
+  passesMade: number | null;
+  passesAttempted: number | null;
   tacklesMade: number | null;
   tacklesAttempted: number | null;
-  cleanSheetVerified: boolean | null;
+  interceptions: number | null;
+  blocks: number | null;
+  clearances: number | null;
+  saves: number | null;
 }
 
-export interface ExternalMatch {
+export interface ExternalSession {
   externalId: string;
-  playedAt: string; // ISO 8601
-  externalSessionId: string | null;
-  externalSeasonId: string | null;
-  opponentName: string | null;
-  goalsFor: number | null;
-  goalsAgainst: number | null;
-  /** Versión o fecha de modificación en origen, para detectar correcciones históricas. */
-  sourceVersion: string | null;
-  players: ExternalPlayerStats[];
+  publishedAt: string;
+  /** Fecha de juego (AAAA-MM-DD) según el corte de día del proveedor. */
+  playedOn: string;
+  matchesPlayed: number | null;
+  wins: number | null;
+  draws: number | null;
+  losses: number | null;
+  /** Si es una copia publicada dos veces, id de la sesión original. */
+  duplicateOf: string | null;
+  /** Versión en origen: cambia cuando la sesión o sus filas se corrigen. */
+  updatedAt: string;
+  players: ExternalSessionPlayerStats[];
 }
 
-export interface MatchPage {
-  matches: ExternalMatch[];
-  nextCursor: string | null;
+export interface ExternalDeletion {
+  kind: 'jugador' | 'sesion' | 'partido';
+  externalId: string;
+  deletedAt: string;
+}
+
+/** Resultado de una consulta incremental completa (todas las páginas). */
+export interface Pull<T> {
+  items: T[];
+  /** Hora del servidor al empezar: será el próximo `since`. */
+  serverTime: string;
 }
 
 export interface StatsProvider {
   readonly id: ProviderId;
   readonly capabilities: ProviderCapabilities;
-  listPlayers(club: ClubRef): Promise<ExternalPlayer[]>;
-  fetchMatchesSince(club: ClubRef, cursor: string | null): Promise<MatchPage>;
+  /** Comprueba conexión y credenciales. */
+  ping(): Promise<{ ok: true; serverTime: string }>;
+  playersSince(since: string | null): Promise<Pull<ExternalPlayer>>;
+  sessionsSince(since: string | null): Promise<Pull<ExternalSession>>;
+  deletionsSince?(since: string | null): Promise<Pull<ExternalDeletion>>;
+}
+
+/** Error de un proveedor. `message` es apto para mostrarse a un admin; nunca incluye secretos. */
+export class ProviderError extends Error {
+  constructor(
+    readonly kind: 'auth' | 'rate_limited' | 'unavailable' | 'invalid_response' | 'request',
+    message: string,
+    readonly retryAfterSeconds?: number,
+  ) {
+    super(message);
+    this.name = 'ProviderError';
+  }
 }

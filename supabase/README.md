@@ -22,6 +22,8 @@ MARÍTIMO CF.
 4. `stats_views` — estadísticas por temporada y carrera, balance del club, récords por partido.
 5. `security` — RLS activado en todas las tablas y sin acceso para las claves públicas.
 6. `fk_indexes` — índices para todas las claves foráneas.
+7. `core_operations` — solicitudes de vinculación y funciones atómicas (`register_club`,
+   `approve_link_request`, `create_season`), ejecutables solo por el servidor.
 
 ## Pruebas
 

@@ -44,4 +44,5 @@ Para probar con Discord en local, expón el puerto con un túnel HTTPS y configu
 - [Modelo de datos](docs/DATA_MODEL.md)
 - [Proveedores de estadísticas](docs/PROVIDERS.md)
 - [Despliegue](docs/DEPLOYMENT.md)
+- [Permisos y roles](docs/PERMISSIONS.md)
 - [Instrucciones permanentes para Claude](CLAUDE.md)

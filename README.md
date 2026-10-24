@@ -7,8 +7,8 @@ Bot de Discord multiclub para estadísticas y gestión de clubes de **EA SPORTS 
 
 ## Estado
 
-Fases 1-3 completadas (proyecto, base de datos multiclub, núcleo y permisos). Fase 4: comandos
-de Discord.
+Fases 1-4 completadas: proyecto, base de datos multiclub, núcleo y permisos, y comandos de
+Discord funcionando en el servidor de pruebas. Siguiente: Fase 5 (MARÍTIMO CF como proveedor).
 
 ## Comandos de Discord
 

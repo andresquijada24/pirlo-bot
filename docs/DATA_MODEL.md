@@ -1,7 +1,10 @@
 # Modelo de datos multiclub
 
-Propuesta aprobada para implementar en la Fase 2. Las migraciones vivirán en
-`supabase/migrations/`.
+Implementado en la Fase 2 (`supabase/migrations/`). Nombres de tablas y columnas en inglés;
+valores de enumeraciones en español (`voy`, `no_voy`, `jugado`, `POR`, `DC`…).
+
+Las referencias entre tablas de un club usan claves foráneas compuestas `(club_id, id)`: la base
+de datos rechaza cualquier fila que apunte a datos de otro club.
 
 ## Identidad y servidores
 

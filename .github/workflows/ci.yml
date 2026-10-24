@@ -43,3 +43,40 @@ jobs:
           if git ls-files | grep -E '(^|/)\.env($|\.)' | grep -v '\.env\.example$'; then
             echo "Se encontró un archivo .env versionado." && exit 1
           fi
+
+  # Aplica todas las migraciones a un Postgres 17 vacío y ejecuta las pruebas SQL.
+  # No usa ninguna base de datos real ni secretos.
+  database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s
+          --health-retries 10
+    env:
+      DB_URL: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Roles de Supabase (solo prueba)
+        run: psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f supabase/tests/bootstrap_roles.sql
+
+      - name: Aplicar migraciones
+        run: |
+          for f in supabase/migrations/*.sql; do
+            echo "== $f"
+            psql "$DB_URL" -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+
+      - name: Pruebas SQL
+        run: supabase/tests/run.sh
+
+      - name: Comprobar que no hay migraciones destructivas
+        run: |
+          if grep -inE '\b(drop|truncate)\b' supabase/migrations/*.sql; then
+            echo "Migración destructiva detectada: requiere aprobación explícita." && exit 1
+          fi

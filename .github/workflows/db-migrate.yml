@@ -1,0 +1,51 @@
+name: Aplicar migraciones
+
+# Solo se ejecuta a mano: Actions → "Aplicar migraciones" → Run workflow.
+# Por defecto hace una simulación (dry run) que muestra qué migraciones se aplicarían.
+on:
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: 'simulacion = solo mostrar · aplicar = ejecutar en Supabase'
+        type: choice
+        options: [simulacion, aplicar]
+        default: simulacion
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-migrate
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    # Las migraciones solo se aplican desde main (código ya revisado y con CI en verde).
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Comprobar el secreto
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "Falta el secreto SUPABASE_DB_URL (Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+
+      - name: Simulación
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: supabase db push --db-url "$SUPABASE_DB_URL" --dry-run
+
+      - name: Aplicar en Supabase
+        if: inputs.modo == 'aplicar'
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: supabase db push --db-url "$SUPABASE_DB_URL"

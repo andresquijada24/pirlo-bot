@@ -1,0 +1,6 @@
+# Configuración mínima de Supabase CLI para PIRLO BOT.
+# Los valores no indicados usan los predeterminados de la CLI.
+project_id = "pirlo-bot"
+
+[db]
+major_version = 17

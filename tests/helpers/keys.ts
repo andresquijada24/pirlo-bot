@@ -1,10 +1,12 @@
+import type { webcrypto } from 'node:crypto';
+
 /** Genera un par de claves Ed25519 de PRUEBA y firma cuerpos igual que Discord. */
 export async function createTestSigner() {
   const generated: unknown = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, [
     'sign',
     'verify',
   ]);
-  const pair = generated as { publicKey: CryptoKey; privateKey: CryptoKey };
+  const pair = generated as webcrypto.CryptoKeyPair;
   const raw = new Uint8Array(await crypto.subtle.exportKey('raw', pair.publicKey));
   const publicKey = Buffer.from(raw).toString('hex');
 

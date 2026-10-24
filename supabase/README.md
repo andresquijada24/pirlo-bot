@@ -21,6 +21,7 @@ MARÍTIMO CF.
    (automático), auditoría.
 4. `stats_views` — estadísticas por temporada y carrera, balance del club, récords por partido.
 5. `security` — RLS activado en todas las tablas y sin acceso para las claves públicas.
+6. `fk_indexes` — índices para todas las claves foráneas.
 
 ## Pruebas
 

@@ -1,16 +1,38 @@
 import type {
   APIChatInputApplicationCommandInteraction,
   APIInteractionResponse,
+  APIMessageComponentInteraction,
   RESTPostAPIChatInputApplicationCommandsJSONBody,
 } from 'discord-api-types/v10';
+import type { Actor } from '../../core/types.js';
+import type { Repositories } from '../../db/repositories/types.js';
+import type { ParsedCommand } from '../interaction.js';
 
-/** Contexto que recibe cada comando. Crecerá en la Fase 3 (club resuelto, actor, permisos). */
 export interface CommandContext {
   interaction: APIChatInputApplicationCommandInteraction;
+  command: ParsedCommand;
+  actor: Actor;
+  repos: Repositories;
 }
 
 export interface SlashCommand {
   /** Definición que se registra en Discord. */
   definition: RESTPostAPIChatInputApplicationCommandsJSONBody;
+  /** false = no necesita base de datos (p. ej. /pirlo ayuda). Por defecto true. */
+  needsDatabase?: boolean;
   execute(ctx: CommandContext): Promise<APIInteractionResponse>;
+}
+
+export interface ComponentContext {
+  interaction: APIMessageComponentInteraction;
+  /** custom_id dividido por ":" sin el prefijo. */
+  args: string[];
+  actor: Actor;
+  repos: Repositories;
+}
+
+/** Manejador de botones. Se elige por el prefijo del custom_id ("prefijo:arg1:arg2"). */
+export interface ComponentHandler {
+  prefix: string;
+  handle(ctx: ComponentContext): Promise<APIInteractionResponse>;
 }

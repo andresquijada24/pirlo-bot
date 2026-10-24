@@ -1,0 +1,31 @@
+name: Registrar comandos de Discord
+
+# Solo se ejecuta a mano: Actions → "Registrar comandos de Discord" → Run workflow.
+# Registra los comandos ÚNICAMENTE en el servidor de pruebas (secreto DISCORD_DEV_GUILD_ID).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Instalar dependencias
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      - name: Registrar en el servidor de pruebas
+        env:
+          DISCORD_APPLICATION_ID: '1562889315657195530'
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_DEV_GUILD_ID: ${{ secrets.DISCORD_DEV_GUILD_ID }}
+        run: npm run commands:register

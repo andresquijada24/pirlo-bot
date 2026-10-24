@@ -7,8 +7,21 @@ Bot de Discord multiclub para estadísticas y gestión de clubes de **EA SPORTS 
 
 ## Estado
 
-**Fase 1 completada:** estructura del proyecto, endpoint de interacciones con verificación de
-firma, comando `/pirlo ayuda`, contrato de proveedores, pruebas y CI.
+Fases 1-3 completadas (proyecto, base de datos multiclub, núcleo y permisos). Fase 4: comandos
+de Discord.
+
+## Comandos de Discord
+
+| Comando | Quién |
+| --- | --- |
+| `/pirlo ayuda` | Todos |
+| `/club registrar` · `/club info` · `/club canal` | Gestor del servidor · todos · admin |
+| `/vincular` · `/solicitudes` (con botones) | Todos · DT/admin |
+| `/plantilla ver` · `rol` · `posiciones` · `baja` | Miembros · DT/admin · cada jugador · DT/admin |
+| `/temporada crear` · `/temporada ver` | Admin · todos |
+
+Los comandos se registran **solo en el servidor de pruebas** desde GitHub Actions →
+**Registrar comandos de Discord** (secretos `DISCORD_BOT_TOKEN` y `DISCORD_DEV_GUILD_ID`).
 
 ## Requisitos
 

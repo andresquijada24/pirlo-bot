@@ -38,7 +38,12 @@ export function mapDbError(err: DbError): DomainError {
     case '22P02':
       return validation('Algún dato no es válido.');
     default:
-      return new DomainError('INTERNAL', 'No se pudo completar la operación. Inténtalo de nuevo.');
+      // Sin código Postgres conocido (p. ej. clave de API rechazada): se conserva el detalle para
+      // los logs. El mensaje para el usuario sigue siendo genérico.
+      return new DomainError('INTERNAL', 'No se pudo completar la operación. Inténtalo de nuevo.', {
+        dbCode: err.code ?? null,
+        dbMessage: err.message,
+      });
   }
 }
 

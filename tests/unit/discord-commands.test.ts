@@ -258,3 +258,25 @@ describe('definiciones de comandos', () => {
     for (const c of commandsByName.values()) expect(c.definition.contexts).toEqual([0]);
   });
 });
+
+describe('registro de errores internos', () => {
+  it('un error de base de datos sin código conocido se registra en el log con su detalle', async () => {
+    const { mapDbError } = await import('../../src/db/errors.js');
+    const logged: unknown[] = [];
+    deps = {
+      ...deps,
+      repos: {
+        ...env.repos,
+        clubs: {
+          ...env.repos.clubs,
+          listByGuild: () => Promise.reject(mapDbError({ message: 'Invalid API key' })),
+        },
+      },
+      log: { error: (o) => logged.push(o) },
+    };
+    const res = await run(slash(STRANGER, 'club', 'info'));
+    expect(textOf(res)).toMatch('No se pudo completar la operación');
+    expect(textOf(res)).not.toMatch('Invalid API key');
+    expect(logged).toEqual([{ detail: { dbCode: null, dbMessage: 'Invalid API key' } }]);
+  });
+});

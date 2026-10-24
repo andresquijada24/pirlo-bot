@@ -1,5 +1,5 @@
 import { configureChannel, registerClub } from '../../core/clubs/service.js';
-import { can } from '../../core/permissions/index.js';
+import { assertCan, can } from '../../core/permissions/index.js';
 import { listSeasons } from '../../core/seasons/service.js';
 import { CHANNEL_PURPOSES, type ChannelPurpose } from '../../core/types.js';
 import { CHANNEL_ANNOUNCEMENT, CHANNEL_TEXT, CONTEXT_GUILD, OT } from '../constants.js';
@@ -16,6 +16,15 @@ const PURPOSE_LABELS: Record<ChannelPurpose, string> = {
   rankings: 'Rankings',
   recordatorios: 'Recordatorios',
 };
+
+const PROVIDER_LABELS: Record<string, string> = {
+  maritimo: 'MARÍTIMO CF (API)',
+  ourproclub: 'OurProClub',
+  ea: 'EA SPORTS',
+  manual: 'Manual',
+};
+
+const RUN_LABELS = { en_curso: '⏳ En curso', ok: '✅ Correcta', error: '❌ Con error' } as const;
 
 export const clubCommand: SlashCommand = {
   definition: {
@@ -72,6 +81,12 @@ export const clubCommand: SlashCommand = {
           clubOption,
         ],
       },
+      {
+        type: OT.Subcommand,
+        name: 'sincronizacion',
+        description: 'Estado de la sincronización con el proveedor de estadísticas (DT o admin)',
+        options: [clubOption],
+      },
     ],
   },
 
@@ -121,6 +136,40 @@ export const clubCommand: SlashCommand = {
         const channelId = optId(ctx.command, 'canal') ?? '';
         await configureChannel(ctx.repos, c, purpose, channelId);
         return ok(`Canal de ${PURPOSE_LABELS[purpose].toLowerCase()}: <#${channelId}>.`);
+      }
+
+      case 'sincronizacion': {
+        const c = await contextFor(ctx);
+        assertCan(c, 'sync.view');
+        const provider = c.club.statsProvider;
+        const fields = [
+          { name: 'Proveedor', value: PROVIDER_LABELS[provider] ?? provider, inline: true },
+          { name: 'Id del club', value: `\`${c.club.id}\``, inline: false },
+        ];
+        if (provider === 'manual') {
+          return reply(null, {
+            embeds: [
+              embed({
+                title: `Sincronización · ${escapeMd(c.club.name)}`,
+                description: 'Este club carga sus estadísticas a mano: no hay sincronización automática.',
+                fields,
+              }),
+            ],
+          });
+        }
+        const run = await ctx.repos.sync.lastRun(c.club.id, provider);
+        if (!run) {
+          fields.push({ name: 'Última ejecución', value: 'Todavía no se ha sincronizado.', inline: false });
+        } else {
+          const when = Math.floor(Date.parse(run.finishedAt ?? run.startedAt) / 1000);
+          fields.push(
+            { name: 'Estado', value: RUN_LABELS[run.status], inline: true },
+            { name: 'Cuándo', value: `<t:${when}:R>`, inline: true },
+            { name: 'Sesiones nuevas · actualizadas', value: `${run.rowsInserted} · ${run.rowsUpdated}`, inline: true },
+          );
+          if (run.errorMessage) fields.push({ name: 'Detalle', value: escapeMd(run.errorMessage), inline: false });
+        }
+        return reply(null, { embeds: [embed({ title: `Sincronización · ${escapeMd(c.club.name)}`, fields })] });
       }
 
       default:

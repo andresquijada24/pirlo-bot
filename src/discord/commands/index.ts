@@ -2,6 +2,7 @@ import { clubCommand } from './club.js';
 import { linkButtons, solicitudesCommand, vincularCommand } from './link.js';
 import { pirloCommand } from './pirlo.js';
 import { plantillaCommand } from './plantilla.js';
+import { rankingCommand, statsCommand } from './stats.js';
 import { temporadaCommand } from './temporada.js';
 import type { ComponentHandler, SlashCommand } from './types.js';
 
@@ -13,6 +14,8 @@ export const commands: readonly SlashCommand[] = [
   solicitudesCommand,
   plantillaCommand,
   temporadaCommand,
+  statsCommand,
+  rankingCommand,
 ];
 
 export const commandsByName: ReadonlyMap<string, SlashCommand> = new Map(

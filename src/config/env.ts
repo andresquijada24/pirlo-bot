@@ -18,6 +18,8 @@ const EnvSchema = z.object({
 
   MARITIMO_API_BASE_URL: z.string().url().optional(),
   MARITIMO_API_KEY: z.string().min(1).optional(),
+  /** Club de PIRLO BOT al que escribe el proveedor Marítimo (aislamiento: un proveedor, un club). */
+  MARITIMO_CLUB_ID: z.string().uuid('Debe ser el id (uuid) del club en PIRLO BOT').optional(),
   OURPROCLUB_API_KEY: z.string().min(1).optional(),
 
   CRON_SECRET: z.string().min(16).optional(),

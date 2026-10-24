@@ -15,6 +15,8 @@ const UNIQUE_MESSAGES: Record<string, string> = {
   link_requests_one_pending: 'Ya tienes una solicitud pendiente en este club.',
   seasons_club_id_name_key: 'Ya existe una temporada con ese nombre.',
   club_channels_club_id_purpose_key: 'Ese propósito ya tiene un canal asignado.',
+  provider_sync_runs_one_running: 'Ya hay una sincronización en curso.',
+  external_players_one_link: 'Ese jugador ya está vinculado a otra ficha del proveedor.',
 };
 
 /**

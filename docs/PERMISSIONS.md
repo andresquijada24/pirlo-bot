@@ -14,10 +14,10 @@ servidor. Así un servidor nunca queda bloqueado si su club se queda sin admins.
 
 | Acción | Quién puede |
 | --- | --- |
-| Ver club y estadísticas, solicitar unirse | Cualquier persona del servidor |
+| Ver club, estadísticas (`/stats`) y rankings (`/ranking`), solicitar unirse | Cualquier persona del servidor |
 | Ver plantilla, responder convocatorias | Miembros del club |
 | Registrar resultados, gestionar convocatorias y calendario | Capitán o superior |
-| Gestionar plantilla, aprobar solicitudes, asignar roles, alineaciones, corregir estadísticas | DT o superior |
+| Gestionar plantilla, aprobar solicitudes, asignar roles, vincular gamertags, alineaciones, corregir estadísticas, ver el estado de la sincronización | DT o superior |
 | Temporadas, configuración del club (canales), sincronización | Admin |
 | Registrar un club | Gestor del servidor de Discord |
 

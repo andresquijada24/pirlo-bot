@@ -7,6 +7,9 @@ import type {
   Season,
 } from '../../src/core/types.js';
 import type { AuditEntry, Repositories } from '../../src/db/repositories/types.js';
+import type { SessionStatRow } from '../../src/core/stats/service.js';
+import type { ProviderId } from '../../src/providers/types.js';
+import type { SyncRunSummary } from '../../src/sync/types.js';
 
 /**
  * Repositorios en memoria SOLO para pruebas. Reproducen las reglas relevantes de la base de
@@ -26,6 +29,9 @@ export function createMemoryRepos() {
     channels: [] as { clubId: string; guildId: string; purpose: ChannelPurpose; channelId: string }[],
     seasons: [] as Season[],
     audit: [] as AuditEntry[],
+    sessionRows: [] as (SessionStatRow & { clubId: string })[],
+    externalPlayers: [] as { clubId: string; gamertag: string; playerId: string | null }[],
+    syncRuns: [] as (SyncRunSummary & { clubId: string; provider: ProviderId })[],
   };
 
   const activeIn = (clubId: string) => state.memberships.filter((m) => m.clubId === clubId && m.active);
@@ -180,6 +186,76 @@ export function createMemoryRepos() {
     audit: {
       async log(entry) {
         state.audit.push(entry);
+      },
+    },
+
+    stats: {
+      async sessionRows(clubId, seasonId) {
+        return state.sessionRows
+          .filter((r) => r.clubId === clubId && (seasonId === null || r.seasonId === seasonId))
+          .map(({ clubId: _c, ...r }) => r);
+      },
+    },
+
+    externalPlayers: {
+      async linkGamertag(clubId, playerId, gamertag) {
+        const gt = gamertag.trim().toLowerCase();
+        const mine = state.externalPlayers.filter((e) => e.clubId === clubId && e.gamertag.toLowerCase() === gt);
+        if (mine.some((e) => e.playerId !== null && e.playerId !== playerId)) {
+          throw conflict('Ese gamertag ya está vinculado a otro jugador del club');
+        }
+        for (const e of mine) e.playerId = playerId;
+        for (const r of state.sessionRows) {
+          if (r.clubId === clubId && r.name.toLowerCase() === gt) r.playerId = playerId;
+        }
+        return mine.length;
+      },
+    },
+
+    sync: {
+      async clubProvider(clubId) {
+        return state.clubs.find((c) => c.id === clubId)?.statsProvider ?? null;
+      },
+      async lastRun(clubId, provider) {
+        const runs = state.syncRuns.filter((r) => r.clubId === clubId && r.provider === provider);
+        const last = runs.at(-1);
+        return last ? (({ clubId: _c, provider: _p, ...summary }) => summary)(last) : null;
+      },
+      async lastCursor(clubId, provider) {
+        const ok = state.syncRuns.filter((r) => r.clubId === clubId && r.provider === provider && r.status === 'ok');
+        return ok.at(-1)?.cursorAfter ?? null;
+      },
+      async startRun(clubId, provider) {
+        if (state.syncRuns.some((r) => r.clubId === clubId && r.provider === provider && r.status === 'en_curso')) {
+          throw conflict('Ya hay una sincronización en curso.');
+        }
+        const run = {
+          id: id(),
+          clubId,
+          provider,
+          status: 'en_curso' as const,
+          startedAt: new Date().toISOString(),
+          finishedAt: null,
+          cursorAfter: null,
+          rowsInserted: 0,
+          rowsUpdated: 0,
+          errorMessage: null,
+        };
+        state.syncRuns.push(run);
+        return run.id;
+      },
+      async finishRun(clubId, runId, input) {
+        const r = state.syncRuns.find((x) => x.clubId === clubId && x.id === runId);
+        if (r) Object.assign(r, input, { finishedAt: new Date().toISOString() });
+      },
+      async applyPlayers(_clubId, _provider, players) {
+        return players.length;
+      },
+      async applySession() {
+        return 'insertada';
+      },
+      async applyDeletion() {
+        return true;
       },
     },
   };

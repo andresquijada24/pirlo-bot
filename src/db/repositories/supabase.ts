@@ -85,12 +85,16 @@ const seasonRow = z.object({
   club_id: z.string().uuid(),
   name: z.string(),
   is_current: z.boolean(),
+  starts_on: z.string().nullable(),
+  ends_on: z.string().nullable(),
 });
 const toSeason = (r: z.infer<typeof seasonRow>): Season => ({
   id: r.id,
   clubId: r.club_id,
   name: r.name,
   isCurrent: r.is_current,
+  startsOn: r.starts_on,
+  endsOn: r.ends_on,
 });
 
 /** PostgREST puede devolver bigint/numeric como número o como texto: se normaliza. */
@@ -354,17 +358,36 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
           p_actor_discord_id: actorDiscordId,
         }),
       );
-      return { id: z.string().uuid().parse(id), clubId, name, isCurrent: makeCurrent };
+      return {
+        id: z.string().uuid().parse(id),
+        clubId,
+        name,
+        isCurrent: makeCurrent,
+        startsOn: null,
+        endsOn: null,
+      };
     },
     async list(clubId) {
       const rows = check(
         await db
           .from('seasons')
-          .select('id, club_id, name, is_current')
+          .select('id, club_id, name, is_current, starts_on, ends_on')
           .eq('club_id', clubId)
           .order('created_at', { ascending: false }),
       );
       return z.array(seasonRow).parse(rows).map(toSeason);
+    },
+    async setDates(clubId, seasonId, startsOn, endsOn, actorDiscordId) {
+      const n = check(
+        await db.rpc('set_season_dates', {
+          p_club_id: clubId,
+          p_season_id: seasonId,
+          p_starts_on: startsOn,
+          p_ends_on: endsOn,
+          p_actor_discord_id: actorDiscordId,
+        }),
+      );
+      return z.number().int().parse(n);
     },
   };
 

@@ -37,6 +37,34 @@ export const seasonNameSchema = z
   .min(1, 'El nombre de la temporada no puede estar vacío.')
   .max(60, 'El nombre de la temporada admite hasta 60 caracteres.');
 
+/**
+ * Fecha de calendario. Acepta AAAA-MM-DD o DD/MM/AAAA (como se escribe en español) y devuelve
+ * AAAA-MM-DD. Rechaza fechas que no existen (p. ej. 31/02/2026).
+ */
+export const calendarDateSchema = z
+  .string()
+  .trim()
+  .transform((v, ctx) => {
+    const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+    const es = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(v);
+    const [y, m, d] = iso
+      ? [Number(iso[1]), Number(iso[2]), Number(iso[3])]
+      : es
+        ? [Number(es[3]), Number(es[2]), Number(es[1])]
+        : [NaN, NaN, NaN];
+    const date = new Date(Date.UTC(y, m - 1, d));
+    if (
+      !Number.isFinite(y) ||
+      date.getUTCFullYear() !== y ||
+      date.getUTCMonth() !== m - 1 ||
+      date.getUTCDate() !== d
+    ) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Fecha no válida. Usa DD/MM/AAAA, p. ej. 18/09/2026.' });
+      return z.NEVER;
+    }
+    return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  });
+
 export const snowflakeSchema = z.string().regex(/^\d{17,20}$/, 'Identificador de Discord inválido.');
 
 /** Valida con zod y convierte el primer error en un DomainError legible. */

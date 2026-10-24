@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const html = readFileSync(new URL('../../public/index.html', import.meta.url), 'utf8');
@@ -17,5 +17,23 @@ describe('public/index.html', () => {
 
   it('no contiene estadísticas ficticias en la vista de ejemplo', () => {
     expect(html).not.toMatch(/\d+\s*goles/i);
+  });
+});
+
+describe('identidad visual', () => {
+  it('usa el logo y el cartel oficiales, y todas las imágenes existen', () => {
+    const refs = [...html.matchAll(/(?:src|href)="\/([\w.-]+\.(?:png|webp|jpg))"/g)].map((m) => m[1]!);
+    expect(refs).toContain('logo.png');
+    expect(refs).toContain('banner.webp');
+    expect(refs).toContain('favicon.png');
+    for (const f of refs) {
+      expect(existsSync(new URL(`../../public/${f}`, import.meta.url))).toBe(true);
+    }
+  });
+
+  it('los originales están guardados en docs/assets', () => {
+    for (const f of ['pirlo-bot-logo.png', 'pirlo-bot-banner.png']) {
+      expect(existsSync(new URL(`../../docs/assets/${f}`, import.meta.url))).toBe(true);
+    }
   });
 });

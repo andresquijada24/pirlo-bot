@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PIRLO BOT</title>
+    <meta
+      name="description"
+      content="Bot de Discord multiclub para estadísticas y gestión de clubes de EA SPORTS FC 27."
+    />
+    <meta name="theme-color" content="#05080f" />
+    <meta property="og:title" content="PIRLO BOT" />
+    <meta
+      property="og:description"
+      content="Estadísticas, convocatorias y alineaciones para tu club de EA SPORTS FC 27, directamente en Discord."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Rajdhani:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #05080f;
+        --bg-2: #0a1220;
+        --panel: rgba(14, 24, 42, 0.72);
+        --line: rgba(64, 156, 255, 0.18);
+        --blue: #2f8cff;
+        --blue-glow: #5fb0ff;
+        --silver: #c9d3e0;
+        --text: #e8eef7;
+        --muted: #8a99b0;
+        --discord: #5865f2;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: 'Rajdhani', system-ui, sans-serif;
+        font-size: 18px;
+        line-height: 1.5;
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+      /* Fondo oscuro con líneas diagonales azules (identidad oficial) */
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: -2;
+        background:
+          radial-gradient(ellipse 80% 60% at 70% 20%, rgba(47, 140, 255, 0.16), transparent 60%),
+          radial-gradient(ellipse 60% 50% at 10% 90%, rgba(47, 140, 255, 0.08), transparent 60%),
+          linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+      }
+      body::after {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        background: repeating-linear-gradient(
+          -35deg,
+          transparent 0 46px,
+          var(--line) 46px 47px,
+          transparent 47px 140px
+        );
+        mask-image: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0.35) 70%, transparent 100%);
+      }
+      .wrap {
+        width: min(1100px, 100% - 32px);
+        margin-inline: auto;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 22px 0;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+        color: var(--text);
+      }
+      .brand img {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        object-fit: cover;
+      }
+      .wordmark {
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        font-size: 18px;
+      }
+      .wordmark span {
+        color: var(--blue-glow);
+      }
+      nav a {
+        color: var(--muted);
+        text-decoration: none;
+        font-weight: 600;
+        margin-left: 22px;
+        transition: color 0.2s;
+      }
+      nav a:hover {
+        color: var(--text);
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 48px;
+        align-items: center;
+        padding: 64px 0 88px;
+      }
+      .tag {
+        display: inline-block;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 11px;
+        letter-spacing: 0.22em;
+        color: var(--blue-glow);
+        border: 1px solid rgba(95, 176, 255, 0.35);
+        padding: 6px 12px;
+        border-radius: 999px;
+        margin-bottom: 22px;
+      }
+      h1 {
+        font-family: 'Orbitron', sans-serif;
+        font-weight: 800;
+        font-size: clamp(44px, 7vw, 84px);
+        line-height: 1;
+        letter-spacing: 0.04em;
+        background: linear-gradient(180deg, #ffffff 0%, var(--silver) 55%, #8ea3bf 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      h1 em {
+        font-style: normal;
+        background: linear-gradient(180deg, var(--blue-glow), var(--blue));
+        -webkit-background-clip: text;
+        background-clip: text;
+        text-shadow: 0 0 40px rgba(47, 140, 255, 0.35);
+      }
+      .lead {
+        font-size: 22px;
+        color: var(--silver);
+        margin: 22px 0 34px;
+        max-width: 34ch;
+      }
+      .ctas {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 22px;
+        border-radius: 12px;
+        font-family: inherit;
+        font-weight: 700;
+        font-size: 17px;
+        text-decoration: none;
+        transition:
+          transform 0.15s,
+          box-shadow 0.2s,
+          background 0.2s;
+      }
+      .btn:hover {
+        transform: translateY(-2px);
+      }
+      .btn-primary {
+        background: var(--discord);
+        color: #fff;
+        box-shadow: 0 10px 30px rgba(88, 101, 242, 0.35);
+      }
+      .btn-primary:hover {
+        box-shadow: 0 14px 40px rgba(88, 101, 242, 0.5);
+      }
+      .btn-ghost {
+        color: var(--text);
+        border: 1px solid rgba(201, 211, 224, 0.25);
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .btn svg {
+        width: 22px;
+        height: 22px;
+      }
+
+      /* Tarjeta de muestra: así se verá una respuesta del bot */
+      .preview {
+        background: var(--panel);
+        border: 1px solid rgba(95, 176, 255, 0.22);
+        border-radius: 18px;
+        padding: 22px;
+        backdrop-filter: blur(8px);
+        box-shadow:
+          0 30px 80px rgba(0, 0, 0, 0.5),
+          inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      }
+      .preview-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 14px;
+        font-weight: 700;
+      }
+      .avatar {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 35% 35%, var(--silver), #4d5d75);
+        box-shadow: 0 0 0 2px var(--blue);
+        overflow: hidden;
+      }
+      .avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .bot-badge {
+        font-size: 11px;
+        background: var(--discord);
+        color: #fff;
+        padding: 1px 6px;
+        border-radius: 4px;
+      }
+      .cmd {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 14px;
+        color: var(--blue-glow);
+        margin-bottom: 12px;
+      }
+      .embed {
+        border-left: 4px solid var(--blue);
+        background: rgba(0, 0, 0, 0.25);
+        border-radius: 6px;
+        padding: 14px 16px;
+      }
+      .embed h3 {
+        font-size: 17px;
+        margin-bottom: 10px;
+      }
+      .rank {
+        display: grid;
+        grid-template-columns: 26px 1fr auto;
+        gap: 8px;
+        padding: 6px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        font-size: 16px;
+      }
+      .rank:last-child {
+        border-bottom: 0;
+      }
+      .rank b {
+        color: var(--blue-glow);
+      }
+      .rank .ph {
+        height: 10px;
+        border-radius: 5px;
+        background: rgba(201, 211, 224, 0.18);
+        align-self: center;
+      }
+      .note {
+        font-size: 13px;
+        color: var(--muted);
+        margin-top: 10px;
+      }
+
+      section {
+        padding: 72px 0;
+      }
+      h2 {
+        font-family: 'Orbitron', sans-serif;
+        font-size: clamp(24px, 3.4vw, 34px);
+        letter-spacing: 0.06em;
+        margin-bottom: 10px;
+      }
+      .sub {
+        color: var(--muted);
+        margin-bottom: 36px;
+        max-width: 60ch;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid rgba(95, 176, 255, 0.14);
+        border-radius: 16px;
+        padding: 24px;
+        transition:
+          border-color 0.2s,
+          transform 0.2s;
+      }
+      .card:hover {
+        border-color: rgba(95, 176, 255, 0.4);
+        transform: translateY(-3px);
+      }
+      .card .ico {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+        background: rgba(47, 140, 255, 0.14);
+        color: var(--blue-glow);
+        margin-bottom: 14px;
+      }
+      .card .ico svg {
+        width: 22px;
+        height: 22px;
+      }
+      .card h3 {
+        font-size: 21px;
+        margin-bottom: 6px;
+      }
+      .card p {
+        color: var(--muted);
+        font-size: 17px;
+      }
+
+      .commands {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px 28px;
+      }
+      .commands div {
+        display: flex;
+        gap: 14px;
+        align-items: baseline;
+        padding: 12px 0;
+        border-bottom: 1px solid rgba(95, 176, 255, 0.12);
+      }
+      .commands code {
+        font-family: ui-monospace, Menlo, monospace;
+        color: var(--blue-glow);
+        font-size: 15px;
+        white-space: nowrap;
+      }
+      .commands span {
+        color: var(--muted);
+      }
+
+      .steps {
+        counter-reset: s;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+      }
+      .steps li {
+        list-style: none;
+        counter-increment: s;
+        background: var(--panel);
+        border: 1px solid rgba(95, 176, 255, 0.14);
+        border-radius: 16px;
+        padding: 24px;
+      }
+      .steps li::before {
+        content: '0' counter(s);
+        display: block;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 28px;
+        font-weight: 800;
+        color: var(--blue);
+        margin-bottom: 8px;
+      }
+      .steps h3 {
+        font-size: 20px;
+        margin-bottom: 4px;
+      }
+      .steps p {
+        color: var(--muted);
+      }
+
+      .cta-band {
+        text-align: center;
+        background: linear-gradient(135deg, rgba(47, 140, 255, 0.16), rgba(88, 101, 242, 0.12));
+        border: 1px solid rgba(95, 176, 255, 0.25);
+        border-radius: 22px;
+        padding: 56px 24px;
+      }
+      .cta-band .ctas {
+        justify-content: center;
+        margin-top: 24px;
+      }
+
+      footer {
+        padding: 40px 0 56px;
+        color: var(--muted);
+        font-size: 15px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        justify-content: space-between;
+        border-top: 1px solid rgba(95, 176, 255, 0.12);
+        margin-top: 40px;
+      }
+
+      @media (max-width: 860px) {
+        .hero {
+          grid-template-columns: 1fr;
+          padding-top: 32px;
+        }
+        .grid,
+        .steps {
+          grid-template-columns: 1fr;
+        }
+        .commands {
+          grid-template-columns: 1fr;
+        }
+        nav {
+          display: none;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+          scroll-behavior: auto !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <a class="brand" href="/">
+          <!-- Logo oficial: coloca el archivo original como public/logo.png. Si no existe, se oculta. -->
+          <img src="/logo.png" alt="" onerror="this.remove()" />
+          <span class="wordmark">PIRLO <span>BOT</span></span>
+        </a>
+        <nav>
+          <a href="#funciones">Funciones</a>
+          <a href="#comandos">Comandos</a>
+          <a href="#empezar">Empezar</a>
+        </nav>
+      </header>
+
+      <main>
+        <div class="hero">
+          <div>
+            <span class="tag">EA SPORTS FC 27 · PRO CLUBS</span>
+            <h1>PIRLO <em>BOT</em></h1>
+            <p class="lead">
+              Estadísticas, convocatorias y alineaciones de tu club, directamente en Discord.
+            </p>
+            <div class="ctas">
+              <a
+                class="btn btn-primary"
+                href="https://discord.com/oauth2/authorize?client_id=1562889315657195530&permissions=51200&scope=bot+applications.commands"
+                rel="noopener"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path
+                    d="M20.3 4.4A19.8 19.8 0 0 0 15.4 3l-.6 1.3a18.4 18.4 0 0 0-5.6 0L8.6 3a19.7 19.7 0 0 0-4.9 1.5C.6 9.1-.3 13.6.1 18.1a19.9 19.9 0 0 0 6 3l1.3-2a12.9 12.9 0 0 1-2-1l.5-.4a14.2 14.2 0 0 0 12.2 0l.5.4c-.6.4-1.3.7-2 1l1.3 2a19.8 19.8 0 0 0 6-3c.5-5.2-.8-9.7-3.6-13.7ZM8 15.3c-1.2 0-2.2-1.1-2.2-2.4S6.8 10.5 8 10.5s2.2 1.1 2.2 2.4-1 2.4-2.2 2.4Zm8 0c-1.2 0-2.2-1.1-2.2-2.4s1-2.4 2.2-2.4 2.2 1.1 2.2 2.4-1 2.4-2.2 2.4Z"
+                  />
+                </svg>
+                Añadir a Discord
+              </a>
+              <a class="btn btn-ghost" href="#funciones">Ver funciones</a>
+            </div>
+          </div>
+
+          <div class="preview" aria-label="Ejemplo de respuesta del bot">
+            <div class="preview-head">
+              <div class="avatar"><img src="/logo.png" alt="" onerror="this.remove()" /></div>
+              PIRLO BOT <span class="bot-badge">BOT</span>
+            </div>
+            <div class="cmd">/ranking goles temporada:actual</div>
+            <div class="embed">
+              <h3>Ranking de goleadores</h3>
+              <div class="rank"><b>1</b><div class="ph"></div><span>—</span></div>
+              <div class="rank"><b>2</b><div class="ph"></div><span>—</span></div>
+              <div class="rank"><b>3</b><div class="ph"></div><span>—</span></div>
+              <div class="rank"><b>4</b><div class="ph"></div><span>—</span></div>
+            </div>
+            <p class="note">Vista ilustrativa. Los datos reales vienen de la fuente de tu club.</p>
+          </div>
+        </div>
+
+        <section id="funciones">
+          <h2>Todo tu club en un solo bot</h2>
+          <p class="sub">
+            Pensado para varios clubes a la vez: cada club ve y gestiona solo sus propios datos.
+          </p>
+          <div class="grid">
+            <div class="card">
+              <div class="ico">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path d="M3 3v18h18" /><path d="M7 15l4-4 3 3 5-6" />
+                </svg>
+              </div>
+              <h3>Estadísticas</h3>
+              <p>Goles, asistencias, entradas, efectividad defensiva y porterías imbatidas verificadas.</p>
+            </div>
+            <div class="card">
+              <div class="ico">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4Z" /><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3" />
+                </svg>
+              </div>
+              <h3>Rankings y récords</h3>
+              <p>Clasificaciones por posición, por sesión y por temporada, más el histórico del club.</p>
+            </div>
+            <div class="card">
+              <div class="ico">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <rect x="3" y="4" width="18" height="17" rx="2" /><path d="M16 2v4M8 2v4M3 10h18M9 15l2 2 4-4" />
+                </svg>
+              </div>
+              <h3>Convocatorias</h3>
+              <p>Convoca con un comando y cada jugador confirma con un botón: Voy, No voy o Duda.</p>
+            </div>
+            <div class="card">
+              <div class="ico">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="12" cy="12" r="3" /><path d="M12 3v6M12 15v6" />
+                </svg>
+              </div>
+              <h3>Alineaciones</h3>
+              <p>Arma la formación, asigna posiciones y publícala en el canal del club.</p>
+            </div>
+            <div class="card">
+              <div class="ico">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8" />
+                </svg>
+              </div>
+              <h3>Plantilla y roles</h3>
+              <p>Vincula jugadores con su cuenta de Discord. Roles de admin, DT, capitán y jugador.</p>
+            </div>
+            <div class="card">
+              <div class="ico">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0" />
+                </svg>
+              </div>
+              <h3>Calendario y avisos</h3>
+              <p>Eventos, recordatorios y publicaciones automáticas en los canales que elijas.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="comandos">
+          <h2>Comandos</h2>
+          <p class="sub">Todo funciona con comandos slash. Sin prefijos ni permisos especiales.</p>
+          <div class="commands">
+            <div><code>/stats jugador</code><span>Estadísticas de un jugador</span></div>
+            <div><code>/ranking</code><span>Clasificaciones por estadística</span></div>
+            <div><code>/records</code><span>Récords históricos del club</span></div>
+            <div><code>/convocatoria crear</code><span>Convoca para un partido</span></div>
+            <div><code>/alineacion crear</code><span>Arma y publica la alineación</span></div>
+            <div><code>/plantilla ver</code><span>Jugadores, posiciones y roles</span></div>
+            <div><code>/calendario ver</code><span>Próximos eventos</span></div>
+            <div><code>/pirlo ayuda</code><span>Guía rápida del bot</span></div>
+          </div>
+        </section>
+
+        <section id="empezar">
+          <h2>Empieza en tres pasos</h2>
+          <p class="sub">Solo necesitas permiso de administración en tu servidor de Discord.</p>
+          <ol class="steps">
+            <li>
+              <h3>Añade el bot</h3>
+              <p>Invita a PIRLO BOT a tu servidor con el botón de abajo.</p>
+            </li>
+            <li>
+              <h3>Registra tu club</h3>
+              <p>Usa <code>/club registrar</code> y elige los canales de anuncios y convocatorias.</p>
+            </li>
+            <li>
+              <h3>Vincula la plantilla</h3>
+              <p>Cada jugador usa <code>/vincular</code> y el admin lo aprueba.</p>
+            </li>
+          </ol>
+        </section>
+
+        <section>
+          <div class="cta-band">
+            <h2>Lleva tu club al siguiente nivel</h2>
+            <p class="sub" style="margin: 0 auto">Gratis durante la beta.</p>
+            <div class="ctas">
+              <a
+                class="btn btn-primary"
+                href="https://discord.com/oauth2/authorize?client_id=1562889315657195530&permissions=51200&scope=bot+applications.commands"
+                rel="noopener"
+                >Añadir a Discord</a
+              >
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <span>© 2026 PIRLO BOT · Beta</span>
+        <span>No afiliado a EA SPORTS ni a Discord.</span>
+      </footer>
+    </div>
+  </body>
+</html>

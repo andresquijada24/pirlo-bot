@@ -9,6 +9,10 @@
       content="Bot de Discord multiclub para estadísticas y gestión de clubes de EA SPORTS FC 27."
     />
     <meta name="theme-color" content="#05080f" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta property="og:image" content="https://pirlo-bot.vercel.app/og.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta property="og:title" content="PIRLO BOT" />
     <meta
       property="og:description"
@@ -118,12 +122,30 @@
         color: var(--text);
       }
 
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
+      .banner {
+        display: block;
+        width: 100%;
+        height: auto;
+        aspect-ratio: 5 / 2;
+        border-radius: 20px;
+        border: 1px solid rgba(95, 176, 255, 0.25);
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+        margin-top: 12px;
+      }
       .hero {
         display: grid;
         grid-template-columns: 1.2fr 1fr;
         gap: 48px;
         align-items: center;
-        padding: 64px 0 88px;
+        padding: 48px 0 88px;
       }
       .tag {
         display: inline-block;
@@ -442,7 +464,7 @@
       <header>
         <a class="brand" href="/">
           <!-- Logo oficial: coloca el archivo original como public/logo.png. Si no existe, se oculta. -->
-          <img src="/logo.png" alt="" onerror="this.remove()" />
+          <img src="/logo.png" alt="" width="40" height="40" />
           <span class="wordmark">PIRLO <span>BOT</span></span>
         </a>
         <nav>
@@ -453,10 +475,18 @@
       </header>
 
       <main>
+        <img
+          class="banner"
+          src="/banner.webp"
+          width="1600"
+          height="640"
+          alt="PIRLO BOT — Estadísticas · Gestión · Discord"
+          fetchpriority="high"
+        />
         <div class="hero">
           <div>
             <span class="tag">EA SPORTS FC 27 · PRO CLUBS</span>
-            <h1>PIRLO <em>BOT</em></h1>
+            <h1 class="sr-only">PIRLO BOT</h1>
             <p class="lead">
               Estadísticas, convocatorias y alineaciones de tu club, directamente en Discord.
             </p>
@@ -479,7 +509,7 @@
 
           <div class="preview" aria-label="Ejemplo de respuesta del bot">
             <div class="preview-head">
-              <div class="avatar"><img src="/logo.png" alt="" onerror="this.remove()" /></div>
+              <div class="avatar"><img src="/logo.png" alt="" width="34" height="34" /></div>
               PIRLO BOT <span class="bot-badge">BOT</span>
             </div>
             <div class="cmd">/ranking goles temporada:actual</div>

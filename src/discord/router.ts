@@ -48,7 +48,10 @@ export async function routeInteraction(
         return fail('Esta interacción todavía no está disponible.');
     }
   } catch (err) {
-    if (isDomainError(err)) return fail(err.message);
+    if (isDomainError(err)) {
+      if (err.code === 'INTERNAL') deps.log?.error({ detail: err.detail }, 'Error interno de datos');
+      return fail(err.message);
+    }
     deps.log?.error({ err }, 'Error al procesar interacción');
     return fail(UNEXPECTED);
   }

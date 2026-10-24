@@ -16,6 +16,8 @@ export class DomainError extends Error {
   constructor(
     readonly code: DomainErrorCode,
     message: string,
+    /** Detalle técnico para los logs del servidor. Nunca se muestra al usuario. */
+    readonly detail?: Record<string, unknown>,
   ) {
     super(message);
     this.name = 'DomainError';

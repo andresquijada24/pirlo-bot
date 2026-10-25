@@ -6,7 +6,9 @@ import type {
   Membership,
   Season,
 } from '../../src/core/types.js';
-import type { AuditEntry, Repositories } from '../../src/db/repositories/types.js';
+import type { AuditEntry, EaLink, Repositories } from '../../src/db/repositories/types.js';
+import type { CachedMatch } from '../../src/providers/ea/ingest.js';
+import type { ProcessedEaMatch } from '../../src/providers/ea/matches.js';
 import type { SessionStatRow } from '../../src/core/stats/service.js';
 import type { ProviderId } from '../../src/providers/types.js';
 import type { SyncRunSummary } from '../../src/sync/types.js';
@@ -39,7 +41,9 @@ export function createMemoryRepos() {
     lineups: [] as Lineup[],
     remindedCallups: new Set<string>(),
     callupMessages: [] as { clubId: string; callupId: string; channelId: string; messageId: string }[],
-    eaCache: new Map<string, unknown>(),
+    eaCache: new Map<string, CachedMatch>(),
+    eaLinks: [] as EaLink[],
+    eaMatches: [] as (ProcessedEaMatch & { clubId: string })[],
   };
 
   const activeIn = (clubId: string) => state.memberships.filter((m) => m.clubId === clubId && m.active);
@@ -430,6 +434,68 @@ export function createMemoryRepos() {
           }
         }
         return added;
+      },
+    },
+
+    ea: {
+      async link(clubId, platform, eaClubId, actorDiscordId) {
+        const isAdmin = activeIn(clubId).some((m) => m.discordUserId === actorDiscordId && m.role === 'admin');
+        if (!isAdmin) throw conflict('Solo un admin del club puede vincular su club de EA.');
+        if (state.eaLinks.some((l) => l.platform === platform && l.eaClubId === eaClubId && l.clubId !== clubId)) {
+          throw conflict('Ese club de EA ya está vinculado a otro club de PIRLO.');
+        }
+        state.eaLinks = state.eaLinks.filter((l) => l.clubId !== clubId);
+        state.eaLinks.push({ clubId, platform, eaClubId, consentedBy: actorDiscordId, consentedAt: new Date().toISOString() });
+        state.audit.push({ clubId, actorDiscordId, action: 'club.ea_link', entity: 'ea_club', entityId: eaClubId });
+      },
+      async unlink(clubId, actorDiscordId) {
+        const isAdmin = activeIn(clubId).some((m) => m.discordUserId === actorDiscordId && m.role === 'admin');
+        if (!isAdmin) throw conflict('Solo un admin del club puede retirar el consentimiento de EA.');
+        const before = state.eaLinks.length;
+        state.eaLinks = state.eaLinks.filter((l) => l.clubId !== clubId);
+        return state.eaLinks.length < before;
+      },
+      async getLink(clubId) {
+        return state.eaLinks.find((l) => l.clubId === clubId) ?? null;
+      },
+      async consented(platform, eaClubId) {
+        return state.eaLinks.some((l) => l.platform === platform && l.eaClubId === eaClubId);
+      },
+      async listLinks() {
+        return [...state.eaLinks];
+      },
+      async pending(clubId, limit) {
+        const link = state.eaLinks.find((l) => l.clubId === clubId);
+        if (!link) return [];
+        return [...state.eaCache.values()]
+          .filter((m) => m.platform === link.platform && m.eaClubId === link.eaClubId)
+          .filter((m) => !state.eaMatches.some((x) => x.clubId === clubId && x.matchId === m.matchId))
+          .sort((a, b) => a.playedAt.localeCompare(b.playedAt))
+          .slice(0, limit);
+      },
+      async apply(clubId, match) {
+        const link = state.eaLinks.find((l) => l.clubId === clubId);
+        if (!link || link.platform !== match.platform || link.eaClubId !== match.eaClubId) {
+          throw conflict('El partido no pertenece al club de EA vinculado a este club.');
+        }
+        if (state.eaMatches.some((x) => x.clubId === clubId && x.matchId === match.matchId)) return false;
+        state.eaMatches.push({ ...match, clubId });
+        return true;
+      },
+      async recent(clubId, limit) {
+        return state.eaMatches
+          .filter((m) => m.clubId === clubId)
+          .sort((a, b) => b.playedAt.localeCompare(a.playedAt))
+          .slice(0, limit)
+          .map(({ matchId, matchType, playedAt, goalsFor, goalsAgainst, result, opponentName }) => ({
+            matchId,
+            matchType,
+            playedAt,
+            goalsFor,
+            goalsAgainst,
+            result,
+            opponentName,
+          }));
       },
     },
 

@@ -10,6 +10,7 @@ import { routeInteraction } from './discord/router.js';
 import { verifyDiscordRequest } from './discord/verify.js';
 import type { SyncResult } from './sync/engine.js';
 import type { ReminderResult } from './jobs/reminders.js';
+import type { EaProcessingResult } from './jobs/ea-processing.js';
 import type { ChannelPoster } from './discord/poster.js';
 
 export interface AppDeps {
@@ -27,8 +28,8 @@ export interface AppDeps {
   cron?: {
     secret: string | undefined;
     sync: (() => Promise<SyncResult>) | null;
-    /** Recordatorios; null si no hay base de datos. */
-    tick?: (() => Promise<ReminderResult>) | null;
+    /** Recordatorios y procesamiento de partidos de EA; null si no hay base de datos. */
+    tick?: (() => Promise<ReminderResult & { ea?: EaProcessingResult }>) | null;
   };
 }
 
@@ -125,6 +126,11 @@ export function createApp(deps: AppDeps) {
       return c.json({ error: 'Formato no válido' }, 400);
     }
     try {
+      // Solo se guardan partidos de clubes de EA cuyo club de PIRLO dio su consentimiento.
+      const first = parsed.matches[0];
+      if (first && !(await deps.repos.ea.consented(first.platform, first.eaClubId))) {
+        return c.json({ error: 'Club de EA sin consentimiento en PIRLO' }, 403);
+      }
       const stored = await deps.repos.eaCapture.store(parsed.matches);
       return c.json({ received: parsed.matches.length, stored, rejected: parsed.rejected });
     } catch (err) {

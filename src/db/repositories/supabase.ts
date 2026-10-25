@@ -6,6 +6,7 @@ import { check } from '../errors.js';
 import type {
   AuditRepository,
   EaCaptureRepository,
+  EaRepository,
   ReminderRepository,
   CallupRepository,
   LineupRepository,
@@ -21,6 +22,7 @@ import type {
 import type { SessionStatRow } from '../../core/stats/service.js';
 import type { SyncRepository, SyncRunSummary } from '../../sync/types.js';
 import type { ProviderId } from '../../providers/types.js';
+import { EA_MATCH_TYPES, EA_PLATFORMS } from '../../providers/ea/ingest.js';
 
 /*
  * Implementación de los repositorios sobre Supabase.
@@ -802,6 +804,112 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
     },
   };
 
+  const eaLinkRow = z.object({
+    club_id: z.string().uuid(),
+    platform: z.enum(EA_PLATFORMS),
+    ea_club_id: z.string(),
+    consented_by: z.string(),
+    consented_at: z.string(),
+  });
+  const toLink = (r: z.infer<typeof eaLinkRow>) => ({
+    clubId: r.club_id,
+    platform: r.platform,
+    eaClubId: r.ea_club_id,
+    consentedBy: r.consented_by,
+    consentedAt: r.consented_at,
+  });
+  const LINK_COLUMNS = 'club_id, platform, ea_club_id, consented_by, consented_at';
+
+  const ea: EaRepository = {
+    async link(clubId, platform, eaClubId, actorDiscordId) {
+      check(
+        await db.rpc('link_ea_club', {
+          p_club_id: clubId,
+          p_platform: platform,
+          p_ea_club_id: eaClubId,
+          p_actor_discord_id: actorDiscordId,
+        }),
+      );
+    },
+    async unlink(clubId, actorDiscordId) {
+      const r = check(await db.rpc('unlink_ea_club', { p_club_id: clubId, p_actor_discord_id: actorDiscordId }));
+      return z.boolean().parse(r);
+    },
+    async getLink(clubId) {
+      const row = check(await db.from('club_ea_links').select(LINK_COLUMNS).eq('club_id', clubId).maybeSingle());
+      return row ? toLink(eaLinkRow.parse(row)) : null;
+    },
+    async consented(platform, eaClubId) {
+      const rows = check(
+        await db.from('club_ea_links').select('club_id').eq('platform', platform).eq('ea_club_id', eaClubId).limit(1),
+      );
+      return Array.isArray(rows) && rows.length > 0;
+    },
+    async listLinks() {
+      const rows = check(await db.from('club_ea_links').select(LINK_COLUMNS));
+      return z.array(eaLinkRow).parse(rows).map(toLink);
+    },
+    async pending(clubId, limit) {
+      const link = await ea.getLink(clubId);
+      if (!link) return [];
+      const rows = check(await db.rpc('pending_ea_matches', { p_club_id: clubId, p_limit: limit }));
+      return z
+        .array(
+          z.object({
+            match_id: z.string(),
+            match_type: z.enum(EA_MATCH_TYPES),
+            played_at: z.string(),
+            payload: z.record(z.string(), z.unknown()),
+          }),
+        )
+        .parse(rows)
+        .map((r) => ({
+          platform: link.platform,
+          eaClubId: link.eaClubId,
+          matchId: r.match_id,
+          matchType: r.match_type,
+          playedAt: r.played_at,
+          payload: r.payload,
+        }));
+    },
+    async apply(clubId, match) {
+      const r = check(await db.rpc('apply_ea_match', { p_club_id: clubId, p_match: match }));
+      return z.boolean().parse(r);
+    },
+    async recent(clubId, limit) {
+      const rows = check(
+        await db
+          .from('ea_matches')
+          .select('match_id, match_type, played_at, goals_for, goals_against, result, opponent_name')
+          .eq('club_id', clubId)
+          .order('played_at', { ascending: false })
+          .limit(limit),
+      );
+      return z
+        .array(
+          z.object({
+            match_id: z.string(),
+            match_type: z.enum(EA_MATCH_TYPES),
+            played_at: z.string(),
+            goals_for: z.number().nullable(),
+            goals_against: z.number().nullable(),
+            result: z.enum(['victoria', 'empate', 'derrota']).nullable(),
+            opponent_name: z.string().nullable(),
+          }),
+        )
+        .parse(rows)
+        .map((r) => ({
+          matchId: r.match_id,
+          matchType: r.match_type,
+          playedAt: r.played_at,
+          goalsFor: r.goals_for,
+          goalsAgainst: r.goals_against,
+          result: r.result,
+          opponentName: r.opponent_name,
+        }));
+    },
+  };
+
   const reminders: ReminderRepository = {
     async due(limit, blockedGuilds) {
       const rows = check(
@@ -830,6 +938,7 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
 
   return {
     eaCapture,
+    ea,
     reminders,
     clubs,
     memberships,

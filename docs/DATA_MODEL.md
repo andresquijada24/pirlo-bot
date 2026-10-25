@@ -54,6 +54,10 @@ huecos titulares y los suplentes ocupan los huecos 12 a 23 (`lineup_assign`, `li
 | -------------------- | ---------------------------------------------------------------- |
 | `external_refs`      | proveedor + id externo ↔ id interno; evita duplicados            |
 | `external_players`   | plantilla informada por el proveedor (gamertag, posiciones) y su vínculo con `players` |
+| `club_ea_links`     | consentimiento del admin: club de PIRLO ↔ club de EA (plataforma, id), quién y cuándo |
+| `ea_match_cache`     | partidos de EA tal como llegan (por club de EA); solo de clubes con consentimiento |
+| `ea_matches`         | partido procesado dentro de un club: marcador, resultado, rival (id y nombre) |
+| `ea_match_players`   | jugadores de ambos lados (`propio`/`rival`) con sus estadísticas; los rivales nunca cuentan en rankings |
 | `provider_sync_runs` | cursor incremental, conteos, errores                             |
 | `stat_revisions`     | valor anterior/nuevo, motivo, autor, fecha (correcciones)        |
 | `audit_log`          | quién hizo qué en cada club                                      |

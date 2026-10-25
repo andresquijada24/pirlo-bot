@@ -1,4 +1,7 @@
 import { configureChannel, connectClubToGuild, disconnectFromGuild, registerClub } from '../../core/clubs/service.js';
+import { EA_PLATFORM_LABELS, eaStatus, linkEaClub, unlinkEaClub, type EaPlatform } from '../../core/ea/service.js';
+import { EA_PLATFORMS } from '../../providers/ea/ingest.js';
+import { discordTime } from '../../core/time.js';
 import { setClubTimezone, setReminderMinutes } from '../../core/callups/service.js';
 import { assertCan, can } from '../../core/permissions/index.js';
 import { listSeasons } from '../../core/seasons/service.js';
@@ -24,6 +27,14 @@ const PROVIDER_LABELS: Record<string, string> = {
   ea: 'EA SPORTS',
   manual: 'Manual',
 };
+
+const RESULT_ICONS = { victoria: '🟢', empate: '🟡', derrota: '🔴' } as const;
+
+/** Texto del consentimiento que acepta el admin al vincular (versión v1 en la base de datos). */
+export const EA_CONSENT_TEXT =
+  'Como admin del club, autorizas a PIRLO a guardar y procesar los partidos de este club de EA ' +
+  '(resultados, marcadores y estadísticas de tus jugadores y de los rivales) solo para este club. ' +
+  'Los gamertags de los rivales nunca se muestran en páginas públicas. Puedes retirarlo con `/club ea retirar`.';
 
 const RUN_LABELS = { en_curso: '⏳ En curso', ok: '✅ Correcta', error: '❌ Con error' } as const;
 
@@ -125,6 +136,47 @@ export const clubCommand: SlashCommand = {
         ],
       },
       {
+        type: OT.SubcommandGroup,
+        name: 'ea',
+        description: 'Partidos de EA Pro Clubs del club',
+        options: [
+          {
+            type: OT.Subcommand,
+            name: 'vincular',
+            description: 'Vincula el club de EA y da tu consentimiento como admin',
+            options: [
+              {
+                type: OT.String,
+                name: 'id',
+                description: 'ID del club en EA (solo números, p. ej. 55341)',
+                required: true,
+                max_length: 12,
+              },
+              {
+                type: OT.String,
+                name: 'plataforma',
+                description: 'Plataforma del club',
+                required: true,
+                choices: EA_PLATFORMS.map((p) => ({ name: EA_PLATFORM_LABELS[p], value: p })),
+              },
+              clubOption,
+            ],
+          },
+          {
+            type: OT.Subcommand,
+            name: 'estado',
+            description: 'Club de EA vinculado y últimos partidos procesados (DT o admin)',
+            options: [clubOption],
+          },
+          {
+            type: OT.Subcommand,
+            name: 'retirar',
+            description: 'Retira el consentimiento: no se procesan más partidos (solo admin)',
+            options: [clubOption],
+          },
+        ],
+      },
+      {
         type: OT.Subcommand,
         name: 'zona',
         description: 'Zona horaria con la que se leen las horas de convocatorias (solo admin)',
@@ -143,6 +195,7 @@ export const clubCommand: SlashCommand = {
   },
 
   async execute(ctx) {
+    if (ctx.command.group === 'ea') return executeEa(ctx);
     switch (ctx.command.sub) {
       case 'registrar': {
         const res = await registerClub(ctx.repos, ctx.actor, {
@@ -275,3 +328,66 @@ export const clubCommand: SlashCommand = {
     }
   },
 };
+
+async function executeEa(ctx: Parameters<SlashCommand['execute']>[0]) {
+  const c = await contextFor(ctx);
+  switch (ctx.command.sub) {
+    case 'vincular': {
+      const link = await linkEaClub(ctx.repos, c, {
+        eaClubId: optString(ctx.command, 'id') ?? '',
+        platform: optString(ctx.command, 'plataforma') ?? '',
+      });
+      return ok(
+        `Club de EA **${link.eaClubId}** (${EA_PLATFORM_LABELS[link.platform]}) vinculado a **${escapeMd(c.club.name)}**.\n\n` +
+          `📝 ${EA_CONSENT_TEXT}\n\n` +
+          'ℹ️ PIRLO procesará los partidos en cuanto haya una fuente de datos de EA autorizada. Mientras tanto no se lee nada de EA.',
+      );
+    }
+
+    case 'retirar': {
+      const removed = await unlinkEaClub(ctx.repos, c);
+      return ok(
+        removed
+          ? 'Consentimiento retirado: no se procesarán más partidos de EA. Los ya procesados se conservan.'
+          : 'Este club no tenía un club de EA vinculado.',
+      );
+    }
+
+    case 'estado': {
+      const { link, recent } = await eaStatus(ctx.repos, c);
+      const fields = [
+        {
+          name: 'Club de EA',
+          value: link
+            ? `\`${link.eaClubId}\` · ${EA_PLATFORM_LABELS[link.platform as EaPlatform]}`
+            : 'Sin vincular. Un admin puede usar `/club ea vincular`.',
+          inline: false,
+        },
+      ];
+      if (link) {
+        fields.push({
+          name: 'Consentimiento',
+          value: `<@${link.consentedBy}> · ${discordTime(new Date(link.consentedAt), 'f')}`,
+          inline: false,
+        });
+      }
+      fields.push({
+        name: 'Últimos partidos',
+        value: recent.length
+          ? recent
+              .map((m) => {
+                const score = m.goalsFor !== null && m.goalsAgainst !== null ? `${m.goalsFor}-${m.goalsAgainst}` : '¿?';
+                const icon = m.result ? RESULT_ICONS[m.result] : '⚪';
+                return `${icon} ${score} vs ${escapeMd(m.opponentName ?? 'rival sin nombre')} · ${discordTime(new Date(m.playedAt), 'R')}`;
+              })
+              .join('\n')
+          : 'Todavía no hay partidos procesados.',
+        inline: false,
+      });
+      return reply(null, { embeds: [embed({ title: `EA Pro Clubs · ${escapeMd(c.club.name)}`, fields })] });
+    }
+
+    default:
+      return reply('Subcomando desconocido.');
+  }
+}

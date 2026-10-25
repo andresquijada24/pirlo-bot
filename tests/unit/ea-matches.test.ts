@@ -1,0 +1,216 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+import { commandsByName, componentHandlers } from '../../src/discord/commands/index.js';
+import { routeInteraction, type RouterDeps } from '../../src/discord/router.js';
+import { runEaProcessing } from '../../src/jobs/ea-processing.js';
+import { eaInt, eaRating, processEaMatch } from '../../src/providers/ea/matches.js';
+import { createMemoryRepos } from '../fakes/memory-repos.js';
+import { MANAGE_GUILD, slash, str, textOf } from '../helpers/interactions.js';
+
+// Partido con la forma de la API de EA (números como texto). Ids, nombres y gamertags ficticios.
+const OURS = '111';
+const RIVAL = '222';
+const payload = (over: Record<string, unknown> = {}) => ({
+  matchId: '900001',
+  timestamp: 1792894060,
+  clubs: {
+    [OURS]: { goals: '3', goalsAgainst: '1', details: { name: 'Club Ficticio' } },
+    [RIVAL]: { goals: '1', goalsAgainst: '3', details: { name: 'Rival Ficticio' } },
+  },
+  players: {
+    [OURS]: {
+      '1001': {
+        playername: 'JugadorFicticio',
+        pos: 'forward',
+        goals: '2',
+        assists: '1',
+        shots: '5',
+        passesmade: '20',
+        passattempts: '25',
+        tacklesmade: '1',
+        tackleattempts: '3',
+        rating: '8.40',
+        mom: '1',
+        redcards: '0',
+        secondsPlayed: '5400',
+      },
+      '1002': { playername: 'SinDatos' },
+    },
+    [RIVAL]: { '2001': { playername: 'RivalFicticio', goals: '1', rating: '6.10', mom: '0' } },
+  },
+  ...over,
+});
+const cached = (over: Record<string, unknown> = {}, matchId = '900001') => ({
+  platform: 'common-gen5' as const,
+  eaClubId: OURS,
+  matchId,
+  matchType: 'leagueMatch' as const,
+  playedAt: '2026-10-25T02:07:40.000Z',
+  payload: payload(over),
+});
+
+describe('números de EA', () => {
+  it('solo acepta enteros no negativos; lo demás es sin dato', () => {
+    expect(eaInt('3')).toBe(3);
+    expect(eaInt(0)).toBe(0);
+    expect(eaInt('')).toBeNull();
+    expect(eaInt('-1')).toBeNull();
+    expect(eaInt('2.5')).toBeNull();
+    expect(eaInt(undefined)).toBeNull();
+    expect(eaRating('7.70')).toBe(7.7);
+    expect(eaRating('11')).toBeNull();
+    expect(eaRating('abc')).toBeNull();
+  });
+});
+
+describe('processEaMatch', () => {
+  it('saca marcador, rival y jugadores de ambos lados', () => {
+    const m = processEaMatch(cached())!;
+    expect(m).toMatchObject({
+      goalsFor: 3,
+      goalsAgainst: 1,
+      result: 'victoria',
+      opponentEaClubId: RIVAL,
+      opponentName: 'Rival Ficticio',
+    });
+    const mine = m.players.find((p) => p.gamertag === 'JugadorFicticio')!;
+    expect(mine).toMatchObject({
+      side: 'propio',
+      eaPlayerId: '1001',
+      goals: 2,
+      assists: 1,
+      passesMade: 20,
+      passesAttempted: 25,
+      rating: 8.4,
+      manOfTheMatch: true,
+      redCards: 0,
+      secondsPlayed: 5400,
+    });
+    expect(m.players.find((p) => p.gamertag === 'RivalFicticio')).toMatchObject({
+      side: 'rival',
+      goals: 1,
+      manOfTheMatch: false,
+    });
+  });
+
+  it('lo que EA no envía queda como sin dato (null), nunca 0', () => {
+    const empty = processEaMatch(cached())!.players.find((p) => p.gamertag === 'SinDatos')!;
+    expect(empty.goals).toBeNull();
+    expect(empty.rating).toBeNull();
+    expect(empty.manOfTheMatch).toBeNull();
+    expect(empty.secondsPlayed).toBeNull();
+  });
+
+  it('empate, derrota y marcador desconocido', () => {
+    const score = (a: string, b: string | undefined) =>
+      processEaMatch(
+        cached({ clubs: { [OURS]: { goals: a }, [RIVAL]: b === undefined ? {} : { goals: b } } }),
+      )!.result;
+    expect(score('1', '1')).toBe('empate');
+    expect(score('0', '2')).toBe('derrota');
+    expect(score('1', undefined)).toBeNull();
+  });
+
+  it('descarta partidos sin exactamente un rival', () => {
+    expect(processEaMatch(cached({ clubs: { [OURS]: {} } }))).toBeNull();
+    expect(processEaMatch(cached({ clubs: { [OURS]: {}, '3': {}, '4': {} } }))).toBeNull();
+    expect(processEaMatch({ ...cached(), payload: 'x' })).toBeNull();
+  });
+});
+
+describe('procesamiento programado', () => {
+  it('sin consentimiento no procesa nada; con consentimiento, cada partido una vez', async () => {
+    const env = createMemoryRepos();
+    const club = await env.repos.clubs.register({
+      guildId: '900000000000000001',
+      guildName: null,
+      slug: 'club-ea',
+      name: 'Club EA',
+      adminDiscordId: '800000000000000001',
+      adminDisplayName: 'Admin',
+    });
+    await env.repos.eaCapture.store([cached(), cached({}, '900002')]);
+    expect(await runEaProcessing({ repos: env.repos })).toEqual({
+      clubs: 0,
+      processed: 0,
+      skipped: 0,
+      errors: [],
+    });
+
+    await env.repos.ea.link(club.clubId, 'common-gen5', OURS, '800000000000000001');
+    expect((await runEaProcessing({ repos: env.repos })).processed).toBe(2);
+    expect((await runEaProcessing({ repos: env.repos })).processed).toBe(0);
+    expect(env.state.eaMatches.every((m) => m.clubId === club.clubId)).toBe(true);
+  });
+});
+
+describe('/club ea', () => {
+  const OWNER = { userId: '800000000000000001', name: 'Dueño', permissions: MANAGE_GUILD };
+  const DT = { userId: '800000000000000002', name: 'Entrenador' };
+  let env: ReturnType<typeof createMemoryRepos>;
+  let deps: RouterDeps;
+  const run = (i: Parameters<typeof routeInteraction>[0]) => routeInteraction(i, deps);
+  const ea = (who: typeof OWNER | typeof DT, sub: string, options: ReturnType<typeof str>[] = []) =>
+    run(
+      slash(who, 'club', null, [
+        { name: 'ea', type: 2, options: [{ name: sub, type: 1, options }] },
+      ]),
+    );
+
+  beforeEach(async () => {
+    env = createMemoryRepos();
+    deps = { commands: commandsByName, components: componentHandlers, repos: env.repos };
+    await run(
+      slash(OWNER, 'club', 'registrar', [
+        str('nombre', 'Club Prueba'),
+        str('identificador', 'club-prueba'),
+      ]),
+    );
+    env.addMember(env.state.clubs[0]!.id, DT.userId, 'dt');
+  });
+
+  it('solo un admin vincula; queda el consentimiento y se ve en estado', async () => {
+    const opts = [str('id', '55341'), str('plataforma', 'common-gen5')];
+    expect(textOf(await ea(DT, 'vincular', opts))).toMatch('Solo un admin');
+    expect(
+      textOf(await ea(OWNER, 'vincular', [str('id', 'abc'), str('plataforma', 'common-gen5')])),
+    ).toMatch('solo números');
+    const res = textOf(await ea(OWNER, 'vincular', opts));
+    expect(res).toMatch('vinculado');
+    expect(res).toMatch('autorizas a PIRLO');
+    const estado = textOf(await ea(DT, 'estado'));
+    expect(estado).toMatch('55341');
+    expect(estado).toMatch(`<@${OWNER.userId}>`);
+    expect(estado).toMatch('Todavía no hay partidos procesados');
+  });
+
+  it('un club de EA no puede estar en dos clubes de PIRLO', async () => {
+    await ea(OWNER, 'vincular', [str('id', '55341'), str('plataforma', 'common-gen5')]);
+    const other = {
+      userId: '800000000000000009',
+      name: 'Otro',
+      permissions: MANAGE_GUILD,
+      guildId: '900000000000000002',
+    };
+    await run(
+      slash(other, 'club', 'registrar', [
+        str('nombre', 'Otro Club'),
+        str('identificador', 'otro-club'),
+      ]),
+    );
+    expect(
+      textOf(await ea(other, 'vincular', [str('id', '55341'), str('plataforma', 'common-gen5')])),
+    ).toMatch('ya está vinculado a otro club');
+  });
+
+  it('retirar el consentimiento: solo admin y conserva lo procesado', async () => {
+    await ea(OWNER, 'vincular', [str('id', OURS), str('plataforma', 'common-gen5')]);
+    await env.repos.eaCapture.store([cached()]);
+    await runEaProcessing({ repos: env.repos });
+    expect(textOf(await ea(DT, 'retirar'))).toMatch('Solo un admin');
+    expect(textOf(await ea(OWNER, 'retirar'))).toMatch('Consentimiento retirado');
+    expect(textOf(await ea(OWNER, 'retirar'))).toMatch('no tenía');
+    const estado = textOf(await ea(DT, 'estado'));
+    expect(estado).toMatch('Sin vincular');
+    expect(estado).toMatch('3-1 vs Rival Ficticio');
+  });
+});

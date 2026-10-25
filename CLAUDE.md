@@ -58,6 +58,6 @@ Discord → HTTPS firmado (Ed25519) → `api/index.ts` (Vercel, Hono) → `src/d
 3. Núcleo multiclub y permisos ✅
 4. Discord y comandos slash ✅
 5. MARÍTIMO CF como primer proveedor ✅ (sincronización activa cada 15 min)
-6. Proveedores de otros clubes
+6. Proveedores de otros clubes (EA: consentimiento por club y procesamiento listos; en espera de acceso autorizado por EA)
 7. Rankings, estadísticas, convocatorias y alineaciones (convocatorias, alineaciones y recordatorios ✅)
 8. Pruebas completas y despliegue (revisión de seguridad ✅; guía en `docs/GO_LIVE.md`)

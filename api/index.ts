@@ -8,6 +8,7 @@ import { MaritimoStatsProvider } from '../src/providers/maritimo/provider.js';
 import { runSync } from '../src/sync/engine.js';
 import { createDiscordPoster } from '../src/discord/poster.js';
 import { runReminders } from '../src/jobs/reminders.js';
+import { runEaProcessing } from '../src/jobs/ea-processing.js';
 
 /** Punto de entrada en Vercel. vercel.json reescribe /api/* hacia esta función. */
 const env = loadEnv();
@@ -45,13 +46,20 @@ const app = createApp({
         ? () => runSync({ repo: repos.sync, provider: maritimo.provider, clubId: maritimo.clubId, log: logger })
         : null,
     tick: repos
-      ? () =>
-          runReminders({
+      ? async () => {
+          const reminders = await runReminders({
             repos,
             poster,
             blockedGuilds: new Set(env.POSTING_BLOCKED_GUILDS?.split(',') ?? []),
             log: logger,
-          })
+          });
+          // Un fallo de EA no debe afectar a los recordatorios ya enviados.
+          const ea = await runEaProcessing({ repos, log: logger }).catch((err: unknown) => {
+            logger.error({ err }, 'Fallo en el procesamiento de EA');
+            return undefined;
+          });
+          return ea ? { ...reminders, ea } : reminders;
+        }
       : null,
   },
 });

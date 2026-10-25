@@ -1,0 +1,52 @@
+name: Diagnóstico EA (solo lectura)
+
+# Comprueba si la API de partidos de Pro Clubs de EA responde desde los servidores de GitHub.
+# Solo hace peticiones GET públicas: no usa secretos, no escribe nada y no publica en Discord.
+on:
+  workflow_dispatch:
+    inputs:
+      club:
+        description: 'Nombre del club en EA FC (tal como sale en el juego)'
+        required: true
+      plataforma:
+        description: 'Plataforma de EA'
+        type: choice
+        options: [common-gen5, common-gen4]
+        default: common-gen5
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Consultar EA
+        env:
+          CLUB: ${{ inputs.club }}
+          PLATFORM: ${{ inputs.plataforma }}
+        run: |
+          # Las entradas llegan por variables de entorno (nunca interpoladas en el script).
+          UA='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36'
+          q=$(jq -rn --arg v "$CLUB" '$v|@uri')
+          base='https://proclubs.ea.com/api/fc'
+          probe() {
+            code=$(curl -sS -o out.json -w '%{http_code}' --max-time 20 \
+              -H "User-Agent: $UA" -H 'Accept: application/json' -H 'Referer: https://www.ea.com/' "$1" || echo 000)
+            size=$(wc -c < out.json 2>/dev/null || echo 0)
+            echo "::notice::$2 → HTTP $code · $size bytes"
+          }
+          probe "$base/allTimeLeaderboard/search?platform=$PLATFORM&clubName=$q" "Búsqueda del club"
+          head -c 600 out.json; echo
+          id=$(jq -r 'if type=="array" then (.[0].clubId // .[0].clubInfo.clubId // empty) else empty end' out.json 2>/dev/null || true)
+          if [ -z "$id" ]; then
+            echo "::warning::No se obtuvo el id del club (bloqueo o nombre distinto)."
+            exit 0
+          fi
+          echo "::notice::Club encontrado: id $id"
+          probe "$base/clubs/info?platform=$PLATFORM&clubIds=$id" "Info del club"
+          probe "$base/clubs/matches?platform=$PLATFORM&clubIds=$id&matchType=leagueMatch" "Partidos de liga"
+          jq -r 'if type=="array" then "partidos: \(length) · jugadores en el primero: \((.[0].players // {} | to_entries | first | .value // {} | keys | length))" else "respuesta no es una lista" end' out.json 2>/dev/null \
+            | sed 's/^/::notice::/' || true
+          probe "$base/members/stats?platform=$PLATFORM&clubId=$id" "Estadísticas de miembros"

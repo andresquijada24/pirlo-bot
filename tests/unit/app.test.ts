@@ -114,3 +114,25 @@ describe('POST /api/cron/sync', () => {
     expect((await call(app, SECRET)).status).toBe(502);
   });
 });
+
+describe('POST /api/cron/tick', () => {
+  const SECRET = 'secreto-de-prueba-largo';
+  const make = (tick: (() => Promise<{ sent: number; skipped: number; failed: number }>) | null) =>
+    createApp({ discordPublicKey: '0'.repeat(64), repos: null, cron: { secret: SECRET, sync: null, tick } });
+  const call = (app: ReturnType<typeof make>, token?: string) =>
+    app.request('/api/cron/tick', { method: 'POST', headers: token ? { authorization: `Bearer ${token}` } : {} });
+
+  it('exige el CRON_SECRET', async () => {
+    let calls = 0;
+    const app = make(async () => (calls++, { sent: 0, skipped: 0, failed: 0 }));
+    expect((await call(app)).status).toBe(401);
+    expect((await call(app, 'otro')).status).toBe(401);
+    expect(calls).toBe(0);
+  });
+
+  it('devuelve los conteos de recordatorios', async () => {
+    const res = await call(make(async () => ({ sent: 2, skipped: 1, failed: 0 })), SECRET);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ status: 'ok', sent: 2, skipped: 1, failed: 0 });
+  });
+});

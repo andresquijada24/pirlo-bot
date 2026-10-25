@@ -6,6 +6,8 @@ import { createSupabaseRepositories } from '../src/db/repositories/supabase.js';
 import { logger } from '../src/lib/logger.js';
 import { MaritimoStatsProvider } from '../src/providers/maritimo/provider.js';
 import { runSync } from '../src/sync/engine.js';
+import { createDiscordPoster } from '../src/discord/poster.js';
+import { runReminders } from '../src/jobs/reminders.js';
 
 /** Punto de entrada en Vercel. vercel.json reescribe /api/* hacia esta función. */
 const env = loadEnv();
@@ -35,6 +37,15 @@ const app = createApp({
       repos && maritimo
         ? () => runSync({ repo: repos.sync, provider: maritimo.provider, clubId: maritimo.clubId, log: logger })
         : null,
+    tick: repos
+      ? () =>
+          runReminders({
+            repos,
+            poster: createDiscordPoster(env.DISCORD_BOT_TOKEN),
+            blockedGuilds: new Set(env.POSTING_BLOCKED_GUILDS?.split(',') ?? []),
+            log: logger,
+          })
+      : null,
   },
 });
 

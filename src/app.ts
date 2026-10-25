@@ -8,6 +8,7 @@ import type { ComponentHandler, SlashCommand } from './discord/commands/types.js
 import { routeInteraction } from './discord/router.js';
 import { verifyDiscordRequest } from './discord/verify.js';
 import type { SyncResult } from './sync/engine.js';
+import type { ReminderResult } from './jobs/reminders.js';
 
 export interface AppDeps {
   discordPublicKey: string;
@@ -17,7 +18,12 @@ export interface AppDeps {
   components?: ReadonlyMap<string, ComponentHandler>;
   log?: { warn: (obj: object, msg: string) => void; error: (obj: object, msg: string) => void };
   /** Tarea programada de sincronización. `sync` es null si el proveedor no está configurado. */
-  cron?: { secret: string | undefined; sync: (() => Promise<SyncResult>) | null };
+  cron?: {
+    secret: string | undefined;
+    sync: (() => Promise<SyncResult>) | null;
+    /** Recordatorios; null si no hay base de datos. */
+    tick?: (() => Promise<ReminderResult>) | null;
+  };
 }
 
 /** Compara el token sin filtrar información por el tiempo de respuesta. */
@@ -68,12 +74,33 @@ export function createApp(deps: AppDeps) {
    * Protegida con `Authorization: Bearer <CRON_SECRET>`. Nunca devuelve secretos ni datos de
    * jugadores: solo conteos y el estado.
    */
-  app.post('/api/cron/sync', async (c) => {
+  /** null si la petición está autorizada; si no, la respuesta de error. */
+  const cronAuth = (header: string | undefined) => {
     const secret = deps.cron?.secret;
-    if (!secret) return c.json({ error: 'CRON_SECRET no configurado' }, 503);
-    const auth = c.req.header('authorization') ?? '';
+    if (!secret) return { body: { error: 'CRON_SECRET no configurado' }, status: 503 as const };
+    const auth = header ?? '';
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-    if (!token || !sameSecret(token, secret)) return c.json({ error: 'No autorizado' }, 401);
+    if (!token || !sameSecret(token, secret)) return { body: { error: 'No autorizado' }, status: 401 as const };
+    return null;
+  };
+
+  // Recordatorios de convocatorias (lo llama el mismo workflow programado).
+  app.post('/api/cron/tick', async (c) => {
+    const denied = cronAuth(c.req.header('authorization'));
+    if (denied) return c.json(denied.body, denied.status);
+    const tick = deps.cron?.tick;
+    if (!tick) return c.json({ status: 'omitida', message: 'Base de datos no configurada' });
+    try {
+      return c.json({ status: 'ok', ...(await tick()) });
+    } catch (err) {
+      deps.log?.error({ err }, 'Fallo en los recordatorios');
+      return c.json({ status: 'error', message: 'Error interno' }, 500);
+    }
+  });
+
+  app.post('/api/cron/sync', async (c) => {
+    const denied = cronAuth(c.req.header('authorization'));
+    if (denied) return c.json(denied.body, denied.status);
 
     const sync = deps.cron?.sync;
     if (!sync) return c.json({ status: 'omitida', message: 'Proveedor no configurado' });

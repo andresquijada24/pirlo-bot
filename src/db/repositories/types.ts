@@ -38,6 +38,9 @@ export interface ClubRepository {
   listByGuild(guildId: string): Promise<Club[]>;
   register(input: RegisterClubInput): Promise<{ clubId: string; membershipId: string }>;
   setTimezone(clubId: string, timezone: string): Promise<void>;
+  /** null desactiva los recordatorios. */
+  setReminderMinutes(clubId: string, minutes: number | null): Promise<void>;
+  findById(clubId: string): Promise<Club | null>;
   /** Conecta un club existente (por identificador) a otro servidor. Solo un admin del club. Devuelve el id. */
   connectGuild(input: { slug: string; guildId: string; guildName: string | null; actorDiscordId: string }): Promise<string>;
 }
@@ -140,6 +143,20 @@ export interface LineupRepository {
   publish(clubId: string, lineupId: string, actorDiscordId: string): Promise<void>;
 }
 
+export interface DueReminder {
+  clubId: string;
+  callupId: string;
+  guildId: string;
+  channelId: string;
+}
+
+/** Recordatorios de convocatorias. due() recorre todos los clubes: solo lo usa la tarea programada. */
+export interface ReminderRepository {
+  due(limit: number): Promise<DueReminder[]>;
+  /** Marca la convocatoria como recordada; false si otra tarea ya lo hizo. */
+  claim(clubId: string, callupId: string): Promise<boolean>;
+}
+
 export interface StatsRepository {
   /** Totales por temporada a nivel sesión. seasonId null = todas (incluye sesiones sin temporada). */
   sessionRows(clubId: string, seasonId: string | null): Promise<SessionStatRow[]>;
@@ -166,4 +183,5 @@ export interface Repositories {
   sync: SyncRepository;
   callups: CallupRepository;
   lineups: LineupRepository;
+  reminders: ReminderRepository;
 }

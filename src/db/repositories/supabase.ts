@@ -5,6 +5,7 @@ import type { Callup, Club, LinkRequest, Lineup, Membership, Season } from '../.
 import { check } from '../errors.js';
 import type {
   AuditRepository,
+  ReminderRepository,
   CallupRepository,
   LineupRepository,
   ChannelRepository,
@@ -33,6 +34,7 @@ const clubRow = z.object({
   status: z.enum(['activo', 'inactivo']),
   stats_provider: z.enum(['maritimo', 'ourproclub', 'ea', 'manual']),
   timezone: z.string(),
+  reminder_minutes: z.number().int().nullable(),
 });
 const toClub = (r: z.infer<typeof clubRow>): Club => ({
   id: r.id,
@@ -41,8 +43,9 @@ const toClub = (r: z.infer<typeof clubRow>): Club => ({
   status: r.status,
   statsProvider: r.stats_provider,
   timezone: r.timezone,
+  reminderMinutes: r.reminder_minutes,
 });
-const CLUB_COLUMNS = 'id, slug, name, status, stats_provider, timezone';
+const CLUB_COLUMNS = 'id, slug, name, status, stats_provider, timezone, reminder_minutes';
 
 const membershipRow = z.object({
   id: z.string().uuid(),
@@ -241,6 +244,13 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
     },
     async setTimezone(clubId, timezone) {
       check(await db.from('clubs').update({ timezone }).eq('id', clubId));
+    },
+    async setReminderMinutes(clubId, minutes) {
+      check(await db.from('clubs').update({ reminder_minutes: minutes }).eq('id', clubId));
+    },
+    async findById(clubId) {
+      const row = check(await db.from('clubs').select(CLUB_COLUMNS).eq('id', clubId).maybeSingle());
+      return row ? toClub(clubRow.parse(row)) : null;
     },
     async register(input) {
       const rows = check(
@@ -729,7 +739,29 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
     },
   };
 
+  const reminders: ReminderRepository = {
+    async due(limit) {
+      const rows = check(await db.rpc('due_callup_reminders', { p_limit: limit }));
+      return z
+        .array(
+          z.object({
+            club_id: z.string().uuid(),
+            callup_id: z.string().uuid(),
+            guild_id: z.string(),
+            channel_id: z.string(),
+          }),
+        )
+        .parse(rows)
+        .map((r) => ({ clubId: r.club_id, callupId: r.callup_id, guildId: r.guild_id, channelId: r.channel_id }));
+    },
+    async claim(clubId, callupId) {
+      const r = check(await db.rpc('claim_callup_reminder', { p_club_id: clubId, p_callup_id: callupId }));
+      return z.boolean().parse(r);
+    },
+  };
+
   return {
+    reminders,
     clubs,
     memberships,
     linkRequests,

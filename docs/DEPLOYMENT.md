@@ -17,6 +17,13 @@
    Portal → *General Information* → *Interactions Endpoint URL*. Discord envía un PING firmado
    para validarlo.
 
+## Tareas programadas
+
+El workflow **Sincronizar Marítimo** (cada 15 min) llama a `/api/cron/sync` y después a
+`/api/cron/tick` (recordatorios de convocatorias). Los recordatorios están desactivados por
+defecto: cada admin los activa con `/club recordatorios`. El bot nunca publica por su cuenta en el
+servidor de referencia ni en los listados en `POSTING_BLOCKED_GUILDS`.
+
 ## Sincronización con Marítimo
 
 1. Vercel: `MARITIMO_API_BASE_URL`, `MARITIMO_API_KEY`, `MARITIMO_CLUB_ID` y `CRON_SECRET`

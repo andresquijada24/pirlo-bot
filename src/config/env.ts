@@ -23,6 +23,8 @@ const EnvSchema = z.object({
   OURPROCLUB_API_KEY: z.string().min(1).optional(),
 
   CRON_SECRET: z.string().min(16).optional(),
+  /** Servidores (IDs separados por coma) donde el bot nunca publica por su cuenta. */
+  POSTING_BLOCKED_GUILDS: z.string().regex(/^\d{17,20}(,\d{17,20})*$/).optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

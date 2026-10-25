@@ -130,3 +130,21 @@ export async function setClubTimezone(
   await repos.clubs.setTimezone(ctx.club.id, tz);
   return tz;
 }
+
+/** Activa (15–1440 minutos antes) o desactiva (0) los recordatorios automáticos. Solo admin. */
+export async function setReminderMinutes(
+  repos: Pick<Repositories, 'clubs'>,
+  ctx: ClubContext,
+  minutes: number,
+): Promise<number | null> {
+  assertCan(ctx, 'club.configure');
+  if (minutes === 0) {
+    await repos.clubs.setReminderMinutes(ctx.club.id, null);
+    return null;
+  }
+  if (!Number.isInteger(minutes) || minutes < 15 || minutes > 1440) {
+    throw validation('Indica entre 15 y 1440 minutos, o 0 para desactivar.');
+  }
+  await repos.clubs.setReminderMinutes(ctx.club.id, minutes);
+  return minutes;
+}

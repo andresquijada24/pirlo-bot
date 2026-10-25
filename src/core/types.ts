@@ -40,6 +40,8 @@ export interface Club {
   statsProvider: 'maritimo' | 'ourproclub' | 'ea' | 'manual';
   /** Zona horaria IANA con la que se interpretan las fechas que escribe el club. */
   timezone: string;
+  /** Minutos antes de cada convocatoria en que se publica un recordatorio. null = desactivado. */
+  reminderMinutes: number | null;
 }
 
 export interface Membership {

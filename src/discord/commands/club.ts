@@ -1,10 +1,10 @@
 import { configureChannel, connectClubToGuild, registerClub } from '../../core/clubs/service.js';
-import { setClubTimezone } from '../../core/callups/service.js';
+import { setClubTimezone, setReminderMinutes } from '../../core/callups/service.js';
 import { assertCan, can } from '../../core/permissions/index.js';
 import { listSeasons } from '../../core/seasons/service.js';
 import { CHANNEL_PURPOSES, type ChannelPurpose } from '../../core/types.js';
 import { CHANNEL_ANNOUNCEMENT, CHANNEL_TEXT, CONTEXT_GUILD, OT } from '../constants.js';
-import { optId, optString } from '../interaction.js';
+import { optId, optInteger, optString } from '../interaction.js';
 import { embed, escapeMd, ok, reply } from '../responses.js';
 import { clubOption, contextFor, ROLE_LABELS } from './common.js';
 import type { SlashCommand } from './types.js';
@@ -104,6 +104,22 @@ export const clubCommand: SlashCommand = {
       },
       {
         type: OT.Subcommand,
+        name: 'recordatorios',
+        description: 'Recordatorio automático antes de cada convocatoria (solo admin)',
+        options: [
+          {
+            type: OT.Integer,
+            name: 'minutos',
+            description: 'Minutos antes del inicio (15 a 1440). 0 desactiva.',
+            required: true,
+            min_value: 0,
+            max_value: 1440,
+          },
+          clubOption,
+        ],
+      },
+      {
+        type: OT.Subcommand,
         name: 'zona',
         description: 'Zona horaria con la que se leen las horas de convocatorias (solo admin)',
         options: [
@@ -152,6 +168,11 @@ export const clubCommand: SlashCommand = {
         const fields = [
           { name: 'Identificador', value: `\`${c.club.slug}\``, inline: true },
           { name: 'Zona horaria', value: c.club.timezone, inline: true },
+          {
+            name: 'Recordatorios',
+            value: c.club.reminderMinutes ? `${c.club.reminderMinutes} min antes` : 'Desactivados',
+            inline: true,
+          },
           { name: 'Temporada actual', value: current ? escapeMd(current.name) : 'Sin definir', inline: true },
           {
             name: 'Tu rol',
@@ -178,6 +199,21 @@ export const clubCommand: SlashCommand = {
         const channelId = optId(ctx.command, 'canal') ?? '';
         await configureChannel(ctx.repos, c, purpose, channelId);
         return ok(`Canal de ${PURPOSE_LABELS[purpose].toLowerCase()}: <#${channelId}>.`);
+      }
+
+      case 'recordatorios': {
+        const c = await contextFor(ctx);
+        const minutes = await setReminderMinutes(ctx.repos, c, optInteger(ctx.command, 'minutos') ?? -1);
+        if (minutes === null) return ok('Recordatorios desactivados.');
+        const channels = await ctx.repos.channels.list(c.club.id);
+        const target =
+          channels.find((ch) => ch.purpose === 'recordatorios') ?? channels.find((ch) => ch.purpose === 'convocatorias');
+        return ok(
+          `Recordatorios activados: ${minutes} minutos antes de cada convocatoria, mencionando solo a quien no respondió.` +
+            (target
+              ? ` Se publicarán en <#${target.channelId}>.`
+              : '\n⚠️ Falta el canal: usa `/club canal` con uso **Recordatorios** o **Convocatorias**.'),
+        );
       }
 
       case 'zona': {

@@ -106,3 +106,19 @@ export interface CallupResponse {
   playerId: string;
   answer: CallupAnswer;
 }
+
+export interface LineupSlot {
+  slot: number;
+  position: PositionCode | null;
+  playerId: string | null;
+  substitute: boolean;
+}
+
+export interface Lineup {
+  id: string;
+  clubId: string;
+  callupId: string | null;
+  formation: string;
+  status: 'borrador' | 'publicada';
+  slots: LineupSlot[];
+}

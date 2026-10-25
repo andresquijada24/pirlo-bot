@@ -15,7 +15,7 @@ Discord funcionando en el servidor de pruebas. Siguiente: Fase 5 (MARÍTIMO CF c
 | Comando | Quién |
 | --- | --- |
 | `/pirlo ayuda` | Todos |
-| `/club registrar` · `/club info` · `/club canal` | Gestor del servidor · todos · admin |
+| `/club registrar` · `/club conectar` · `/club info` · `/club canal` | Gestor del servidor · gestor del servidor y admin del club · todos · admin |
 | `/vincular` · `/solicitudes` (con botones) | Todos · DT/admin |
 | `/plantilla ver` · `rol` · `posiciones` · `baja` | Miembros · DT/admin · cada jugador · DT/admin |
 | `/temporada crear` · `/temporada fechas` · `/temporada ver` | Admin · admin · todos |

@@ -203,6 +203,17 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
         .parse(rows);
       return { clubId: row!.club_id, membershipId: row!.membership_id };
     },
+    async connectGuild(input) {
+      const id = check(
+        await db.rpc('connect_club_guild', {
+          p_slug: input.slug,
+          p_guild_id: input.guildId,
+          p_guild_name: input.guildName,
+          p_actor_discord_id: input.actorDiscordId,
+        }),
+      );
+      return z.string().uuid().parse(id);
+    },
   };
 
   const activeMemberships = (clubId: string) =>

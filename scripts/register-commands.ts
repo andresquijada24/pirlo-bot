@@ -11,6 +11,10 @@
  *   CONFIRM_GLOBAL=yes npm run commands:register -- --global
  *
  * Solo necesita DISCORD_APPLICATION_ID, DISCORD_BOT_TOKEN y (para pruebas) DISCORD_DEV_GUILD_ID.
+ *
+ * Servidores reales de clubes: DISCORD_CLUB_GUILD_IDS (IDs separados por comas, variable del
+ * repositorio que fija el dueño). Ahí también se registran, por servidor (instantáneo y sin tocar
+ * ningún otro servidor). Incluir un ID en esa lista es la autorización explícita para ese servidor.
  */
 import { DiscordAPIError, REST } from '@discordjs/rest';
 import { Routes } from 'discord-api-types/v10';
@@ -39,6 +43,11 @@ const env = z
       .trim()
       .regex(/^\d{17,20}$/, 'DISCORD_DEV_GUILD_ID debe ser un ID numérico de 17 a 20 dígitos')
       .optional(),
+    DISCORD_CLUB_GUILD_IDS: z
+      .string()
+      .trim()
+      .regex(/^\d{17,20}(\s*,\s*\d{17,20})*$/, 'DISCORD_CLUB_GUILD_IDS: IDs numéricos separados por comas')
+      .optional(),
   })
   .safeParse(Object.fromEntries(Object.entries(process.env).filter(([, v]) => v)));
 
@@ -47,6 +56,7 @@ if (!env.success) {
 }
 
 const { DISCORD_APPLICATION_ID: appId, DISCORD_BOT_TOKEN: token, DISCORD_DEV_GUILD_ID: guildId } = env.data;
+const clubGuildIds = [...new Set((env.data.DISCORD_CLUB_GUILD_IDS ?? '').split(',').map((g) => g.trim()).filter(Boolean))];
 const isGlobal = process.argv.includes('--global');
 const body = commands.map((c) => c.definition);
 const rest = new REST({ version: '10' }).setToken(token);
@@ -79,6 +89,14 @@ async function main() {
   await rest.put(Routes.applicationGuildCommands(appId, guildId), { body });
   console.log(`Registrados ${body.length} comandos en el servidor de pruebas:`);
   for (const c of body) console.log(`  /${c.name}`);
+
+  // Servidores reales de clubes autorizados por el dueño (variable DISCORD_CLUB_GUILD_IDS).
+  for (const id of clubGuildIds.filter((g) => g !== guildId)) {
+    const where = guilds.find((g) => g.id === id);
+    if (!where) fail(`PIRLO BOT no está en el servidor ${id}: invítalo antes de registrar los comandos allí.`);
+    await rest.put(Routes.applicationGuildCommands(appId, id), { body });
+    console.log(`Registrados ${body.length} comandos en el servidor del club "${where.name}" (${id}).`);
+  }
 }
 
 main().catch((err: unknown) => {

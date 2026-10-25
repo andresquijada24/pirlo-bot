@@ -26,7 +26,7 @@ const HELP = [
   '**Información**',
   '`/club info` · `/temporada ver` · `/club zona` (zona horaria)',
   '',
-  'Próximamente: recordatorios automáticos.',
+  '`/club recordatorios` — aviso automático antes de cada convocatoria (admin)',
 ].join('\n');
 
 export const pirloCommand: SlashCommand = {

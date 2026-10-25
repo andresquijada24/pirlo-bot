@@ -37,6 +37,7 @@ export function createMemoryRepos() {
     callups: [] as Callup[],
     callupResponses: [] as (CallupResponse & { clubId: string; callupId: string })[],
     lineups: [] as Lineup[],
+    remindedCallups: new Set<string>(),
   };
 
   const activeIn = (clubId: string) => state.memberships.filter((m) => m.clubId === clubId && m.active);
@@ -47,6 +48,14 @@ export function createMemoryRepos() {
       async listByGuild(guildId) {
         const ids = state.clubGuilds.filter((cg) => cg.guildId === guildId).map((cg) => cg.clubId);
         return state.clubs.filter((c) => ids.includes(c.id));
+      },
+      async setReminderMinutes(clubId, minutes) {
+        const c = state.clubs.find((x) => x.id === clubId);
+        if (c) c.reminderMinutes = minutes;
+      },
+      async findById(clubId) {
+        const c = state.clubs.find((x) => x.id === clubId);
+        return c ? { ...c } : null;
       },
       async setTimezone(clubId, timezone) {
         const c = state.clubs.find((x) => x.id === clubId);
@@ -67,6 +76,7 @@ export function createMemoryRepos() {
           status: 'activo',
           statsProvider: 'manual',
           timezone: 'America/Caracas',
+          reminderMinutes: null,
         };
         state.clubs.push(club);
         state.clubGuilds.push({ clubId: club.id, guildId: input.guildId });
@@ -378,6 +388,28 @@ export function createMemoryRepos() {
         const l = state.lineups.find((x) => x.clubId === clubId && x.id === lineupId);
         if (!l) throw notFound('Alineación');
         l.status = 'publicada';
+      },
+    },
+
+    reminders: {
+      async due(limit) {
+        const now = Date.now();
+        const out = [];
+        for (const c of state.callups) {
+          const club = state.clubs.find((x) => x.id === c.clubId);
+          if (!club || club.reminderMinutes === null || c.status !== 'abierta' || state.remindedCallups.has(c.id)) continue;
+          const start = Date.parse(c.startsAt);
+          if (now < start - club.reminderMinutes * 60_000 || now >= start) continue;
+          const channels = state.channels.filter((ch) => ch.clubId === c.clubId);
+          const ch = channels.find((x) => x.purpose === 'recordatorios') ?? channels.find((x) => x.purpose === 'convocatorias');
+          if (ch) out.push({ clubId: c.clubId, callupId: c.id, guildId: ch.guildId, channelId: ch.channelId });
+        }
+        return out.slice(0, limit);
+      },
+      async claim(_clubId, callupId) {
+        if (state.remindedCallups.has(callupId)) return false;
+        state.remindedCallups.add(callupId);
+        return true;
       },
     },
 

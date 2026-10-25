@@ -21,7 +21,7 @@ Todos implementan el contrato `StatsProvider` de `src/providers/types.ts`.
 | --- | --- | --- | --- |
 | `maritimo` | API `api_v1` de solo lectura de maritimo.app | Sesión | Conector y sincronización listos y probados contra el contrato. **Pendiente**: que maritimo.app publique `api_v1`. |
 | `ourproclub` | Resúmenes de OurProClub | Sesión | Fase 6. Leerlos directamente de Discord requeriría permisos que hoy la regla 10 no permite. |
-| `ea` | — | — | Stub. EA rechaza las consultas desde servidores. |
+| `ea` | Pendiente de una fuente autorizada por EA | Partido | Consentimiento por club (`/club ea`) y procesamiento listos. **No se lee nada de EA**: EA no ofrece una API pública de Clubs y bloquea el acceso automático; se pidió acceso oficial en su foro. |
 | `manual` | Registro por DT/capitán desde Discord | Partido | Fase 7. |
 
 ## MARÍTIMO CF
@@ -65,3 +65,19 @@ Todos implementan el contrato `StatsProvider` de `src/providers/types.ts`.
 - Un DT o admin puede vincularlo después con `/plantilla gamertag`. Las estadísticas ya
   importadas pasan al jugador en ese momento, y las nuevas llegan asignadas.
 - Un gamertag nunca se reasigna en silencio: si ya pertenece a otro jugador del club, se rechaza.
+
+## EA SPORTS (Pro Clubs)
+
+- **Regla**: PIRLO no esquiva protecciones de EA. Solo procesará partidos que lleguen por una vía
+  autorizada por EA. Hasta entonces la captura está parada (el puente `bridge/` está apagado: EA
+  responde 403 a las peticiones automáticas).
+- **Consentimiento por club**: un admin vincula su club de EA con `/club ea vincular` (tabla
+  `club_ea_links`, versión de consentimiento `v1`, auditado). Un club de EA pertenece a un único
+  club de PIRLO. `/club ea retirar` detiene el procesamiento y conserva lo ya procesado.
+- **Captura**: `POST /api/ingest/ea` solo guarda partidos de clubes de EA con consentimiento
+  (403 en otro caso) en `ea_match_cache`.
+- **Procesamiento**: la tarea programada (`/api/cron/tick`) convierte la caché en `ea_matches` y
+  `ea_match_players` de cada club (`src/providers/ea/matches.ts`). Datos ausentes = `NULL`.
+- **Rivales**: nombre, marcador, gamertags y estadísticas se guardan solo dentro del club que jugó
+  el partido; nunca entran en rankings ni estadísticas de la plantilla, y sus gamertags no se
+  muestran en páginas públicas.

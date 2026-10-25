@@ -13,7 +13,8 @@ import type {
 } from '../../core/types.js';
 import type { SessionStatRow } from '../../core/stats/service.js';
 import type { SyncRepository } from '../../sync/types.js';
-import type { CachedMatch } from '../../providers/ea/ingest.js';
+import type { CachedMatch, EA_PLATFORMS } from '../../providers/ea/ingest.js';
+import type { ProcessedEaMatch } from '../../providers/ea/matches.js';
 
 /**
  * Contratos de acceso a datos.
@@ -172,6 +173,40 @@ export interface EaCaptureRepository {
   store(matches: CachedMatch[]): Promise<number>;
 }
 
+export interface EaLink {
+  clubId: string;
+  platform: (typeof EA_PLATFORMS)[number];
+  eaClubId: string;
+  consentedBy: string;
+  consentedAt: string;
+}
+
+export interface EaMatchSummary {
+  matchId: string;
+  matchType: ProcessedEaMatch['matchType'];
+  playedAt: string;
+  goalsFor: number | null;
+  goalsAgainst: number | null;
+  result: ProcessedEaMatch['result'];
+  opponentName: string | null;
+}
+
+/** Enlace (con consentimiento) de cada club con su club de EA y partidos ya procesados. */
+export interface EaRepository {
+  link(clubId: string, platform: EaLink['platform'], eaClubId: string, actorDiscordId: string): Promise<void>;
+  /** false si el club no estaba vinculado. */
+  unlink(clubId: string, actorDiscordId: string): Promise<boolean>;
+  getLink(clubId: string): Promise<EaLink | null>;
+  /** ¿Algún club de PIRLO dio su consentimiento para este club de EA? */
+  consented(platform: string, eaClubId: string): Promise<boolean>;
+  /** Todos los enlaces: solo lo usa la tarea programada. */
+  listLinks(): Promise<EaLink[]>;
+  pending(clubId: string, limit: number): Promise<CachedMatch[]>;
+  /** Guarda un partido procesado; false si ya existía. */
+  apply(clubId: string, match: ProcessedEaMatch): Promise<boolean>;
+  recent(clubId: string, limit: number): Promise<EaMatchSummary[]>;
+}
+
 export interface StatsRepository {
   /** Totales por temporada a nivel sesión. seasonId null = todas (incluye sesiones sin temporada). */
   sessionRows(clubId: string, seasonId: string | null): Promise<SessionStatRow[]>;
@@ -200,4 +235,5 @@ export interface Repositories {
   lineups: LineupRepository;
   reminders: ReminderRepository;
   eaCapture: EaCaptureRepository;
+  ea: EaRepository;
 }

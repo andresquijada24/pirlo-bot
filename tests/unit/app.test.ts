@@ -160,8 +160,25 @@ describe('POST /api/ingest/ea', () => {
     expect((await call(app, 'otra')).status).toBe(401);
   });
 
+  it('sin el consentimiento de un club de PIRLO no guarda nada', async () => {
+    const env = createMemoryRepos();
+    const app = createApp({ discordPublicKey: '0'.repeat(64), repos: env.repos, eaBridgeToken: TOKEN });
+    expect((await call(app, TOKEN)).status).toBe(403);
+    expect(env.state.eaCache.size).toBe(0);
+  });
+
   it('guarda una vez y no duplica', async () => {
-    const app = createApp({ discordPublicKey: '0'.repeat(64), repos: createMemoryRepos().repos, eaBridgeToken: TOKEN });
+    const env = createMemoryRepos();
+    const club = await env.repos.clubs.register({
+      guildId: '900000000000000001',
+      guildName: null,
+      slug: 'club-ea',
+      name: 'Club EA',
+      adminDiscordId: '800000000000000001',
+      adminDisplayName: 'Admin',
+    });
+    await env.repos.ea.link(club.clubId, 'common-gen5', '111', '800000000000000001');
+    const app = createApp({ discordPublicKey: '0'.repeat(64), repos: env.repos, eaBridgeToken: TOKEN });
     expect(await (await call(app, TOKEN)).json()).toEqual({ received: 1, stored: 1, rejected: 0 });
     expect(await (await call(app, TOKEN)).json()).toEqual({ received: 1, stored: 0, rejected: 0 });
     expect((await call(app, TOKEN, '{"no":"vale"}')).status).toBe(400);

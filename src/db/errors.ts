@@ -17,6 +17,7 @@ const UNIQUE_MESSAGES: Record<string, string> = {
   club_channels_club_id_purpose_key: 'Ese propósito ya tiene un canal asignado.',
   provider_sync_runs_one_running: 'Ya hay una sincronización en curso.',
   external_players_one_link: 'Ese jugador ya está vinculado a otra ficha del proveedor.',
+  club_ea_links_platform_ea_club_id_key: 'Ese club de EA ya está vinculado a otro club de PIRLO.',
 };
 
 /**

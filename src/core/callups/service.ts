@@ -74,6 +74,18 @@ export async function respondCallup(
   await repos.callups.respond(ctx.club.id, callupId, ctx.membership.playerId, answer);
 }
 
+/** Cancela la próxima convocatoria (abierta o cerrada). Capitán o superior. */
+export async function cancelNextCallup(
+  repos: Pick<Repositories, 'callups'>,
+  ctx: ClubContext,
+): Promise<Callup> {
+  assertCan(ctx, 'callup.manage');
+  const next = await repos.callups.next(ctx.club.id);
+  if (!next) throw new DomainError('NOT_FOUND', 'No hay ninguna convocatoria próxima que cancelar.');
+  await repos.callups.cancel(ctx.club.id, next.id, ctx.actor.discordUserId);
+  return { ...next, status: 'cancelada' };
+}
+
 export async function closeCallup(repos: Repos, ctx: ClubContext, callupId: string): Promise<void> {
   assertCan(ctx, 'callup.manage');
   await repos.callups.close(ctx.club.id, callupId, ctx.actor.discordUserId);

@@ -20,7 +20,7 @@ const HELP = [
   '',
   '**Partidos**',
   '`/convocatoria crear` — convoca con botones Voy / Duda / No voy (capitán o superior)',
-  '`/convocatoria ver` · `lista` — muestra las convocatorias abiertas',
+  '`/convocatoria ver` · `lista` · `cancelar` — convocatorias abiertas',
   '`/alineacion crear` · `poner` · `suplente` · `quitar` · `publicar` — alineación (DT/admin)',
   '',
   '**Información**',

@@ -23,7 +23,9 @@ function fakePoster(fail = false) {
     async post(channelId, body) {
       if (fail) throw new DiscordPostError(403);
       posts.push({ channelId, body });
+      return { id: `95000000000000000${posts.length}` };
     },
+    async edit() {},
   };
   return { posts, poster };
 }
@@ -92,6 +94,8 @@ describe('runReminders', () => {
     expect(posts[0]!.body.content).not.toMatch(`<@${OWNER.userId}>`);
     expect(posts[0]!.body.allowed_mentions).toEqual({ parse: [], users: [PLAYER.userId] });
     expect((posts[0]!.body.components as unknown[]).length).toBe(1);
+    // El recordatorio queda registrado para sincronizar su tablero después.
+    expect(env.state.callupMessages).toEqual([{ clubId, callupId: id, channelId: CHANNEL, messageId: '950000000000000001' }]);
     expect(await runReminders({ repos: env.repos, poster, blockedGuilds: new Set() })).toEqual({ sent: 0, skipped: 0, failed: 0 });
   });
 
@@ -126,7 +130,7 @@ describe('createDiscordPoster', () => {
       calls.push({ url, auth: new Headers(init?.headers).get('authorization') });
       return new Response('{}', { status: 200 });
     }) as unknown as typeof fetch;
-    await createDiscordPoster('token-ficticio', ok).post(CHANNEL, { content: 'x' });
+    expect(await createDiscordPoster('token-ficticio', ok).post(CHANNEL, { content: 'x' })).toEqual({ id: null });
     expect(calls[0]).toEqual({ url: `https://discord.com/api/v10/channels/${CHANNEL}/messages`, auth: 'Bot token-ficticio' });
 
     const denied = (async () =>

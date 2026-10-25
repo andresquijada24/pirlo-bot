@@ -681,6 +681,36 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
         }),
       );
     },
+    async cancel(clubId, callupId, actorDiscordId) {
+      check(
+        await db.rpc('cancel_callup', { p_club_id: clubId, p_callup_id: callupId, p_actor_discord_id: actorDiscordId }),
+      );
+    },
+    async recordMessage(clubId, callupId, channelId, messageId) {
+      check(
+        await db
+          .from('callup_messages')
+          .upsert(
+            { club_id: clubId, callup_id: callupId, channel_id: channelId, message_id: messageId },
+            { onConflict: 'callup_id,message_id', ignoreDuplicates: true },
+          ),
+      );
+    },
+    async messages(clubId, callupId) {
+      const rows = check(
+        await db
+          .from('callup_messages')
+          .select('channel_id, message_id')
+          .eq('club_id', clubId)
+          .eq('callup_id', callupId)
+          .order('created_at')
+          .limit(20),
+      );
+      return z
+        .array(z.object({ channel_id: z.string(), message_id: z.string() }))
+        .parse(rows)
+        .map((r) => ({ channelId: r.channel_id, messageId: r.message_id }));
+    },
     async close(clubId, callupId, actorDiscordId) {
       check(
         await db.rpc('close_callup', { p_club_id: clubId, p_callup_id: callupId, p_actor_discord_id: actorDiscordId }),

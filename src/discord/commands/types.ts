@@ -7,12 +7,15 @@ import type {
 import type { Actor } from '../../core/types.js';
 import type { Repositories } from '../../db/repositories/types.js';
 import type { ParsedCommand } from '../interaction.js';
+import type { ChannelPoster } from '../poster.js';
 
 export interface CommandContext {
   interaction: APIChatInputApplicationCommandInteraction;
   command: ParsedCommand;
   actor: Actor;
   repos: Repositories;
+  /** Para editar o publicar mensajes con el token del bot; puede faltar (pruebas, sin token). */
+  discord?: ChannelPoster;
 }
 
 export interface SlashCommand {
@@ -29,6 +32,7 @@ export interface ComponentContext {
   args: string[];
   actor: Actor;
   repos: Repositories;
+  discord?: ChannelPoster;
 }
 
 /** Manejador de botones. Se elige por el prefijo del custom_id ("prefijo:arg1:arg2"). */

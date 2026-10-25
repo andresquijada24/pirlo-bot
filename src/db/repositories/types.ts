@@ -121,6 +121,10 @@ export interface CallupRepository {
   /** Lanza CONFLICT si está cerrada o fuera de plazo. */
   respond(clubId: string, callupId: string, playerId: string, answer: CallupAnswer): Promise<void>;
   close(clubId: string, callupId: string, actorDiscordId: string): Promise<void>;
+  cancel(clubId: string, callupId: string, actorDiscordId: string): Promise<void>;
+  /** Recuerda un mensaje de Discord que muestra el tablero (idempotente). */
+  recordMessage(clubId: string, callupId: string, channelId: string, messageId: string): Promise<void>;
+  messages(clubId: string, callupId: string): Promise<{ channelId: string; messageId: string }[]>;
 }
 
 export interface LineupRepository {

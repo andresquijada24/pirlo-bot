@@ -10,6 +10,7 @@ import type { ComponentHandler, SlashCommand } from './commands/types.js';
 import { IT, RT } from './constants.js';
 import { actorFrom, parseCommand } from './interaction.js';
 import { fail } from './responses.js';
+import type { ChannelPoster } from './poster.js';
 
 /** ApplicationCommandType.ChatInput (comandos slash). */
 const CHAT_INPUT = 1;
@@ -20,6 +21,8 @@ export interface RouterDeps {
   /** Puede faltar si la base de datos no está configurada. */
   repos: Repositories | null;
   log?: { error: (obj: object, msg: string) => void };
+  /** Cliente REST del bot (editar tableros); opcional. */
+  discord?: ChannelPoster;
 }
 
 const NOT_IN_GUILD = 'PIRLO BOT solo funciona dentro de un servidor de Discord.';
@@ -72,6 +75,7 @@ async function runCommand(
     actor,
     // Si el comando no necesita base de datos, nunca accede a repos.
     repos: deps.repos as Repositories,
+    ...(deps.discord ? { discord: deps.discord } : {}),
   });
 }
 
@@ -85,5 +89,11 @@ async function runComponent(
   const actor = actorFrom(interaction);
   if (!actor) return fail(NOT_IN_GUILD);
   if (!deps.repos) return fail(NO_DATABASE);
-  return handler.handle({ interaction, args, actor, repos: deps.repos });
+  return handler.handle({
+    interaction,
+    args,
+    actor,
+    repos: deps.repos,
+    ...(deps.discord ? { discord: deps.discord } : {}),
+  });
 }

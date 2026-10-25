@@ -38,6 +38,7 @@ export function createMemoryRepos() {
     callupResponses: [] as (CallupResponse & { clubId: string; callupId: string })[],
     lineups: [] as Lineup[],
     remindedCallups: new Set<string>(),
+    callupMessages: [] as { clubId: string; callupId: string; channelId: string; messageId: string }[],
   };
 
   const activeIn = (clubId: string) => state.memberships.filter((m) => m.clubId === clubId && m.active);
@@ -319,6 +320,23 @@ export function createMemoryRepos() {
         const prev = state.callupResponses.find((r) => r.callupId === callupId && r.playerId === playerId);
         if (prev) prev.answer = answer;
         else state.callupResponses.push({ clubId, callupId, playerId, answer });
+      },
+      async cancel(clubId, callupId) {
+        const c = state.callups.find((x) => x.clubId === clubId && x.id === callupId);
+        if (!c) throw notFound('Convocatoria');
+        if (c.status === 'cancelada') throw conflict('La convocatoria ya estaba cancelada.');
+        c.status = 'cancelada';
+      },
+      async recordMessage(clubId, callupId, channelId, messageId) {
+        if (!state.callups.some((c) => c.clubId === clubId && c.id === callupId)) throw notFound('Convocatoria');
+        if (!state.callupMessages.some((m) => m.callupId === callupId && m.messageId === messageId)) {
+          state.callupMessages.push({ clubId, callupId, channelId, messageId });
+        }
+      },
+      async messages(clubId, callupId) {
+        return state.callupMessages
+          .filter((m) => m.clubId === clubId && m.callupId === callupId)
+          .map(({ channelId, messageId }) => ({ channelId, messageId }));
       },
       async close(clubId, callupId) {
         const c = state.callups.find((x) => x.clubId === clubId && x.id === callupId);

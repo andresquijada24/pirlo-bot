@@ -5,6 +5,7 @@ import type {
 } from 'discord-api-types/v10';
 import {
   callupBoard,
+  cancelNextCallup,
   closeCallup,
   createCallup,
   MAX_CLOSE_BEFORE_MINUTES,
@@ -15,7 +16,9 @@ import {
 import { resolveContext } from '../../core/context.js';
 import { notFound } from '../../core/errors.js';
 import { discordTime } from '../../core/time.js';
-import type { CallupAnswer, Membership } from '../../core/types.js';
+import type { CallupAnswer, ClubContext, Membership } from '../../core/types.js';
+import type { Repositories } from '../../db/repositories/types.js';
+import type { ChannelPoster } from '../poster.js';
 import {
   BUTTON_DANGER,
   BUTTON_SECONDARY,
@@ -54,7 +57,7 @@ export function boardEmbed(b: CallupBoard, clubName: string): APIEmbed {
     c.opponent ? `🆚 **${escapeMd(c.opponent)}**` : null,
     `🕘 ${discordTime(c.startsAt, 'F')} (${discordTime(c.startsAt, 'R')})`,
     b.open && c.closesAt ? `⏳ Respuestas hasta ${discordTime(c.closesAt, 'R')}` : null,
-    b.open ? null : '🔒 **Convocatoria cerrada**',
+    c.status === 'cancelada' ? '🚫 **Convocatoria cancelada**' : b.open ? null : '🔒 **Convocatoria cerrada**',
   ].filter(Boolean);
   return embed({
     title: `📋 ${escapeMd(c.title)} · ${escapeMd(clubName)}`,
@@ -67,6 +70,30 @@ export function boardEmbed(b: CallupBoard, clubName: string): APIEmbed {
     ],
     footer: { text: b.open ? 'Responde con los botones · puedes cambiar tu respuesta' : 'Ya no se aceptan respuestas' },
   });
+}
+
+/** Cuerpo de un mensaje de tablero (para editar los ya publicados). */
+export function boardMessage(b: CallupBoard, club: { name: string; slug: string }) {
+  return { embeds: [boardEmbed(b, club.name)], components: boardButtons(b, club.slug) };
+}
+
+/**
+ * Edita todos los mensajes que muestran el tablero de una convocatoria, salvo `except` (el que
+ * Discord ya actualiza con la respuesta a la interacción). Los fallos se ignoran: un mensaje
+ * borrado o un plazo agotado no debe impedir que el usuario reciba su respuesta.
+ */
+export async function syncBoards(
+  repos: Pick<Repositories, 'callups'>,
+  discord: ChannelPoster | undefined,
+  ctx: ClubContext,
+  board: CallupBoard,
+  except: string | null = null,
+): Promise<number> {
+  if (!discord) return 0;
+  const targets = (await repos.callups.messages(ctx.club.id, board.callup.id)).filter((m) => m.messageId !== except);
+  const body = boardMessage(board, ctx.club);
+  const results = await Promise.allSettled(targets.map((m) => discord.edit(m.channelId, m.messageId, body)));
+  return results.filter((r) => r.status === 'fulfilled').length;
 }
 
 export function boardButtons(
@@ -122,6 +149,12 @@ export const convocatoriaCommand: SlashCommand = {
       },
       {
         type: OT.Subcommand,
+        name: 'cancelar',
+        description: 'Cancela la próxima convocatoria (capitán o superior)',
+        options: [clubOption],
+      },
+      {
+        type: OT.Subcommand,
         name: 'lista',
         description: 'Próximas convocatorias abiertas',
         options: [clubOption],
@@ -157,6 +190,16 @@ export const convocatoriaCommand: SlashCommand = {
           embeds: [boardEmbed(board, c.club.name)],
           components: boardButtons(board, c.club.slug),
         });
+      }
+
+      case 'cancelar': {
+        const cancelled = await cancelNextCallup(ctx.repos, c);
+        const board = await callupBoard(ctx.repos, c, cancelled.id);
+        const updated = await syncBoards(ctx.repos, ctx.discord, c, board);
+        return ok(
+          `Convocatoria **${escapeMd(cancelled.title)}** (${discordTime(cancelled.startsAt, 'f')}) cancelada.` +
+            (updated ? ` Actualicé ${updated} tablero(s) en el canal.` : ''),
+        );
       }
 
       case 'lista': {
@@ -203,6 +246,13 @@ export const callupButtons: ComponentHandler = {
     }
 
     const board = await callupBoard(ctx.repos, c, callupId);
-    return updateWith({ embeds: [boardEmbed(board, c.club.name)], components: boardButtons(board, c.club.slug) });
+    // Se recuerda este mensaje (el original o un recordatorio) y se igualan los demás tableros.
+    const message = ctx.interaction.message;
+    const channelId = ctx.interaction.channel?.id ?? message?.channel_id;
+    if (message?.id && channelId) {
+      await ctx.repos.callups.recordMessage(c.club.id, callupId, channelId, message.id).catch(() => undefined);
+    }
+    await syncBoards(ctx.repos, ctx.discord, c, board, message?.id ?? null).catch(() => 0);
+    return updateWith(boardMessage(board, c.club));
   },
 };

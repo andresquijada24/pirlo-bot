@@ -57,13 +57,14 @@ export async function runReminders(deps: {
       const content =
         `⏰ **${escapeMd(board.callup.title)}** empieza ${discordTime(board.callup.startsAt, 'R')}.` +
         (mentioned.length ? `\nFaltan por responder: ${mentioned.map((id) => `<@${id}>`).join(' ')}` : '\nYa respondió todo el mundo. ¡A jugar!');
-      await poster.post(due.channelId, {
+      const posted = await poster.post(due.channelId, {
         content,
         embeds: [boardEmbed(board, club.name)],
         components: boardButtons(board, club.slug),
         // Solo se notifica a quien falta por responder.
         allowed_mentions: { parse: [], users: mentioned },
       });
+      if (posted.id) await repos.callups.recordMessage(due.clubId, due.callupId, due.channelId, posted.id);
       result.sent++;
     } catch (err) {
       result.failed++;

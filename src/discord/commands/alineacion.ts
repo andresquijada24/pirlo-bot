@@ -19,24 +19,28 @@ import type { CommandContext, SlashCommand } from './types.js';
 
 const ANSWER_MARK: Record<CallupAnswer, string> = { voy: '', duda: ' ❓', no_voy: ' ❌' };
 
-function who(member: Membership | null, answer: CallupAnswer | null): string {
+function who(member: Membership | null, answer: CallupAnswer | null, marks: boolean): string {
   if (!member) return '—';
-  // Quien no respondió "Voy" lleva una marca para que el DT lo vea de un vistazo.
-  return `**${escapeMd(member.displayName)}**${answer ? ANSWER_MARK[answer] : ' ⌛'}`;
+  // En el borrador, quien no respondió "Voy" lleva una marca para que el DT lo vea de un vistazo.
+  // La alineación publicada no la lleva: es para todo el canal.
+  const mark = marks ? (answer ? ANSWER_MARK[answer] : ' ⌛') : '';
+  return `${escapeMd(member.displayName)}${mark}`;
 }
 
 export function lineupEmbed(view: LineupView, callup: Callup, clubName: string, published: boolean): APIEmbed {
+  const marks = !published;
+  // Una línea por jugador, agrupadas por líneas del campo: se lee bien también en el móvil.
   const lines = view.lines.map((line) =>
-    line.map((p) => `\`${(p.position ?? '??').padEnd(3)}\` ${who(p.member, p.answer)}`).join(' · '),
+    line.map((p) => `**${p.position ?? '??'}** ${who(p.member, p.answer, marks)}`).join('\n'),
   );
-  const subs = view.substitutes.map((s) => who(s.member, s.answer)).join(', ');
+  const subs = view.substitutes.map((s) => who(s.member, s.answer, marks)).join(', ');
   return embed({
     title: `🧩 Alineación · ${escapeMd(callup.title)}`,
     description: [
       `${escapeMd(clubName)} · **${view.formation}**${callup.opponent ? ` · 🆚 ${escapeMd(callup.opponent)}` : ''}`,
       `🕘 ${discordTime(callup.startsAt, 'F')}`,
       '',
-      ...lines,
+      lines.join('\n\n'),
     ].join('\n'),
     fields: [{ name: `Suplentes (${view.substitutes.length})`, value: subs || '—', inline: false }],
     footer: {

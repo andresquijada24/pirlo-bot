@@ -61,11 +61,11 @@ describe('/alineacion', () => {
     expect(footer(created)).toMatch('0/11 titulares');
 
     let res = await poner(PLAYER, 'DC');
-    expect(textOf(res)).toMatch('`DC ` **Usuario 003** ⌛');
+    expect(textOf(res)).toMatch('**DC** Usuario 003 ⌛');
     expect(textOf(res)).toMatch('No dijeron "Voy": Usuario 003');
     res = await poner(PLAYER, 'EI');
-    expect(textOf(res)).toMatch('`EI ` **Usuario 003**');
-    expect(textOf(res)).toMatch('`DC ` —');
+    expect(textOf(res)).toMatch('**EI** Usuario 003');
+    expect(textOf(res)).toMatch('**DC** —');
 
     res = await run(slash(DT, 'alineacion', 'suplente', [user('jugador', OTHER.userId)]));
     expect(textOf(res)).toMatch('Suplentes (1)');
@@ -81,7 +81,7 @@ describe('/alineacion', () => {
     await run(button(PLAYER, `callup:voy:club-prueba:${env.state.callups[0]!.id}`));
     await crear();
     const res = await poner(PLAYER, 'DC');
-    expect(textOf(res)).toMatch('`DC ` **Usuario 003**');
+    expect(textOf(res)).toMatch('**DC** Usuario 003');
     expect(textOf(res)).not.toMatch('No dijeron');
   });
 
@@ -108,7 +108,9 @@ describe('/alineacion', () => {
     const pub = await run(slash(DT, 'alineacion', 'publicar'));
     expect(flags(pub)).toBeUndefined();
     expect(footer(pub)).toBe('Alineación publicada');
-    expect(textOf(await run(slash(STRANGER, 'alineacion', 'ver')))).toMatch('`POR` **Usuario 003**');
+    const seen = textOf(await run(slash(STRANGER, 'alineacion', 'ver')));
+    expect(seen).toMatch('**POR** Usuario 003');
+    expect(seen).not.toMatch('⌛');
   });
 
   it('solo DT o admin la gestionan, y solo con miembros del club', async () => {

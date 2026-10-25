@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { Hono } from 'hono';
 import { isDomainError } from './core/errors.js';
+import { parseIngest } from './providers/ea/ingest.js';
 import type { APIInteraction } from 'discord-api-types/v10';
 import type { Repositories } from './db/repositories/types.js';
 import { commandsByName, componentHandlers } from './discord/commands/index.js';
@@ -19,6 +20,8 @@ export interface AppDeps {
   components?: ReadonlyMap<string, ComponentHandler>;
   log?: { warn: (obj: object, msg: string) => void; error: (obj: object, msg: string) => void };
   /** Tarea programada de sincronización. `sync` es null si el proveedor no está configurado. */
+  /** Clave del puente de EA; sin ella, la captura está desactivada. */
+  eaBridgeToken?: string | undefined;
   /** Cliente REST del bot para editar tableros de convocatoria. */
   discord?: ChannelPoster;
   cron?: {
@@ -99,6 +102,34 @@ export function createApp(deps: AppDeps) {
     } catch (err) {
       deps.log?.error({ err }, 'Fallo en los recordatorios');
       return c.json({ status: 'error', message: 'Error interno' }, 500);
+    }
+  });
+
+  /*
+   * Captura de partidos de EA enviada por el puente. Protegida con su propia clave
+   * (Authorization: Bearer <EA_BRIDGE_TOKEN>). Solo guarda; nunca devuelve datos.
+   */
+  app.post('/api/ingest/ea', async (c) => {
+    const expected = deps.eaBridgeToken;
+    if (!expected) return c.json({ error: 'Captura de EA no configurada' }, 503);
+    const auth = c.req.header('authorization') ?? '';
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+    if (!token || !sameSecret(token, expected)) return c.json({ error: 'No autorizado' }, 401);
+    if (!deps.repos) return c.json({ error: 'Base de datos no configurada' }, 503);
+    const text = await c.req.text();
+    if (text.length > 2_000_000) return c.json({ error: 'Demasiado grande' }, 413);
+    let parsed;
+    try {
+      parsed = parseIngest(JSON.parse(text));
+    } catch {
+      return c.json({ error: 'Formato no válido' }, 400);
+    }
+    try {
+      const stored = await deps.repos.eaCapture.store(parsed.matches);
+      return c.json({ received: parsed.matches.length, stored, rejected: parsed.rejected });
+    } catch (err) {
+      deps.log?.error({ err }, 'No se pudo guardar la captura de EA');
+      return c.json({ error: 'Error interno' }, 500);
     }
   });
 

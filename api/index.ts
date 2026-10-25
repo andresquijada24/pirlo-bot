@@ -37,6 +37,7 @@ const app = createApp({
   repos,
   log: logger,
   discord: quickPoster,
+  eaBridgeToken: env.EA_BRIDGE_TOKEN,
   cron: {
     secret: env.CRON_SECRET,
     sync:

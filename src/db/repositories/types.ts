@@ -13,6 +13,7 @@ import type {
 } from '../../core/types.js';
 import type { SessionStatRow } from '../../core/stats/service.js';
 import type { SyncRepository } from '../../sync/types.js';
+import type { CachedMatch } from '../../providers/ea/ingest.js';
 
 /**
  * Contratos de acceso a datos.
@@ -166,6 +167,11 @@ export interface ReminderRepository {
   claim(clubId: string, callupId: string): Promise<boolean>;
 }
 
+export interface EaCaptureRepository {
+  /** Guarda partidos nuevos; los ya guardados se ignoran. Devuelve cuántos eran nuevos. */
+  store(matches: CachedMatch[]): Promise<number>;
+}
+
 export interface StatsRepository {
   /** Totales por temporada a nivel sesión. seasonId null = todas (incluye sesiones sin temporada). */
   sessionRows(clubId: string, seasonId: string | null): Promise<SessionStatRow[]>;
@@ -193,4 +199,5 @@ export interface Repositories {
   callups: CallupRepository;
   lineups: LineupRepository;
   reminders: ReminderRepository;
+  eaCapture: EaCaptureRepository;
 }

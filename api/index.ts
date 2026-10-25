@@ -7,6 +7,7 @@ import { logger } from '../src/lib/logger.js';
 import { MaritimoStatsProvider } from '../src/providers/maritimo/provider.js';
 import { runSync } from '../src/sync/engine.js';
 import { createDiscordPoster } from '../src/discord/poster.js';
+import { createDiscordDownloader } from '../src/discord/download.js';
 import { runReminders } from '../src/jobs/reminders.js';
 import { runEaProcessing } from '../src/jobs/ea-processing.js';
 
@@ -38,6 +39,7 @@ const app = createApp({
   repos,
   log: logger,
   discord: quickPoster,
+  download: createDiscordDownloader(),
   eaBridgeToken: env.EA_BRIDGE_TOKEN,
   cron: {
     secret: env.CRON_SECRET,

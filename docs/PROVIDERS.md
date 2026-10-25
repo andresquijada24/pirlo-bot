@@ -74,6 +74,11 @@ Todos implementan el contrato `StatsProvider` de `src/providers/types.ts`.
 - **Consentimiento por club**: un admin vincula su club de EA con `/club ea vincular` (tabla
   `club_ea_links`, versión de consentimiento `v1`, auditado). Un club de EA pertenece a un único
   club de PIRLO. `/club ea retirar` detiene el procesamiento y conserva lo ya procesado.
+- **Importación manual** (`/club ea importar`, DT o admin): la persona abre en su navegador la
+  página de partidos de su club en EA, la guarda y la adjunta. PIRLO la descarga solo del CDN de
+  Discord (máx. 2 MB), acepta únicamente partidos del club de EA vinculado y los procesa al momento
+  (lo que no quepa en ~1 s lo procesa la tarea programada). EA solo muestra los 5 últimos partidos
+  de cada tipo, así que conviene importar después de cada sesión.
 - **Captura**: `POST /api/ingest/ea` solo guarda partidos de clubes de EA con consentimiento
   (403 en otro caso) en `ea_match_cache`.
 - **Procesamiento**: la tarea programada (`/api/cron/tick`) convierte la caché en `ea_matches` y

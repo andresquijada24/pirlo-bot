@@ -12,6 +12,7 @@ import type { SyncResult } from './sync/engine.js';
 import type { ReminderResult } from './jobs/reminders.js';
 import type { EaProcessingResult } from './jobs/ea-processing.js';
 import type { ChannelPoster } from './discord/poster.js';
+import type { Downloader } from './discord/commands/types.js';
 
 export interface AppDeps {
   discordPublicKey: string;
@@ -25,6 +26,8 @@ export interface AppDeps {
   eaBridgeToken?: string | undefined;
   /** Cliente REST del bot para editar tableros de convocatoria. */
   discord?: ChannelPoster;
+  /** Descarga de adjuntos de Discord (importación de partidos). */
+  download?: Downloader;
   cron?: {
     secret: string | undefined;
     sync: (() => Promise<SyncResult>) | null;
@@ -48,6 +51,7 @@ export function createApp(deps: AppDeps) {
     repos: deps.repos ?? null,
     ...(deps.log ? { log: deps.log } : {}),
     ...(deps.discord ? { discord: deps.discord } : {}),
+    ...(deps.download ? { download: deps.download } : {}),
   };
   const app = new Hono();
 

@@ -80,3 +80,21 @@ export function optId(cmd: ParsedCommand, name: string): string | undefined {
   const o = cmd.options.get(name);
   return o && (o.type === OT.User || o.type === OT.Channel) ? String(o.value) : undefined;
 }
+
+export interface CommandAttachment {
+  url: string;
+  filename: string;
+  size: number;
+}
+
+/** Archivo adjunto en una opción de tipo adjunto (Discord lo envía en data.resolved). */
+export function optAttachment(
+  interaction: APIChatInputApplicationCommandInteraction,
+  cmd: ParsedCommand,
+  name: string,
+): CommandAttachment | undefined {
+  const o = cmd.options.get(name);
+  if (!o || typeof o.value !== 'string') return undefined;
+  const a = interaction.data.resolved?.attachments?.[o.value];
+  return a ? { url: a.url, filename: a.filename, size: a.size } : undefined;
+}

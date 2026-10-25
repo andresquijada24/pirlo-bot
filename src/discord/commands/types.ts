@@ -16,7 +16,11 @@ export interface CommandContext {
   repos: Repositories;
   /** Para editar o publicar mensajes con el token del bot; puede faltar (pruebas, sin token). */
   discord?: ChannelPoster;
+  /** Descarga un adjunto de Discord como texto (solo CDN de Discord); puede faltar. */
+  download?: Downloader;
 }
+
+export type Downloader = (url: string) => Promise<string>;
 
 export interface SlashCommand {
   /** Definición que se registra en Discord. */

@@ -109,7 +109,12 @@ describe('runReminders', () => {
     env.state.clubs[0]!.reminderMinutes = 60;
     callupIn(30);
     const { poster } = fakePoster(true);
-    expect(await runReminders({ repos: env.repos, poster, blockedGuilds: new Set() })).toEqual({ sent: 0, skipped: 0, failed: 1 });
+    expect(await runReminders({ repos: env.repos, poster, blockedGuilds: new Set() })).toEqual({
+      sent: 0,
+      skipped: 0,
+      failed: 1,
+      errors: [`canal ${CHANNEL}: HTTP 403`],
+    });
     expect(await runReminders({ repos: env.repos, poster, blockedGuilds: new Set() })).toEqual({ sent: 0, skipped: 0, failed: 0 });
   });
 });
@@ -124,9 +129,11 @@ describe('createDiscordPoster', () => {
     await createDiscordPoster('token-ficticio', ok).post(CHANNEL, { content: 'x' });
     expect(calls[0]).toEqual({ url: `https://discord.com/api/v10/channels/${CHANNEL}/messages`, auth: 'Bot token-ficticio' });
 
-    const denied = (async () => new Response('{}', { status: 403 })) as unknown as typeof fetch;
+    const denied = (async () =>
+      new Response(JSON.stringify({ code: 50013, message: 'Missing Permissions' }), { status: 403 })) as unknown as typeof fetch;
     const err = await createDiscordPoster('token-ficticio', denied).post(CHANNEL, {}).catch((e: Error) => e);
     expect(err).toBeInstanceOf(DiscordPostError);
+    expect((err as DiscordPostError).detail).toBe('50013 Missing Permissions');
     expect((err as Error).message).not.toMatch('token-ficticio');
     await expect(createDiscordPoster('t', ok).post('../evil', {})).rejects.toBeInstanceOf(DiscordPostError);
   });

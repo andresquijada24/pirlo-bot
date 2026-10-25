@@ -7,8 +7,12 @@ export interface ChannelPoster {
 }
 
 export class DiscordPostError extends Error {
-  constructor(readonly status: number) {
-    super(`Discord rechazó la publicación (HTTP ${status}).`);
+  constructor(
+    readonly status: number,
+    /** Código y mensaje de error de Discord (p. ej. "50013 Missing Permissions"). */
+    readonly detail: string | null = null,
+  ) {
+    super(`Discord rechazó la publicación (HTTP ${status}${detail ? `: ${detail}` : ''}).`);
     this.name = 'DiscordPostError';
   }
 }
@@ -23,7 +27,17 @@ export function createDiscordPoster(botToken: string, fetchFn: typeof fetch = fe
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(10_000),
       });
-      if (!res.ok) throw new DiscordPostError(res.status);
+      if (!res.ok) {
+        // Discord responde {code, message}; nunca incluye el token.
+        let detail: string | null = null;
+        try {
+          const body = (await res.json()) as { code?: number; message?: string };
+          detail = [body.code, body.message].filter(Boolean).join(' ').slice(0, 200) || null;
+        } catch {
+          detail = null;
+        }
+        throw new DiscordPostError(res.status, detail);
+      }
     },
   };
 }

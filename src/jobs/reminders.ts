@@ -2,7 +2,7 @@ import { callupBoard } from '../core/callups/service.js';
 import type { ClubContext } from '../core/types.js';
 import type { Repositories } from '../db/repositories/types.js';
 import { boardButtons, boardEmbed } from '../discord/commands/convocatoria.js';
-import type { ChannelPoster } from '../discord/poster.js';
+import { DiscordPostError, type ChannelPoster } from '../discord/poster.js';
 import { discordTime } from '../core/time.js';
 import { escapeMd } from '../discord/responses.js';
 
@@ -16,6 +16,8 @@ export interface ReminderResult {
   sent: number;
   skipped: number;
   failed: number;
+  /** Motivo de cada fallo (sin datos sensibles), para diagnosticar desde el workflow. */
+  errors?: string[];
 }
 
 /**
@@ -65,6 +67,8 @@ export async function runReminders(deps: {
       result.sent++;
     } catch (err) {
       result.failed++;
+      const reason = err instanceof DiscordPostError ? `HTTP ${err.status}${err.detail ? ` · ${err.detail}` : ''}` : 'error interno';
+      (result.errors ??= []).push(`canal ${due.channelId}: ${reason}`);
       deps.log?.error({ err, clubId: due.clubId, callupId: due.callupId }, 'No se pudo publicar el recordatorio');
     }
   }

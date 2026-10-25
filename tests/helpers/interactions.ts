@@ -47,8 +47,9 @@ export function slash(who: Who, name: string, sub: string | null, options: Opt[]
   } as unknown as APIInteraction;
 }
 
-export function button(who: Who, customId: string): APIInteraction {
+export function button(who: Who, customId: string, messageId?: string, channelId = '930000000000000001'): APIInteraction {
   return {
+    ...(messageId ? { message: { id: messageId, channel_id: channelId }, channel: { id: channelId } } : {}),
     id: '1',
     application_id: '1562889315657195530',
     type: 3,

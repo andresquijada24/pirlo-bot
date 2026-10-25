@@ -152,3 +152,61 @@ describe('/convocatoria crear: hora pasada', () => {
     expect(textOf(res)).toMatch('ya pasaron');
   });
 });
+
+describe('tableros sincronizados', () => {
+  function fakeDiscord() {
+    const edits: { channelId: string; messageId: string; body: Record<string, unknown> }[] = [];
+    const discord = {
+      async post() {
+        return { id: null };
+      },
+      async edit(channelId: string, messageId: string, body: Record<string, unknown>) {
+        if (messageId === '940000000000000099') throw new Error('mensaje borrado');
+        edits.push({ channelId, messageId, body });
+      },
+    };
+    return { edits, discord };
+  }
+  const voyCount = (body: Record<string, unknown>) =>
+    (body.embeds as { fields: { name: string }[] }[])[0]!.fields[0]!.name;
+
+  it('responder en un tablero actualiza los demás, no el pulsado', async () => {
+    const { edits, discord } = fakeDiscord();
+    deps = { ...deps, discord };
+    await create();
+    const id = env.state.callups[0]!.id;
+    // Primer clic en el original: queda registrado.
+    await run(button(PLAYER, `callup:duda:club-prueba:${id}`, '940000000000000001'));
+    // Respuesta desde el recordatorio: se edita el original.
+    await run(button(CAPTAIN, `callup:voy:club-prueba:${id}`, '940000000000000002'));
+    expect(edits.map((e) => e.messageId)).toEqual(['940000000000000001']);
+    expect(voyCount(edits[0]!.body)).toBe('✅ Voy (1)');
+    expect(env.state.callupMessages.map((m) => m.messageId)).toEqual(['940000000000000001', '940000000000000002']);
+  });
+
+  it('un mensaje que ya no existe no rompe la respuesta', async () => {
+    const { discord } = fakeDiscord();
+    deps = { ...deps, discord };
+    await create();
+    const id = env.state.callups[0]!.id;
+    await run(button(PLAYER, `callup:duda:club-prueba:${id}`, '940000000000000099'));
+    const res = await run(button(CAPTAIN, `callup:voy:club-prueba:${id}`, '940000000000000002'));
+    expect((res as Res).type).toBe(7);
+  });
+
+  it('cancelar desactiva todos los tableros', async () => {
+    const { edits, discord } = fakeDiscord();
+    deps = { ...deps, discord };
+    await create();
+    const id = env.state.callups[0]!.id;
+    await run(button(PLAYER, `callup:duda:club-prueba:${id}`, '940000000000000001'));
+    expect(textOf(await run(slash(PLAYER, 'convocatoria', 'cancelar')))).toMatch('permiso');
+    const res = await run(slash(CAPTAIN, 'convocatoria', 'cancelar'));
+    expect(textOf(res)).toMatch('cancelada');
+    expect(textOf(res)).toMatch('Actualicé 1 tablero');
+    const body = edits.at(-1)!.body as { embeds: { description: string }[]; components: { components: { disabled: boolean }[] }[] };
+    expect(body.embeds[0]!.description).toMatch('Convocatoria cancelada');
+    expect(body.components[0]!.components.every((b) => b.disabled)).toBe(true);
+    expect(textOf(await run(button(PLAYER, `callup:voy:club-prueba:${id}`, '940000000000000001')))).toMatch('cerrada');
+  });
+});

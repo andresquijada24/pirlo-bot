@@ -27,10 +27,16 @@ const maritimo =
       }
     : null;
 
+// Un único cliente REST del bot. En las interacciones se usa con plazo corto: Discord espera
+// la respuesta en menos de 3 segundos.
+const poster = createDiscordPoster(env.DISCORD_BOT_TOKEN);
+const quickPoster = createDiscordPoster(env.DISCORD_BOT_TOKEN, fetch, 1_500);
+
 const app = createApp({
   discordPublicKey: env.DISCORD_PUBLIC_KEY,
   repos,
   log: logger,
+  discord: quickPoster,
   cron: {
     secret: env.CRON_SECRET,
     sync:
@@ -41,7 +47,7 @@ const app = createApp({
       ? () =>
           runReminders({
             repos,
-            poster: createDiscordPoster(env.DISCORD_BOT_TOKEN),
+            poster,
             blockedGuilds: new Set(env.POSTING_BLOCKED_GUILDS?.split(',') ?? []),
             log: logger,
           })

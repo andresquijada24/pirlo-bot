@@ -9,6 +9,7 @@ import { routeInteraction } from './discord/router.js';
 import { verifyDiscordRequest } from './discord/verify.js';
 import type { SyncResult } from './sync/engine.js';
 import type { ReminderResult } from './jobs/reminders.js';
+import type { ChannelPoster } from './discord/poster.js';
 
 export interface AppDeps {
   discordPublicKey: string;
@@ -18,6 +19,8 @@ export interface AppDeps {
   components?: ReadonlyMap<string, ComponentHandler>;
   log?: { warn: (obj: object, msg: string) => void; error: (obj: object, msg: string) => void };
   /** Tarea programada de sincronización. `sync` es null si el proveedor no está configurado. */
+  /** Cliente REST del bot para editar tableros de convocatoria. */
+  discord?: ChannelPoster;
   cron?: {
     secret: string | undefined;
     sync: (() => Promise<SyncResult>) | null;
@@ -40,6 +43,7 @@ export function createApp(deps: AppDeps) {
     components: deps.components ?? componentHandlers,
     repos: deps.repos ?? null,
     ...(deps.log ? { log: deps.log } : {}),
+    ...(deps.discord ? { discord: deps.discord } : {}),
   };
   const app = new Hono();
 

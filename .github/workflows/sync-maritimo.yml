@@ -51,6 +51,9 @@ jobs:
           code=$(curl -sS -o resp.json -w '%{http_code}' -X POST \
             -H "Authorization: Bearer $CRON_SECRET" --max-time 60 "$TICK_URL")
           echo "HTTP $code"; cat resp.json; echo
+          if grep -q '"failed":[1-9]' resp.json; then
+            echo "::warning::Recordatorios fallidos: $(tr -d '\n' < resp.json)"
+          fi
           case "$code" in
             200) ;;
             404) echo "::notice::El endpoint de recordatorios aún no está desplegado." ;;

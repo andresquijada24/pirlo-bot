@@ -29,7 +29,8 @@ export function createMemoryRepos() {
     channels: [] as { clubId: string; guildId: string; purpose: ChannelPurpose; channelId: string }[],
     seasons: [] as Season[],
     audit: [] as AuditEntry[],
-    sessionRows: [] as (SessionStatRow & { clubId: string })[],
+    // playedOn (opcional) solo sirve para probar la reasignación por fechas de temporada.
+    sessionRows: [] as (SessionStatRow & { clubId: string; playedOn?: string })[],
     externalPlayers: [] as { clubId: string; gamertag: string; playerId: string | null }[],
     syncRuns: [] as (SyncRunSummary & { clubId: string; provider: ProviderId })[],
   };
@@ -174,12 +175,39 @@ export function createMemoryRepos() {
         if (makeCurrent) {
           for (const s of state.seasons) if (s.clubId === clubId) s.isCurrent = false;
         }
-        const s: Season = { id: id(), clubId, name, isCurrent: makeCurrent };
+        const s: Season = { id: id(), clubId, name, isCurrent: makeCurrent, startsOn: null, endsOn: null };
         state.seasons.push(s);
         return { ...s };
       },
       async list(clubId) {
         return state.seasons.filter((s) => s.clubId === clubId);
+      },
+      async setDates(clubId, seasonId, startsOn, endsOn) {
+        const s = state.seasons.find((x) => x.clubId === clubId && x.id === seasonId);
+        if (!s) throw notFound('Registro');
+        const overlaps = state.seasons.some(
+          (x) =>
+            x.clubId === clubId &&
+            x.id !== seasonId &&
+            x.startsOn !== null &&
+            x.startsOn <= (endsOn ?? '9999-12-31') &&
+            (x.endsOn ?? '9999-12-31') >= startsOn,
+        );
+        if (overlaps) throw conflict('Esas fechas se cruzan con otra temporada del club.');
+        s.startsOn = startsOn;
+        s.endsOn = endsOn;
+        // Reasignación por fecha: las filas de prueba con playedOn dentro del rango pasan a la temporada.
+        let moved = 0;
+        for (const r of state.sessionRows) {
+          if (r.clubId !== clubId || !r.playedOn) continue;
+          const inside = r.playedOn >= startsOn && (endsOn === null || r.playedOn <= endsOn);
+          const target = inside ? seasonId : r.seasonId === seasonId ? null : r.seasonId;
+          if (target !== r.seasonId) {
+            r.seasonId = target;
+            moved++;
+          }
+        }
+        return moved;
       },
     },
 
@@ -193,7 +221,7 @@ export function createMemoryRepos() {
       async sessionRows(clubId, seasonId) {
         return state.sessionRows
           .filter((r) => r.clubId === clubId && (seasonId === null || r.seasonId === seasonId))
-          .map(({ clubId: _c, ...r }) => r);
+          .map(({ clubId: _c, playedOn: _p, ...r }) => r);
       },
     },
 

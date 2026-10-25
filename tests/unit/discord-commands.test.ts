@@ -237,6 +237,32 @@ describe('/temporada', () => {
   });
 });
 
+describe('/temporada fechas', () => {
+  it('pone la fecha de inicio a la temporada actual y la muestra en /temporada ver', async () => {
+    await registerClub();
+    await run(slash(OWNER, 'temporada', 'crear', [str('nombre', 'T1')]));
+    const res = textOf(await run(slash(OWNER, 'temporada', 'fechas', [str('inicio', '18/09/2026')])));
+    expect(res).toContain('**T1**: desde el 18/09/2026');
+    expect(res).toContain('Sesiones reasignadas: 0');
+    expect(textOf(await run(slash(STRANGER, 'temporada', 'ver')))).toContain('▶️ T1 · desde el 18/09/2026');
+  });
+
+  it('avisa si la fecha no es válida', async () => {
+    await registerClub();
+    await run(slash(OWNER, 'temporada', 'crear', [str('nombre', 'T1')]));
+    expect(textOf(await run(slash(OWNER, 'temporada', 'fechas', [str('inicio', '31/02/2026')])))).toMatch(
+      'Fecha no válida',
+    );
+  });
+
+  it('un DT no puede cambiar las fechas', async () => {
+    const clubId = await registerClub();
+    await run(slash(OWNER, 'temporada', 'crear', [str('nombre', 'T1')]));
+    env.addMember(clubId, DT.userId, 'dt');
+    expect(textOf(await run(slash(DT, 'temporada', 'fechas', [str('inicio', '18/09/2026')])))).toMatch('permiso');
+  });
+});
+
 describe('parsePositions', () => {
   it('acepta separadores variados y mayúsculas/minúsculas', () => {
     expect(parsePositions('mc, MCO dc/por')).toEqual(['MC', 'MCO', 'DC', 'POR']);

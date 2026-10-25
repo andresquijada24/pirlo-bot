@@ -18,7 +18,7 @@ Discord funcionando en el servidor de pruebas. Siguiente: Fase 5 (MARÍTIMO CF c
 | `/club registrar` · `/club info` · `/club canal` | Gestor del servidor · todos · admin |
 | `/vincular` · `/solicitudes` (con botones) | Todos · DT/admin |
 | `/plantilla ver` · `rol` · `posiciones` · `baja` | Miembros · DT/admin · cada jugador · DT/admin |
-| `/temporada crear` · `/temporada ver` | Admin · todos |
+| `/temporada crear` · `/temporada fechas` · `/temporada ver` | Admin · admin · todos |
 
 Los comandos se registran **solo en el servidor de pruebas** desde GitHub Actions →
 **Registrar comandos de Discord** (secretos `DISCORD_BOT_TOKEN` y `DISCORD_DEV_GUILD_ID`).

@@ -10,7 +10,9 @@ import {
   requestLink,
   setPositions,
 } from '../../src/core/roster/service.js';
-import { createSeason } from '../../src/core/seasons/service.js';
+import { createSeason, setSeasonDates } from '../../src/core/seasons/service.js';
+import type { SessionStatRow } from '../../src/core/stats/service.js';
+import { calendarDateSchema } from '../../src/core/validation.js';
 import type { Actor } from '../../src/core/types.js';
 import { createMemoryRepos } from '../fakes/memory-repos.js';
 
@@ -267,6 +269,82 @@ describe('configuración y temporadas', () => {
     env.addMember(clubId, actor(5).discordUserId, 'dt');
     await expect(
       createSeason(env.repos, await resolveContext(env.repos, actor(5)), { name: 'T1', makeCurrent: true }),
+    ).rejects.toMatchObject({ code: 'PERMISSION_DENIED' });
+  });
+});
+
+describe('fechas de temporada', () => {
+  // Fila mínima de prueba: solo importan club, temporada y fecha.
+  const row = (clubId: string, playedOn: string) => ({
+    ...({} as SessionStatRow),
+    clubId,
+    seasonId: null,
+    playedOn,
+  });
+
+  it('acepta DD/MM/AAAA y AAAA-MM-DD y rechaza fechas que no existen', () => {
+    expect(calendarDateSchema.parse('18/09/2026')).toBe('2026-09-18');
+    expect(calendarDateSchema.parse('2026-09-18')).toBe('2026-09-18');
+    expect(calendarDateSchema.parse(' 1/2/2027 ')).toBe('2027-02-01');
+    for (const bad of ['31/02/2026', '2026-13-01', 'ayer', '18-09-2026', '']) {
+      expect(calendarDateSchema.safeParse(bad).success).toBe(false);
+    }
+  });
+
+  it('pone el inicio a la temporada actual y reasigna las sesiones desde esa fecha', async () => {
+    const { clubId, owner } = await setupClub();
+    const ctx = await resolveContext(env.repos, owner);
+    await createSeason(env.repos, ctx, { name: 'Temporada 1', makeCurrent: true });
+    env.state.sessionRows.push(row(clubId, '2026-09-17'), row(clubId, '2026-09-18'), row(clubId, '2026-10-23'));
+
+    const res = await setSeasonDates(env.repos, ctx, { startsOn: '18/09/2026' });
+    expect(res.moved).toBe(2);
+    expect(res.season).toMatchObject({ name: 'Temporada 1', startsOn: '2026-09-18', endsOn: null });
+    const [s] = await env.repos.seasons.list(clubId);
+    expect(s?.startsOn).toBe('2026-09-18');
+    expect(env.state.sessionRows.filter((r) => r.seasonId === s?.id)).toHaveLength(2);
+  });
+
+  it('busca la temporada por nombre sin distinguir mayúsculas', async () => {
+    const { owner } = await setupClub();
+    const ctx = await resolveContext(env.repos, owner);
+    await createSeason(env.repos, ctx, { name: 'T1', makeCurrent: false });
+    await createSeason(env.repos, ctx, { name: 'T2', makeCurrent: true });
+    const res = await setSeasonDates(env.repos, ctx, { seasonName: ' t1 ', startsOn: '2026-01-01', endsOn: '2026-06-30' });
+    expect(res.season).toMatchObject({ name: 'T1', startsOn: '2026-01-01', endsOn: '2026-06-30' });
+  });
+
+  it('rechaza un fin anterior al inicio, una temporada inexistente y fechas que se cruzan', async () => {
+    const { owner } = await setupClub();
+    const ctx = await resolveContext(env.repos, owner);
+    await createSeason(env.repos, ctx, { name: 'T1', makeCurrent: true });
+    await expect(
+      setSeasonDates(env.repos, ctx, { startsOn: '2026-10-01', endsOn: '2026-09-01' }),
+    ).rejects.toMatchObject({ code: 'VALIDATION' });
+    await expect(
+      setSeasonDates(env.repos, ctx, { seasonName: 'No existe', startsOn: '2026-10-01' }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await setSeasonDates(env.repos, ctx, { startsOn: '2026-09-18' });
+    await createSeason(env.repos, ctx, { name: 'T2', makeCurrent: false });
+    await expect(
+      setSeasonDates(env.repos, ctx, { seasonName: 'T2', startsOn: '2026-10-01' }),
+    ).rejects.toMatchObject({ code: 'CONFLICT' });
+  });
+
+  it('sin temporada actual pide el nombre', async () => {
+    const { owner } = await setupClub();
+    const ctx = await resolveContext(env.repos, owner);
+    await expect(setSeasonDates(env.repos, ctx, { startsOn: '2026-09-18' })).rejects.toMatchObject({
+      code: 'VALIDATION',
+    });
+  });
+
+  it('un DT no puede cambiar las fechas', async () => {
+    const { clubId, owner } = await setupClub();
+    await createSeason(env.repos, await resolveContext(env.repos, owner), { name: 'T1', makeCurrent: true });
+    env.addMember(clubId, actor(5).discordUserId, 'dt');
+    await expect(
+      setSeasonDates(env.repos, await resolveContext(env.repos, actor(5)), { startsOn: '2026-09-18' }),
     ).rejects.toMatchObject({ code: 'PERMISSION_DENIED' });
   });
 });

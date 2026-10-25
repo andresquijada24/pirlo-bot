@@ -65,6 +65,9 @@ export interface Season {
   clubId: string;
   name: string;
   isCurrent: boolean;
+  /** Inicio y fin (AAAA-MM-DD). null = sin fecha: cuenta desde el día en que se creó. */
+  startsOn: string | null;
+  endsOn: string | null;
 }
 
 /** Quien ejecuta una acción, tal como lo identifica Discord. */

@@ -69,6 +69,17 @@ export interface ChannelRepository {
 export interface SeasonRepository {
   create(clubId: string, name: string, makeCurrent: boolean, actorDiscordId: string): Promise<Season>;
   list(clubId: string): Promise<Season[]>;
+  /**
+   * Pone las fechas de una temporada y reasigna las sesiones del club según su fecha.
+   * Devuelve cuántas sesiones cambiaron de temporada.
+   */
+  setDates(
+    clubId: string,
+    seasonId: string,
+    startsOn: string,
+    endsOn: string | null,
+    actorDiscordId: string,
+  ): Promise<number>;
 }
 
 export interface AuditEntry {

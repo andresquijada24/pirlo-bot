@@ -87,6 +87,9 @@ select pg_temp.expect(
 insert into public.players (id, display_name, discord_user_id) values
   ('a1300000-0000-0000-0000-000000000001', 'Andrés', '600000000000000001'),
   ('a1300000-0000-0000-0000-000000000002', 'Otro', '600000000000000002');
+insert into public.club_memberships (club_id, player_id, role) values
+  ('a1000000-0000-0000-0000-000000000000', 'a1300000-0000-0000-0000-000000000001', 'jugador'),
+  ('a1000000-0000-0000-0000-000000000000', 'a1300000-0000-0000-0000-000000000002', 'jugador');
 select pg_temp.expect(
   public.link_player_gamertag('a1000000-0000-0000-0000-000000000000', 'a1300000-0000-0000-0000-000000000001', ' pirlo21 ') = 1,
   'el gamertag se vincula sin distinguir mayúsculas ni espacios');
@@ -122,8 +125,8 @@ select pg_temp.expect(
 -- Un miembro con gamertag ya registrado se vincula solo al llegar su ficha y sus sesiones.
 insert into public.players (id, display_name, ea_gamertag, discord_user_id) values
   ('a1300000-0000-0000-0000-000000000009', 'Nuevo', 'Rapido9', '600000000000000009');
-insert into public.club_memberships (club_id, player_id, role) values
-  ('a1000000-0000-0000-0000-000000000000', 'a1300000-0000-0000-0000-000000000009', 'jugador');
+insert into public.club_memberships (club_id, player_id, role, gamertag) values
+  ('a1000000-0000-0000-0000-000000000000', 'a1300000-0000-0000-0000-000000000009', 'jugador', 'Rapido9');
 select public.sync_apply_players('a1000000-0000-0000-0000-000000000000', 'maritimo',
   '[{"externalId":"jug-9","gamertag":"rapido9","platform":null,"positions":[],"shirtNumber":null,"active":true,"updatedAt":"x"}]'::jsonb);
 select pg_temp.expect(

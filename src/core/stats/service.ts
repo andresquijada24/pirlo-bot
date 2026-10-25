@@ -108,7 +108,8 @@ export function aggregate(rows: SessionStatRow[], names: ReadonlyMap<string, str
       matchesPlayed: s.matchesPlayed,
       goals: s.goals,
       assists: s.assists,
-      goalContributions: s.goals === null && s.assists === null ? null : (s.goals ?? 0) + (s.assists ?? 0),
+      // Si falta uno de los dos datos, la suma no se puede afirmar: sin dato.
+      goalContributions: s.goals === null || s.assists === null ? null : s.goals + s.assists,
       shots: s.shots,
       dribbles: s.dribbles,
       passesMade: s.passesMade,

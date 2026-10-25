@@ -1,4 +1,4 @@
-import { configureChannel, connectClubToGuild, registerClub } from '../../core/clubs/service.js';
+import { configureChannel, connectClubToGuild, disconnectFromGuild, registerClub } from '../../core/clubs/service.js';
 import { setClubTimezone, setReminderMinutes } from '../../core/callups/service.js';
 import { assertCan, can } from '../../core/permissions/index.js';
 import { listSeasons } from '../../core/seasons/service.js';
@@ -104,6 +104,12 @@ export const clubCommand: SlashCommand = {
       },
       {
         type: OT.Subcommand,
+        name: 'desconectar',
+        description: 'Desconecta el club de ESTE servidor (solo admin del club; no el último servidor)',
+        options: [clubOption],
+      },
+      {
+        type: OT.Subcommand,
         name: 'recordatorios',
         description: 'Recordatorio automático antes de cada convocatoria (solo admin)',
         options: [
@@ -199,6 +205,14 @@ export const clubCommand: SlashCommand = {
         const channelId = optId(ctx.command, 'canal') ?? '';
         await configureChannel(ctx.repos, c, purpose, channelId);
         return ok(`Canal de ${PURPOSE_LABELS[purpose].toLowerCase()}: <#${channelId}>.`);
+      }
+
+      case 'desconectar': {
+        const c = await contextFor(ctx);
+        await disconnectFromGuild(ctx.repos, c);
+        return ok(
+          `**${escapeMd(c.club.name)}** ya no está conectado a este servidor. Sus datos se conservan en los demás servidores del club.`,
+        );
       }
 
       case 'recordatorios': {

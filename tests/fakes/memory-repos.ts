@@ -58,6 +58,15 @@ export function createMemoryRepos() {
         const c = state.clubs.find((x) => x.id === clubId);
         return c ? { ...c } : null;
       },
+      async disconnectGuild(clubId, guildId, actorDiscordId) {
+        const isAdmin = activeIn(clubId).some((m) => m.discordUserId === actorDiscordId && m.role === 'admin');
+        if (!isAdmin) throw conflict('Solo un admin del club puede desconectarlo de un servidor.');
+        const links = state.clubGuilds.filter((cg) => cg.clubId === clubId);
+        if (!links.some((cg) => cg.guildId === guildId)) throw conflict('El club no está conectado a ese servidor.');
+        if (links.length <= 1) throw conflict('Es el único servidor del club: no se puede desconectar.');
+        state.clubGuilds = state.clubGuilds.filter((cg) => !(cg.clubId === clubId && cg.guildId === guildId));
+        state.channels = state.channels.filter((ch) => !(ch.clubId === clubId && ch.guildId === guildId));
+      },
       async setTimezone(clubId, timezone) {
         const c = state.clubs.find((x) => x.id === clubId);
         if (c) c.timezone = timezone;
@@ -410,7 +419,10 @@ export function createMemoryRepos() {
     },
 
     reminders: {
-      async due(limit) {
+      async release(_clubId, callupId) {
+        state.remindedCallups.delete(callupId);
+      },
+      async due(limit, blockedGuilds) {
         const now = Date.now();
         const out = [];
         for (const c of state.callups) {
@@ -420,6 +432,7 @@ export function createMemoryRepos() {
           if (now < start - club.reminderMinutes * 60_000 || now >= start) continue;
           const channels = state.channels.filter((ch) => ch.clubId === c.clubId);
           const ch = channels.find((x) => x.purpose === 'recordatorios') ?? channels.find((x) => x.purpose === 'convocatorias');
+          if (ch && (blockedGuilds.includes(ch.guildId) || ch.guildId === '853894813169614848')) continue;
           if (ch) out.push({ clubId: c.clubId, callupId: c.id, guildId: ch.guildId, channelId: ch.channelId });
         }
         return out.slice(0, limit);

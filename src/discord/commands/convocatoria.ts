@@ -34,6 +34,8 @@ import { clubOption, contextFor, mention } from './common.js';
 import type { ComponentHandler, SlashCommand } from './types.js';
 
 const UUID = /^[0-9a-f-]{36}$/i;
+const MAX_SYNCED_BOARDS = 5;
+const SYNC_BUDGET_MS = 1_200;
 /** Límite de Discord para el valor de un campo de embed. */
 const FIELD_MAX = 1024;
 
@@ -90,10 +92,22 @@ export async function syncBoards(
   except: string | null = null,
 ): Promise<number> {
   if (!discord) return 0;
-  const targets = (await repos.callups.messages(ctx.club.id, board.callup.id)).filter((m) => m.messageId !== except);
+  // Como mucho los 5 tableros más recientes y 1,2 s en total: Discord exige responder en 3 s.
+  const targets = (await repos.callups.messages(ctx.club.id, board.callup.id))
+    .filter((m) => m.messageId !== except)
+    .slice(-MAX_SYNCED_BOARDS);
   const body = boardMessage(board, ctx.club);
-  const results = await Promise.allSettled(targets.map((m) => discord.edit(m.channelId, m.messageId, body)));
-  return results.filter((r) => r.status === 'fulfilled').length;
+  let done = 0;
+  const edits = Promise.allSettled(
+    targets.map((m) => discord.edit(m.channelId, m.messageId, body).then(() => void done++)),
+  );
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const budget = new Promise((resolve) => {
+    timer = setTimeout(resolve, SYNC_BUDGET_MS);
+  });
+  await Promise.race([edits, budget]);
+  clearTimeout(timer);
+  return done;
 }
 
 export function boardButtons(

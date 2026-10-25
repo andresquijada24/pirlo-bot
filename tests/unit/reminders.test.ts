@@ -103,9 +103,11 @@ describe('runReminders', () => {
     env.state.clubs[0]!.reminderMinutes = 60;
     callupIn(30);
     const { posts, poster } = fakePoster();
-    expect((await runReminders({ repos: env.repos, poster, blockedGuilds: new Set([TEST_GUILD]) })).skipped).toBe(1);
+    // Se filtran en la consulta: ni siquiera ocupan la cola.
+    expect((await runReminders({ repos: env.repos, poster, blockedGuilds: new Set([TEST_GUILD]) })).sent).toBe(0);
     env.state.channels[0]!.guildId = REFERENCE_GUILD_ID;
-    expect((await runReminders({ repos: env.repos, poster, blockedGuilds: new Set() })).skipped).toBe(1);
+    expect((await runReminders({ repos: env.repos, poster, blockedGuilds: new Set() })).sent).toBe(0);
+    expect(env.state.remindedCallups.size).toBe(0);
     expect(posts).toHaveLength(0);
   });
 
@@ -120,6 +122,37 @@ describe('runReminders', () => {
       errors: [`canal ${CHANNEL}: HTTP 403`],
     });
     expect(await runReminders({ repos: env.repos, poster, blockedGuilds: new Set() })).toEqual({ sent: 0, skipped: 0, failed: 0 });
+  });
+});
+
+describe('runReminders: reintentos y menciones', () => {
+  beforeEach(async () => {
+    await run(slash(OWNER, 'club', 'canal', [str('uso', 'convocatorias'), channel('canal', CHANNEL)]));
+    env.state.clubs[0]!.reminderMinutes = 60;
+  });
+
+  it('un error temporal de Discord devuelve el recordatorio a la cola', async () => {
+    callupIn(30);
+    const failing: ChannelPoster = {
+      async post() {
+        throw new DiscordPostError(503);
+      },
+      async edit() {},
+    };
+    expect((await runReminders({ repos: env.repos, poster: failing, blockedGuilds: new Set() })).failed).toBe(1);
+    const { posts, poster } = fakePoster();
+    expect((await runReminders({ repos: env.repos, poster, blockedGuilds: new Set() })).sent).toBe(1);
+    expect(posts).toHaveLength(1);
+  });
+
+  it('con muchísimos pendientes, el mensaje no supera el límite de Discord', async () => {
+    for (let i = 0; i < 150; i++) env.addMember(clubId, String(810000000000000000n + BigInt(i)), 'jugador');
+    callupIn(30);
+    const { posts, poster } = fakePoster();
+    await runReminders({ repos: env.repos, poster, blockedGuilds: new Set() });
+    const content = posts[0]!.body.content as string;
+    expect(content.length <= 2000).toBe(true);
+    expect(content).toMatch(/y \d+ más$/);
   });
 });
 

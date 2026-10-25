@@ -8,6 +8,8 @@ import type { webcrypto } from 'node:crypto';
  * Usa WebCrypto nativo (Node >= 22), sin dependencias externas.
  */
 
+export const MAX_SKEW_SECONDS = 300;
+
 const keyCache = new Map<string, Promise<webcrypto.CryptoKey>>();
 
 function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
@@ -37,9 +39,14 @@ export async function verifyDiscordRequest(params: {
   signature: string | null | undefined;
   timestamp: string | null | undefined;
   publicKey: string;
+  now?: () => number;
 }): Promise<boolean> {
   const { body, signature, timestamp, publicKey } = params;
   if (!signature || !timestamp) return false;
+  // Una petición firmada hace más de 5 minutos se rechaza (evita reutilizar una captura antigua).
+  const ts = Number(timestamp);
+  const now = (params.now ?? Date.now)() / 1000;
+  if (!Number.isFinite(ts) || Math.abs(now - ts) > MAX_SKEW_SECONDS) return false;
   try {
     const key = await importPublicKey(publicKey);
     const message = new TextEncoder().encode(timestamp + body);

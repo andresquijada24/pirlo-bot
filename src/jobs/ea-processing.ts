@@ -25,14 +25,9 @@ export async function runEaProcessing(deps: {
   for (const link of links) {
     result.clubs++;
     try {
-      for (const cached of await deps.repos.ea.pending(link.clubId, PER_CLUB)) {
-        const match = processEaMatch(cached);
-        if (!match) {
-          result.skipped++;
-          continue;
-        }
-        if (await deps.repos.ea.apply(link.clubId, match)) result.processed++;
-      }
+      const r = await processClubEaMatches(deps.repos, link.clubId, PER_CLUB);
+      result.processed += r.processed;
+      result.skipped += r.skipped;
     } catch (err) {
       // Un club con problemas no detiene a los demás. No se registran datos del partido.
       deps.log?.error({ err, clubId: link.clubId }, 'Fallo al procesar partidos de EA');
@@ -40,4 +35,26 @@ export async function runEaProcessing(deps: {
     }
   }
   return result;
+}
+
+/** Procesa los partidos pendientes de un club. Lo usan la tarea programada y la importación manual. */
+export async function processClubEaMatches(
+  repos: Pick<Repositories, 'ea'>,
+  clubId: string,
+  limit = PER_CLUB,
+  /** Hora límite (ms desde epoch): lo que no dé tiempo se procesa en la próxima tarea. */
+  deadline = Infinity,
+): Promise<{ processed: number; skipped: number }> {
+  let processed = 0;
+  let skipped = 0;
+  for (const cached of await repos.ea.pending(clubId, limit)) {
+    if (Date.now() > deadline) break;
+    const match = processEaMatch(cached);
+    if (!match) {
+      skipped++;
+      continue;
+    }
+    if (await repos.ea.apply(clubId, match)) processed++;
+  }
+  return { processed, skipped };
 }

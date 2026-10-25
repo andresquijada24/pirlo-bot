@@ -6,7 +6,7 @@ import type {
 } from 'discord-api-types/v10';
 import { isDomainError } from '../core/errors.js';
 import type { Repositories } from '../db/repositories/types.js';
-import type { ComponentHandler, SlashCommand } from './commands/types.js';
+import type { ComponentHandler, Downloader, SlashCommand } from './commands/types.js';
 import { IT, RT } from './constants.js';
 import { actorFrom, parseCommand } from './interaction.js';
 import { fail } from './responses.js';
@@ -23,6 +23,8 @@ export interface RouterDeps {
   log?: { error: (obj: object, msg: string) => void };
   /** Cliente REST del bot (editar tableros); opcional. */
   discord?: ChannelPoster;
+  /** Descarga de adjuntos de Discord (importaciones); opcional. */
+  download?: Downloader;
 }
 
 const NOT_IN_GUILD = 'PIRLO BOT solo funciona dentro de un servidor de Discord.';
@@ -76,6 +78,7 @@ async function runCommand(
     // Si el comando no necesita base de datos, nunca accede a repos.
     repos: deps.repos as Repositories,
     ...(deps.discord ? { discord: deps.discord } : {}),
+    ...(deps.download ? { download: deps.download } : {}),
   });
 }
 

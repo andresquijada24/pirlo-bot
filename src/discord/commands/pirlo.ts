@@ -18,6 +18,7 @@ const HELP = [
   '`/ranking` — goleadores, asistencias, nota, pases, entradas…',
   '`/club sincronizacion` — estado de la sincronización (DT/admin)',
   '`/club ea vincular` · `/club ea estado` — partidos de EA Pro Clubs del club (admin da el consentimiento)',
+  '`/club ea importar` — sube el archivo de partidos que guardaste desde EA en tu navegador',
   '',
   '**Partidos**',
   '`/convocatoria crear` — convoca con botones Voy / Duda / No voy (capitán o superior)',

@@ -1,5 +1,14 @@
 import { configureChannel, connectClubToGuild, disconnectFromGuild, registerClub } from '../../core/clubs/service.js';
-import { EA_PLATFORM_LABELS, eaStatus, linkEaClub, unlinkEaClub, type EaPlatform } from '../../core/ea/service.js';
+import {
+  EA_PLATFORM_LABELS,
+  eaStatus,
+  importEaFile,
+  linkEaClub,
+  unlinkEaClub,
+  type EaPlatform,
+} from '../../core/ea/service.js';
+import { validation } from '../../core/errors.js';
+import { DownloadError, MAX_ATTACHMENT_BYTES } from '../download.js';
 import { EA_PLATFORMS } from '../../providers/ea/ingest.js';
 import { discordTime } from '../../core/time.js';
 import { setClubTimezone, setReminderMinutes } from '../../core/callups/service.js';
@@ -7,7 +16,7 @@ import { assertCan, can } from '../../core/permissions/index.js';
 import { listSeasons } from '../../core/seasons/service.js';
 import { CHANNEL_PURPOSES, type ChannelPurpose } from '../../core/types.js';
 import { CHANNEL_ANNOUNCEMENT, CHANNEL_TEXT, CONTEXT_GUILD, OT } from '../constants.js';
-import { optId, optInteger, optString } from '../interaction.js';
+import { optAttachment, optId, optInteger, optString } from '../interaction.js';
 import { embed, escapeMd, ok, reply } from '../responses.js';
 import { clubOption, contextFor, ROLE_LABELS } from './common.js';
 import type { SlashCommand } from './types.js';
@@ -173,6 +182,31 @@ export const clubCommand: SlashCommand = {
             name: 'retirar',
             description: 'Retira el consentimiento: no se procesan más partidos (solo admin)',
             options: [clubOption],
+          },
+          {
+            type: OT.Subcommand,
+            name: 'importar',
+            description: 'Importa el archivo de partidos que guardaste desde EA en tu navegador (DT o admin)',
+            options: [
+              {
+                type: OT.Attachment,
+                name: 'archivo',
+                description: 'Archivo .json o .txt con los partidos, tal como lo muestra EA',
+                required: true,
+              },
+              {
+                type: OT.String,
+                name: 'tipo',
+                description: 'Tipo de partidos del archivo (por defecto: liga)',
+                required: false,
+                choices: [
+                  { name: 'Liga', value: 'leagueMatch' },
+                  { name: 'Playoff', value: 'playoffMatch' },
+                  { name: 'Amistosos', value: 'friendlyMatch' },
+                ],
+              },
+              clubOption,
+            ],
           },
         ],
       },
@@ -342,6 +376,32 @@ async function executeEa(ctx: Parameters<SlashCommand['execute']>[0]) {
           `📝 ${EA_CONSENT_TEXT}\n\n` +
           'ℹ️ PIRLO procesará los partidos en cuanto haya una fuente de datos de EA autorizada. Mientras tanto no se lee nada de EA.',
       );
+    }
+
+    case 'importar': {
+      const file = optAttachment(ctx.interaction, ctx.command, 'archivo');
+      if (!file) throw validation('Adjunta el archivo de partidos de EA.');
+      if (file.size > MAX_ATTACHMENT_BYTES) throw validation('El archivo es demasiado grande (máx. 2 MB).');
+      if (!ctx.download) throw validation('La importación no está disponible ahora mismo.');
+      const text = await ctx.download(file.url).catch((err: unknown) => {
+        throw validation(err instanceof DownloadError ? err.message : 'No se pudo leer el archivo.');
+      });
+      const r = await importEaFile(ctx.repos, c, {
+        text,
+        matchType: optString(ctx.command, 'tipo') ?? 'leagueMatch',
+      });
+      const lines = [
+        `📥 **${r.received}** partidos en el archivo · **${r.stored}** nuevos · **${r.processed}** procesados.`,
+      ];
+      if (r.received - r.stored - r.rejected > 0) {
+        lines.push(`↩️ ${r.received - r.stored - r.rejected} ya estaban importados.`);
+      }
+      if (r.rejected) lines.push(`⚠️ ${r.rejected} no eran del club de EA vinculado o tenían otro formato.`);
+      if (r.processed < r.stored) {
+        lines.push('⏳ El resto se procesa automáticamente en los próximos 15 minutos.');
+      }
+      lines.push('Consulta los resultados con `/club ea estado`.');
+      return ok(lines.join('\n'));
     }
 
     case 'retirar': {

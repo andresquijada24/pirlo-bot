@@ -35,6 +35,7 @@ export const OT = {
   Boolean: 5 as ApplicationCommandOptionType.Boolean,
   User: 6 as ApplicationCommandOptionType.User,
   Channel: 7 as ApplicationCommandOptionType.Channel,
+  Attachment: 11 as ApplicationCommandOptionType.Attachment,
 } as const;
 
 export const CHANNEL_TEXT = 0 as ChannelType.GuildText;

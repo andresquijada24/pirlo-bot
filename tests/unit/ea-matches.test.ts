@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { commandsByName, componentHandlers } from '../../src/discord/commands/index.js';
 import { routeInteraction, type RouterDeps } from '../../src/discord/router.js';
+import { createDiscordDownloader } from '../../src/discord/download.js';
 import { runEaProcessing } from '../../src/jobs/ea-processing.js';
 import { eaInt, eaRating, processEaMatch } from '../../src/providers/ea/matches.js';
 import { createMemoryRepos } from '../fakes/memory-repos.js';
@@ -212,5 +213,112 @@ describe('/club ea', () => {
     const estado = textOf(await ea(DT, 'estado'));
     expect(estado).toMatch('Sin vincular');
     expect(estado).toMatch('3-1 vs Rival Ficticio');
+  });
+});
+
+describe('descarga de adjuntos', () => {
+  const okFetch = (body: string) =>
+    (async () => new Response(body, { status: 200 })) as unknown as typeof fetch;
+
+  it('solo acepta el CDN de Discord por https', async () => {
+    const download = createDiscordDownloader(okFetch('[]'));
+    expect(await download('https://cdn.discordapp.com/attachments/1/2/liga.json')).toBe('[]');
+    for (const url of ['https://evil.example/x.json', 'http://cdn.discordapp.com/x', 'no-es-url']) {
+      let failed = false;
+      await download(url).catch(() => (failed = true));
+      expect(failed).toBe(true);
+    }
+  });
+
+  it('rechaza archivos de más de 2 MB', async () => {
+    const download = createDiscordDownloader(okFetch('x'.repeat(2_000_001)));
+    let msg = '';
+    await download('https://cdn.discordapp.com/a/b/c.json').catch((e: Error) => (msg = e.message));
+    expect(msg).toMatch('demasiado grande');
+  });
+});
+
+describe('/club ea importar', () => {
+  const OWNER = { userId: '800000000000000001', name: 'Dueño', permissions: MANAGE_GUILD };
+  const DT = { userId: '800000000000000002', name: 'Entrenador' };
+  const PLAYER = { userId: '800000000000000003', name: 'Jugador' };
+  const FILE_URL = 'https://cdn.discordapp.com/attachments/1/2/liga.json';
+  let env: ReturnType<typeof createMemoryRepos>;
+  let deps: RouterDeps;
+  let file = '';
+  const run = (i: Parameters<typeof routeInteraction>[0]) => routeInteraction(i, deps);
+
+  // Interacción con un adjunto: Discord envía el id en la opción y los datos en data.resolved.
+  const importar = (
+    who: { userId: string; name: string; permissions?: string },
+    extra: ReturnType<typeof str>[] = [],
+  ) => {
+    const i = slash(who, 'club', null, [
+      {
+        name: 'ea',
+        type: 2,
+        options: [
+          {
+            name: 'importar',
+            type: 1,
+            options: [{ name: 'archivo', type: 11, value: '42' }, ...extra],
+          },
+        ],
+      },
+    ]) as unknown as { data: Record<string, unknown> };
+    i.data.resolved = {
+      attachments: { '42': { id: '42', url: FILE_URL, filename: 'liga.json', size: file.length } },
+    };
+    return run(i as never);
+  };
+
+  beforeEach(async () => {
+    env = createMemoryRepos();
+    deps = {
+      commands: commandsByName,
+      components: componentHandlers,
+      repos: env.repos,
+      download: async (url) => {
+        expect(url).toBe(FILE_URL);
+        return file;
+      },
+    };
+    await run(
+      slash(OWNER, 'club', 'registrar', [
+        str('nombre', 'Club Prueba'),
+        str('identificador', 'club-prueba'),
+      ]),
+    );
+    env.addMember(env.state.clubs[0]!.id, DT.userId, 'dt');
+    env.addMember(env.state.clubs[0]!.id, PLAYER.userId, 'jugador');
+    file = JSON.stringify([payload(), { ...payload(), matchId: '900002', timestamp: 1792894999 }]);
+  });
+
+  it('sin club de EA vinculado no importa nada', async () => {
+    expect(textOf(await importar(OWNER))).toMatch('Primero un admin');
+    expect(env.state.eaCache.size).toBe(0);
+  });
+
+  it('un DT importa y procesa al momento; repetir no duplica', async () => {
+    await env.repos.ea.link(env.state.clubs[0]!.id, 'common-gen5', OURS, OWNER.userId);
+    const first = textOf(await importar(DT));
+    expect(first).toMatch('**2** partidos en el archivo · **2** nuevos · **2** procesados');
+    expect(env.state.eaMatches.length).toBe(2);
+    expect(textOf(await importar(DT))).toMatch('2 ya estaban importados');
+    expect(env.state.eaMatches.length).toBe(2);
+  });
+
+  it('un jugador no puede importar', async () => {
+    await env.repos.ea.link(env.state.clubs[0]!.id, 'common-gen5', OURS, OWNER.userId);
+    expect(textOf(await importar(PLAYER))).not.toMatch('procesados');
+    expect(env.state.eaCache.size).toBe(0);
+  });
+
+  it('descarta partidos de otro club de EA y archivos que no son de EA', async () => {
+    await env.repos.ea.link(env.state.clubs[0]!.id, 'common-gen5', '999', OWNER.userId);
+    expect(textOf(await importar(OWNER))).toMatch('2 no eran del club de EA vinculado');
+    expect(env.state.eaCache.size).toBe(0);
+    file = '<html>no es EA</html>';
+    expect(textOf(await importar(OWNER))).toMatch('El archivo no es el de EA');
   });
 });

@@ -237,6 +237,37 @@ describe('/temporada', () => {
   });
 });
 
+describe('/club conectar', () => {
+  it('el admin conecta el club existente a otro servidor y allí funciona con sus datos', async () => {
+    await registerClub();
+    await run(slash(OWNER, 'temporada', 'crear', [str('nombre', 'T1')]));
+    const res = textOf(
+      await run(slash({ ...OWNER, guildId: OTHER_GUILD }, 'club', 'conectar', [str('identificador', 'club-prueba')])),
+    );
+    expect(res).toContain('conectado a este servidor');
+    expect(env.state.clubs).toHaveLength(1);
+    const info = textOf(await run(slash({ ...OWNER, guildId: OTHER_GUILD }, 'club', 'info')));
+    expect(info).toContain('club-prueba');
+    expect(info).toContain('T1');
+  });
+
+  it('sin "Gestionar servidor" no se puede', async () => {
+    await registerClub();
+    const owner = { userId: OWNER.userId, name: OWNER.name, guildId: OTHER_GUILD };
+    expect(textOf(await run(slash(owner, 'club', 'conectar', [str('identificador', 'club-prueba')])))).toMatch(
+      'gestionar este servidor',
+    );
+  });
+
+  it('quien gestiona otro servidor pero no es admin del club no puede llevárselo', async () => {
+    await registerClub();
+    const outsider = { userId: '800000000000000009', permissions: MANAGE_GUILD, guildId: OTHER_GUILD };
+    expect(textOf(await run(slash(outsider, 'club', 'conectar', [str('identificador', 'club-prueba')])))).toMatch(
+      'Solo un admin del club',
+    );
+  });
+});
+
 describe('/temporada fechas', () => {
   it('pone la fecha de inicio a la temporada actual y la muestra en /temporada ver', async () => {
     await registerClub();

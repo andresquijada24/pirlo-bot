@@ -24,6 +24,15 @@
 2. GitHub → *Settings → Secrets → Actions*: `CRON_SECRET` con el mismo valor.
 3. *Actions → Sincronizar Marítimo → Run workflow* para la primera pasada; luego corre sola.
 
+## Pasar un club al servidor real
+
+1. Invitar a PIRLO BOT al servidor del club (scopes `bot` y `applications.commands`).
+2. GitHub → *Settings → Secrets and variables → Actions → Variables*: `DISCORD_CLUB_GUILD_IDS` con el
+   ID del servidor (varios, separados por comas). Es la autorización explícita del dueño.
+3. *Actions → Registrar comandos de Discord → Run workflow* (registra por servidor, al instante).
+4. En el servidor real, un admin del club con "Gestionar servidor": `/club conectar identificador:<slug>`.
+   El club conserva plantilla, sesiones y temporadas.
+
 ## Reglas
 
 - No se despliega a producción sin aprobación explícita.

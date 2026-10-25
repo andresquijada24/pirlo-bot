@@ -76,6 +76,23 @@ export function createMemoryRepos() {
         state.audit.push({ clubId: club.id, actorDiscordId: input.adminDiscordId, action: 'club.register' });
         return { clubId: club.id, membershipId: m.id };
       },
+      async connectGuild(input) {
+        const club = state.clubs.find((c) => c.slug === input.slug.trim().toLowerCase());
+        if (!club) throw conflict('No existe un club con ese identificador.');
+        const isAdmin = state.memberships.some(
+          (m) => m.clubId === club.id && m.active && m.role === 'admin' && m.discordUserId === input.actorDiscordId,
+        );
+        if (!isAdmin) throw conflict('Solo un admin del club puede conectarlo a otro servidor.');
+        const other = state.clubGuilds.some((cg) => cg.guildId === input.guildId && cg.clubId !== club.id);
+        if (other && !state.multiClubGuilds.has(input.guildId)) {
+          throw conflict(`El servidor ${input.guildId} no tiene habilitada la modalidad multiclub`);
+        }
+        if (!state.clubGuilds.some((cg) => cg.clubId === club.id && cg.guildId === input.guildId)) {
+          state.clubGuilds.push({ clubId: club.id, guildId: input.guildId });
+        }
+        state.audit.push({ clubId: club.id, actorDiscordId: input.actorDiscordId, action: 'club.connect_guild' });
+        return club.id;
+      },
     },
 
     memberships: {

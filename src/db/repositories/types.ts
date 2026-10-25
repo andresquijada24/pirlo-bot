@@ -33,6 +33,8 @@ export interface RegisterClubInput {
 export interface ClubRepository {
   listByGuild(guildId: string): Promise<Club[]>;
   register(input: RegisterClubInput): Promise<{ clubId: string; membershipId: string }>;
+  /** Conecta un club existente (por identificador) a otro servidor. Solo un admin del club. Devuelve el id. */
+  connectGuild(input: { slug: string; guildId: string; guildName: string | null; actorDiscordId: string }): Promise<string>;
 }
 
 export interface MembershipRepository {

@@ -1,4 +1,4 @@
-import { configureChannel, registerClub } from '../../core/clubs/service.js';
+import { configureChannel, connectClubToGuild, registerClub } from '../../core/clubs/service.js';
 import { assertCan, can } from '../../core/permissions/index.js';
 import { listSeasons } from '../../core/seasons/service.js';
 import { CHANNEL_PURPOSES, type ChannelPurpose } from '../../core/types.js';
@@ -55,6 +55,20 @@ export const clubCommand: SlashCommand = {
       },
       {
         type: OT.Subcommand,
+        name: 'conectar',
+        description: 'Conecta a este servidor un club que ya existe (admin del club y "Gestionar servidor")',
+        options: [
+          {
+            type: OT.String,
+            name: 'identificador',
+            description: 'Identificador del club, el que muestra /club info (p. ej. maritimo-cf)',
+            required: true,
+            max_length: 40,
+          },
+        ],
+      },
+      {
+        type: OT.Subcommand,
         name: 'info',
         description: 'Muestra la información del club',
         options: [clubOption],
@@ -101,6 +115,17 @@ export const clubCommand: SlashCommand = {
         return ok(
           `Club registrado con el identificador \`${res.slug}\`. Ahora eres admin del club.\n` +
             'Siguientes pasos: `/club canal` para elegir canales y `/temporada crear` para la temporada.',
+        );
+      }
+
+      case 'conectar': {
+        const res = await connectClubToGuild(ctx.repos, ctx.actor, {
+          slug: optString(ctx.command, 'identificador') ?? '',
+          guildName: null,
+        });
+        return ok(
+          `Club \`${res.slug}\` conectado a este servidor, con su plantilla, estadísticas y temporadas.\n` +
+            'Los jugadores pueden unirse con `/vincular`; un DT los aprueba con `/solicitudes`.',
         );
       }
 

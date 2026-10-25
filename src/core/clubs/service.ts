@@ -29,6 +29,29 @@ export async function registerClub(
   return { ...result, slug };
 }
 
+/**
+ * Conecta un club que ya existe (por su identificador) al servidor actual, p. ej. para pasar del
+ * servidor de pruebas al servidor real sin perder plantilla, sesiones ni temporadas.
+ * Requiere "Gestionar servidor" en este servidor y ser admin del club (lo comprueba la base de datos).
+ */
+export async function connectClubToGuild(
+  repos: Pick<Repositories, 'clubs'>,
+  actor: Actor,
+  input: { slug: string; guildName: string | null },
+): Promise<{ clubId: string; slug: string }> {
+  if (!actor.isGuildManager) {
+    throw permissionDenied('Solo quien puede gestionar este servidor puede conectar un club a él.');
+  }
+  const slug = parse(slugSchema, input.slug);
+  const clubId = await repos.clubs.connectGuild({
+    slug,
+    guildId: actor.guildId,
+    guildName: input.guildName,
+    actorDiscordId: actor.discordUserId,
+  });
+  return { clubId, slug };
+}
+
 /** Asigna un canal del servidor a un propósito del club (anuncios, convocatorias…). */
 export async function configureChannel(
   repos: Pick<Repositories, 'channels' | 'audit'>,

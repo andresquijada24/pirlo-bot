@@ -1,7 +1,8 @@
 name: Registrar comandos de Discord
 
 # Solo se ejecuta a mano: Actions → "Registrar comandos de Discord" → Run workflow.
-# Registra los comandos ÚNICAMENTE en el servidor de pruebas (secreto DISCORD_DEV_GUILD_ID).
+# Registra los comandos en el servidor de pruebas (secreto DISCORD_DEV_GUILD_ID) y, si el dueño
+# lo autorizó, en los servidores reales de clubes (variable DISCORD_CLUB_GUILD_IDS).
 on:
   workflow_dispatch:
 
@@ -28,4 +29,6 @@ jobs:
           DISCORD_APPLICATION_ID: '1562889315657195530'
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           DISCORD_DEV_GUILD_ID: ${{ secrets.DISCORD_DEV_GUILD_ID }}
+          # Servidores reales de clubes (variable del repositorio, la fija el dueño). Vacía = solo pruebas.
+          DISCORD_CLUB_GUILD_IDS: ${{ vars.DISCORD_CLUB_GUILD_IDS }}
         run: npm run commands:register

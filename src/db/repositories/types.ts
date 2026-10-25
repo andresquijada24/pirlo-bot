@@ -166,6 +166,11 @@ export interface ReminderRepository {
   claim(clubId: string, callupId: string): Promise<boolean>;
 }
 
+export interface EaCaptureRepository {
+  /** Guarda partidos nuevos; los ya guardados se ignoran. Devuelve cuántos eran nuevos. */
+  store(matches: import('../../providers/ea/ingest.js').CachedMatch[]): Promise<number>;
+}
+
 export interface StatsRepository {
   /** Totales por temporada a nivel sesión. seasonId null = todas (incluye sesiones sin temporada). */
   sessionRows(clubId: string, seasonId: string | null): Promise<SessionStatRow[]>;
@@ -193,4 +198,5 @@ export interface Repositories {
   callups: CallupRepository;
   lineups: LineupRepository;
   reminders: ReminderRepository;
+  eaCapture: EaCaptureRepository;
 }

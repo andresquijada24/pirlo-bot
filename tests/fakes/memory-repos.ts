@@ -39,6 +39,7 @@ export function createMemoryRepos() {
     lineups: [] as Lineup[],
     remindedCallups: new Set<string>(),
     callupMessages: [] as { clubId: string; callupId: string; channelId: string; messageId: string }[],
+    eaCache: new Map<string, unknown>(),
   };
 
   const activeIn = (clubId: string) => state.memberships.filter((m) => m.clubId === clubId && m.active);
@@ -415,6 +416,20 @@ export function createMemoryRepos() {
         const l = state.lineups.find((x) => x.clubId === clubId && x.id === lineupId);
         if (!l) throw notFound('Alineación');
         l.status = 'publicada';
+      },
+    },
+
+    eaCapture: {
+      async store(matches) {
+        let added = 0;
+        for (const m of matches) {
+          const key = `${m.platform}:${m.eaClubId}:${m.matchId}`;
+          if (!state.eaCache.has(key)) {
+            state.eaCache.set(key, m);
+            added++;
+          }
+        }
+        return added;
       },
     },
 

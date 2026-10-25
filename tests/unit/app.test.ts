@@ -136,3 +136,34 @@ describe('POST /api/cron/tick', () => {
     expect(await res.json()).toEqual({ status: 'ok', sent: 2, skipped: 1, failed: 0 });
   });
 });
+
+describe('POST /api/ingest/ea', () => {
+  const TOKEN = 'clave-del-puente-ficticia-de-32-caracteres';
+  const body = JSON.stringify({
+    platform: 'common-gen5',
+    eaClubId: '111',
+    matchType: 'leagueMatch',
+    matches: [{ matchId: '900001', timestamp: 1792894060, clubs: { '111': {}, '222': {} } }],
+  });
+  const call = (app: ReturnType<typeof createApp>, token?: string, payload = body) =>
+    app.request('/api/ingest/ea', {
+      method: 'POST',
+      body: payload,
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+    });
+
+  it('sin clave configurada responde 503; con clave incorrecta, 401', async () => {
+    const repos = createMemoryRepos().repos;
+    expect((await call(createApp({ discordPublicKey: '0'.repeat(64), repos }), TOKEN)).status).toBe(503);
+    const app = createApp({ discordPublicKey: '0'.repeat(64), repos, eaBridgeToken: TOKEN });
+    expect((await call(app)).status).toBe(401);
+    expect((await call(app, 'otra')).status).toBe(401);
+  });
+
+  it('guarda una vez y no duplica', async () => {
+    const app = createApp({ discordPublicKey: '0'.repeat(64), repos: createMemoryRepos().repos, eaBridgeToken: TOKEN });
+    expect(await (await call(app, TOKEN)).json()).toEqual({ received: 1, stored: 1, rejected: 0 });
+    expect(await (await call(app, TOKEN)).json()).toEqual({ received: 1, stored: 0, rejected: 0 });
+    expect((await call(app, TOKEN, '{"no":"vale"}')).status).toBe(400);
+  });
+});

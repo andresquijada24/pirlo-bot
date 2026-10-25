@@ -5,6 +5,7 @@ import type { Callup, Club, LinkRequest, Lineup, Membership, Season } from '../.
 import { check } from '../errors.js';
 import type {
   AuditRepository,
+  EaCaptureRepository,
   ReminderRepository,
   CallupRepository,
   LineupRepository,
@@ -778,6 +779,29 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
     },
   };
 
+  const eaCapture: EaCaptureRepository = {
+    async store(matches) {
+      if (matches.length === 0) return 0;
+      const rows = check(
+        await db
+          .from('ea_match_cache')
+          .upsert(
+            matches.map((m) => ({
+              platform: m.platform,
+              ea_club_id: m.eaClubId,
+              match_id: m.matchId,
+              match_type: m.matchType,
+              played_at: m.playedAt,
+              payload: m.payload,
+            })),
+            { onConflict: 'platform,ea_club_id,match_id', ignoreDuplicates: true },
+          )
+          .select('match_id'),
+      );
+      return Array.isArray(rows) ? rows.length : 0;
+    },
+  };
+
   const reminders: ReminderRepository = {
     async due(limit, blockedGuilds) {
       const rows = check(
@@ -805,6 +829,7 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
   };
 
   return {
+    eaCapture,
     reminders,
     clubs,
     memberships,

@@ -818,7 +818,7 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
     consentedBy: r.consented_by,
     consentedAt: r.consented_at,
   });
-  const LINK_COLUMNS = 'club_id, platform, ea_club_id, consented_by, consented_at';
+  const EA_LINK_COLUMNS = 'club_id, platform, ea_club_id, consented_by, consented_at';
 
   const ea: EaRepository = {
     async link(clubId, platform, eaClubId, actorDiscordId) {
@@ -836,7 +836,7 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
       return z.boolean().parse(r);
     },
     async getLink(clubId) {
-      const row = check(await db.from('club_ea_links').select(LINK_COLUMNS).eq('club_id', clubId).maybeSingle());
+      const row = check(await db.from('club_ea_links').select(EA_LINK_COLUMNS).eq('club_id', clubId).maybeSingle());
       return row ? toLink(eaLinkRow.parse(row)) : null;
     },
     async consented(platform, eaClubId) {
@@ -846,7 +846,7 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
       return Array.isArray(rows) && rows.length > 0;
     },
     async listLinks() {
-      const rows = check(await db.from('club_ea_links').select(LINK_COLUMNS));
+      const rows = check(await db.from('club_ea_links').select(EA_LINK_COLUMNS));
       return z.array(eaLinkRow).parse(rows).map(toLink);
     },
     async pending(clubId, limit) {

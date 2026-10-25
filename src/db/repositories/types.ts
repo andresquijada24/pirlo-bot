@@ -41,6 +41,8 @@ export interface ClubRepository {
   /** null desactiva los recordatorios. */
   setReminderMinutes(clubId: string, minutes: number | null): Promise<void>;
   findById(clubId: string): Promise<Club | null>;
+  /** Quita el vínculo del club con un servidor (no el último). Solo un admin del club. */
+  disconnectGuild(clubId: string, guildId: string, actorDiscordId: string): Promise<void>;
   /** Conecta un club existente (por identificador) a otro servidor. Solo un admin del club. Devuelve el id. */
   connectGuild(input: { slug: string; guildId: string; guildName: string | null; actorDiscordId: string }): Promise<string>;
 }
@@ -156,7 +158,10 @@ export interface DueReminder {
 
 /** Recordatorios de convocatorias. due() recorre todos los clubes: solo lo usa la tarea programada. */
 export interface ReminderRepository {
-  due(limit: number): Promise<DueReminder[]>;
+  /** Pendientes, sin los servidores bloqueados (el de referencia siempre lo está). */
+  due(limit: number, blockedGuilds: string[]): Promise<DueReminder[]>;
+  /** Devuelve a la cola un recordatorio reclamado cuyo envío falló por un error temporal. */
+  release(clubId: string, callupId: string): Promise<void>;
   /** Marca la convocatoria como recordada; false si otra tarea ya lo hizo. */
   claim(clubId: string, callupId: string): Promise<boolean>;
 }

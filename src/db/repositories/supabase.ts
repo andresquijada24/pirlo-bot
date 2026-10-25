@@ -248,6 +248,15 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
     async setReminderMinutes(clubId, minutes) {
       check(await db.from('clubs').update({ reminder_minutes: minutes }).eq('id', clubId));
     },
+    async disconnectGuild(clubId, guildId, actorDiscordId) {
+      check(
+        await db.rpc('disconnect_club_guild', {
+          p_club_id: clubId,
+          p_guild_id: guildId,
+          p_actor_discord_id: actorDiscordId,
+        }),
+      );
+    },
     async findById(clubId) {
       const row = check(await db.from('clubs').select(CLUB_COLUMNS).eq('id', clubId).maybeSingle());
       return row ? toClub(clubRow.parse(row)) : null;
@@ -770,8 +779,10 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
   };
 
   const reminders: ReminderRepository = {
-    async due(limit) {
-      const rows = check(await db.rpc('due_callup_reminders', { p_limit: limit }));
+    async due(limit, blockedGuilds) {
+      const rows = check(
+        await db.rpc('due_callup_reminders', { p_limit: limit, p_blocked_guilds: blockedGuilds }),
+      );
       return z
         .array(
           z.object({
@@ -783,6 +794,9 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
         )
         .parse(rows)
         .map((r) => ({ clubId: r.club_id, callupId: r.callup_id, guildId: r.guild_id, channelId: r.channel_id }));
+    },
+    async release(clubId, callupId) {
+      check(await db.rpc('release_callup_reminder', { p_club_id: clubId, p_callup_id: callupId }));
     },
     async claim(clubId, callupId) {
       const r = check(await db.rpc('claim_callup_reminder', { p_club_id: clubId, p_callup_id: callupId }));

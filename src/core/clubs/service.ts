@@ -72,3 +72,15 @@ export async function configureChannel(
     details: { purpose },
   });
 }
+
+/**
+ * Desconecta el club del servidor desde el que se ejecuta el comando (p. ej. el de pruebas, tras
+ * pasar al servidor real). Solo un admin del club (no basta con gestionar el servidor de Discord).
+ * No puede ser el último servidor del club. Los canales configurados en él se quitan.
+ */
+export async function disconnectFromGuild(repos: Pick<Repositories, 'clubs'>, ctx: ClubContext): Promise<void> {
+  if (ctx.membership?.role !== 'admin') {
+    throw permissionDenied('Solo un admin del club puede desconectarlo de un servidor.');
+  }
+  await repos.clubs.disconnectGuild(ctx.club.id, ctx.actor.guildId, ctx.actor.discordUserId);
+}

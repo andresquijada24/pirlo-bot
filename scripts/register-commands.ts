@@ -91,6 +91,9 @@ async function main() {
   for (const c of body) console.log(`  /${c.name}`);
 
   // Servidores reales de clubes autorizados por el dueño (variable DISCORD_CLUB_GUILD_IDS).
+  if (clubGuildIds.includes(REFERENCE_GUILD_ID)) {
+    fail('DISCORD_CLUB_GUILD_IDS incluye el servidor de referencia: no se registran comandos en él sin autorización.');
+  }
   for (const id of clubGuildIds.filter((g) => g !== guildId)) {
     const where = guilds.find((g) => g.id === id);
     if (!where) fail(`PIRLO BOT no está en el servidor ${id}: invítalo antes de registrar los comandos allí.`);

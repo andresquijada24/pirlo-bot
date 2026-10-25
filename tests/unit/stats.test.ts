@@ -42,11 +42,13 @@ describe('aggregate', () => {
   it('sin dato sigue siendo sin dato (null), no cero', () => {
     const [t] = aggregate([row({ goals: 2, assists: null, saves: null })]);
     expect(t).toMatchObject({ goals: 2, assists: null, saves: null, avgRating: null, passPct: null });
-    expect(t!.goalContributions).toBe(2);
+    // Con las asistencias sin dato, G+A tampoco se puede afirmar.
+    expect(t!.goalContributions).toBeNull();
   });
 
-  it('G+A es null solo si faltan goles y asistencias', () => {
+  it('G+A solo se calcula con goles y asistencias conocidos', () => {
     expect(aggregate([row({})])[0]!.goalContributions).toBeNull();
+    expect(aggregate([row({ goals: 2, assists: 1 })])[0]!.goalContributions).toBe(3);
   });
 
   it('calcula porcentajes con los totales, no promediando porcentajes', () => {

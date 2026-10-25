@@ -9,8 +9,9 @@ import { escapeMd } from '../discord/responses.js';
 /** Servidor de referencia: el bot nunca publica en él por su cuenta (regla 9 de CLAUDE.md). */
 export const REFERENCE_GUILD_ID = '853894813169614848';
 const MAX_PER_RUN = 20;
-/** Discord permite mencionar hasta 100 usuarios por mensaje. */
+/** Discord admite 100 menciones y 2000 caracteres por mensaje: se deja margen para el resto. */
 const MAX_MENTIONS = 100;
+const MAX_MENTION_CHARS = 1700;
 
 export interface ReminderResult {
   sent: number;
@@ -34,8 +35,10 @@ export async function runReminders(deps: {
   const { repos, poster } = deps;
   const result: ReminderResult = { sent: 0, skipped: 0, failed: 0 };
 
-  for (const due of await repos.reminders.due(MAX_PER_RUN)) {
-    if (deps.blockedGuilds.has(due.guildId) || due.guildId === REFERENCE_GUILD_ID) {
+  const blocked = [...new Set([...deps.blockedGuilds, REFERENCE_GUILD_ID])];
+  for (const due of await repos.reminders.due(MAX_PER_RUN, blocked)) {
+    // Doble seguro: la consulta ya excluye estos servidores.
+    if (blocked.includes(due.guildId)) {
       result.skipped++;
       continue;
     }
@@ -53,10 +56,19 @@ export async function runReminders(deps: {
     try {
       const board = await callupBoard(repos, ctx, due.callupId);
       const pending = board.pending.map((m) => m.discordUserId).filter((id): id is string => Boolean(id));
-      const mentioned = pending.slice(0, MAX_MENTIONS);
+      const mentioned: string[] = [];
+      let chars = 0;
+      for (const id of pending.slice(0, MAX_MENTIONS)) {
+        if (chars + id.length + 4 > MAX_MENTION_CHARS) break;
+        mentioned.push(id);
+        chars += id.length + 4;
+      }
+      const others = pending.length - mentioned.length;
       const content =
         `⏰ **${escapeMd(board.callup.title)}** empieza ${discordTime(board.callup.startsAt, 'R')}.` +
-        (mentioned.length ? `\nFaltan por responder: ${mentioned.map((id) => `<@${id}>`).join(' ')}` : '\nYa respondió todo el mundo. ¡A jugar!');
+        (mentioned.length
+          ? `\nFaltan por responder: ${mentioned.map((id) => `<@${id}>`).join(' ')}${others > 0 ? ` y ${others} más` : ''}`
+          : '\nYa respondió todo el mundo. ¡A jugar!');
       const posted = await poster.post(due.channelId, {
         content,
         embeds: [boardEmbed(board, club.name)],
@@ -68,6 +80,10 @@ export async function runReminders(deps: {
       result.sent++;
     } catch (err) {
       result.failed++;
+      // Error temporal (Discord caído, límite de peticiones, red): se devuelve a la cola para la
+      // siguiente pasada. Un rechazo definitivo (permisos, canal borrado) no se reintenta.
+      const transient = !(err instanceof DiscordPostError) || err.status === 429 || err.status >= 500;
+      if (transient) await repos.reminders.release(due.clubId, due.callupId).catch(() => undefined);
       const reason = err instanceof DiscordPostError ? `HTTP ${err.status}${err.detail ? ` · ${err.detail}` : ''}` : 'error interno';
       (result.errors ??= []).push(`canal ${due.channelId}: ${reason}`);
       deps.log?.error({ err, clubId: due.clubId, callupId: due.callupId }, 'No se pudo publicar el recordatorio');

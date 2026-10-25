@@ -39,3 +39,10 @@ servidor. Así un servidor nunca queda bloqueado si su club se queda sin admins.
    clubes distintos.
 4. Las operaciones de varias tablas (registrar club, aprobar vinculación, crear temporada) son
    funciones de Postgres atómicas que solo puede ejecutar el servidor del bot.
+
+## Varios servidores por club
+
+Un club puede estar conectado a más de un servidor (`/club conectar`), por ejemplo el de pruebas y
+el real. Quien tiene "Gestionar servidor" en CUALQUIERA de ellos actúa como admin del club. Por
+eso, al pasar al servidor real, conviene desconectar el de pruebas con `/club desconectar`
+(ejecutado desde ese servidor; exige ser admin del club, no basta con gestionar el servidor).

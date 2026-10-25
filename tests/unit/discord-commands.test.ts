@@ -337,3 +337,19 @@ describe('registro de errores internos', () => {
     expect(logged).toEqual([{ detail: { dbCode: null, dbMessage: 'Invalid API key' } }]);
   });
 });
+
+describe('/club desconectar', () => {
+  it('solo un admin del club; nunca el último servidor; quita sus canales', async () => {
+    const clubId = await registerClub();
+    expect(textOf(await run(slash(OWNER, 'club', 'desconectar')))).toMatch('único servidor');
+    // Segundo servidor del mismo club.
+    env.state.clubGuilds.push({ clubId, guildId: OTHER_GUILD });
+    env.state.channels.push({ clubId, guildId: OTHER_GUILD, purpose: 'anuncios', channelId: '930000000000000009' });
+    // Gestionar el otro servidor no basta: hay que ser admin del club.
+    const manager = { userId: '800000000000000009', name: 'Gestor', permissions: MANAGE_GUILD, guildId: OTHER_GUILD };
+    expect(textOf(await run(slash(manager, 'club', 'desconectar')))).toMatch('Solo un admin del club');
+    expect(textOf(await run(slash({ ...OWNER, guildId: OTHER_GUILD }, 'club', 'desconectar')))).toMatch('ya no está conectado');
+    expect(env.state.clubGuilds.filter((cg) => cg.clubId === clubId).map((cg) => cg.guildId)).not.toContain(OTHER_GUILD);
+    expect(env.state.channels.some((ch) => ch.guildId === OTHER_GUILD)).toBe(false);
+  });
+});

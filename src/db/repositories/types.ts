@@ -13,6 +13,7 @@ import type {
 } from '../../core/types.js';
 import type { SessionStatRow } from '../../core/stats/service.js';
 import type { SyncRepository } from '../../sync/types.js';
+import type { CachedMatch } from '../../providers/ea/ingest.js';
 
 /**
  * Contratos de acceso a datos.
@@ -168,7 +169,7 @@ export interface ReminderRepository {
 
 export interface EaCaptureRepository {
   /** Guarda partidos nuevos; los ya guardados se ignoran. Devuelve cuántos eran nuevos. */
-  store(matches: import('../../providers/ea/ingest.js').CachedMatch[]): Promise<number>;
+  store(matches: CachedMatch[]): Promise<number>;
 }
 
 export interface StatsRepository {

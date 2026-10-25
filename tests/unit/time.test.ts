@@ -60,3 +60,25 @@ describe('utilidades', () => {
     expect(discordTime('2026-10-26T01:30:00Z', 'R')).toBe('<t:1792978200:R>');
   });
 });
+
+describe('parseTime tolerante con el teclado del móvil', () => {
+  const cases: [string, number, number][] = [
+    ['9:30 p. m.', 21, 30],
+    ['9:30 p. m.', 21, 30],
+    ['10:30 p.m.', 22, 30],
+    ['21.30', 21, 30],
+    ['21 30', 21, 30],
+    ['a las 9 pm', 21, 0],
+    ['21:30 hrs', 21, 30],
+    ['23：30', 23, 30],
+    ['2130', 21, 30],
+  ];
+  for (const [input, hour, minute] of cases) {
+    it(JSON.stringify(input), () => {
+      expect(parseTime(input)).toEqual({ hour, minute });
+    });
+  }
+  it('el error repite lo escrito', () => {
+    expect(() => parseTime('mediodía')).toThrow('«mediodía»');
+  });
+});

@@ -1,10 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { CHANNEL_PURPOSES, CLUB_ROLES, POSITION_CODES } from '../../core/types.js';
-import type { Club, LinkRequest, Membership, Season } from '../../core/types.js';
+import { CALLUP_ANSWERS, CHANNEL_PURPOSES, CLUB_ROLES, POSITION_CODES } from '../../core/types.js';
+import type { Callup, Club, LinkRequest, Membership, Season } from '../../core/types.js';
 import { check } from '../errors.js';
 import type {
   AuditRepository,
+  CallupRepository,
   ChannelRepository,
   ClubRepository,
   LinkRequestRepository,
@@ -30,6 +31,7 @@ const clubRow = z.object({
   name: z.string(),
   status: z.enum(['activo', 'inactivo']),
   stats_provider: z.enum(['maritimo', 'ourproclub', 'ea', 'manual']),
+  timezone: z.string(),
 });
 const toClub = (r: z.infer<typeof clubRow>): Club => ({
   id: r.id,
@@ -37,8 +39,9 @@ const toClub = (r: z.infer<typeof clubRow>): Club => ({
   name: r.name,
   status: r.status,
   statsProvider: r.stats_provider,
+  timezone: r.timezone,
 });
-const CLUB_COLUMNS = 'id, slug, name, status, stats_provider';
+const CLUB_COLUMNS = 'id, slug, name, status, stats_provider, timezone';
 
 const membershipRow = z.object({
   id: z.string().uuid(),
@@ -175,6 +178,28 @@ const SYNC_RUN_COLUMNS = Object.keys(syncRunRow.shape).join(', ');
 export const STALE_RUN_MINUTES = 15;
 const PAGE = 1000;
 
+const callupRow = z.object({
+  id: z.string().uuid(),
+  club_id: z.string().uuid(),
+  title: z.string(),
+  opponent_name: z.string().nullable(),
+  starts_at: z.string(),
+  closes_at: z.string().nullable(),
+  status: z.enum(['abierta', 'cerrada', 'cancelada']),
+});
+const toCallup = (r: z.infer<typeof callupRow>): Callup => ({
+  id: r.id,
+  clubId: r.club_id,
+  title: r.title,
+  opponent: r.opponent_name,
+  startsAt: new Date(r.starts_at).toISOString(),
+  closesAt: r.closes_at ? new Date(r.closes_at).toISOString() : null,
+  status: r.status,
+});
+const CALLUP_COLUMNS = Object.keys(callupRow.shape).join(', ');
+/** Una convocatoria sigue en la lista unas horas después de empezar (por si el partido se alarga). */
+const CALLUP_GRACE_MS = 3 * 60 * 60 * 1000;
+
 export function createSupabaseRepositories(db: SupabaseClient): Repositories {
   const clubs: ClubRepository = {
     async listByGuild(guildId) {
@@ -185,6 +210,9 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
         .array(z.object({ clubs: clubRow }))
         .parse(rows)
         .map((r) => toClub(r.clubs));
+    },
+    async setTimezone(clubId, timezone) {
+      check(await db.from('clubs').update({ timezone }).eq('id', clubId));
     },
     async register(input) {
       const rows = check(
@@ -549,5 +577,64 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
     },
   };
 
-  return { clubs, memberships, linkRequests, channels, seasons, audit, stats, externalPlayers, sync };
+  const callups: CallupRepository = {
+    async create(clubId, input, actorDiscordId) {
+      const id = check(
+        await db.rpc('create_callup', {
+          p_club_id: clubId,
+          p_title: input.title,
+          p_opponent: input.opponent,
+          p_starts_at: input.startsAt.toISOString(),
+          p_closes_at: input.closesAt ? input.closesAt.toISOString() : null,
+          p_actor_discord_id: actorDiscordId,
+        }),
+      );
+      return z.string().uuid().parse(id);
+    },
+    async findById(clubId, callupId) {
+      const row = check(
+        await db.from('callups').select(CALLUP_COLUMNS).eq('club_id', clubId).eq('id', callupId).maybeSingle(),
+      );
+      return row ? toCallup(callupRow.parse(row)) : null;
+    },
+    async listUpcoming(clubId, limit) {
+      const rows = check(
+        await db
+          .from('callups')
+          .select(CALLUP_COLUMNS)
+          .eq('club_id', clubId)
+          .eq('status', 'abierta')
+          .gte('starts_at', new Date(Date.now() - CALLUP_GRACE_MS).toISOString())
+          .order('starts_at')
+          .limit(limit),
+      );
+      return z.array(callupRow).parse(rows).map(toCallup);
+    },
+    async responses(clubId, callupId) {
+      const rows = check(
+        await db.from('callup_responses').select('player_id, answer').eq('club_id', clubId).eq('callup_id', callupId),
+      );
+      return z
+        .array(z.object({ player_id: z.string().uuid(), answer: z.enum(CALLUP_ANSWERS) }))
+        .parse(rows)
+        .map((r) => ({ playerId: r.player_id, answer: r.answer }));
+    },
+    async respond(clubId, callupId, playerId, answer) {
+      check(
+        await db.rpc('respond_callup', {
+          p_club_id: clubId,
+          p_callup_id: callupId,
+          p_player_id: playerId,
+          p_answer: answer,
+        }),
+      );
+    },
+    async close(clubId, callupId, actorDiscordId) {
+      check(
+        await db.rpc('close_callup', { p_club_id: clubId, p_callup_id: callupId, p_actor_discord_id: actorDiscordId }),
+      );
+    },
+  };
+
+  return { clubs, memberships, linkRequests, channels, seasons, audit, stats, externalPlayers, sync, callups };
 }

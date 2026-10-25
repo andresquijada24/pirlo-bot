@@ -1,4 +1,5 @@
 import { configureChannel, connectClubToGuild, registerClub } from '../../core/clubs/service.js';
+import { setClubTimezone } from '../../core/callups/service.js';
 import { assertCan, can } from '../../core/permissions/index.js';
 import { listSeasons } from '../../core/seasons/service.js';
 import { CHANNEL_PURPOSES, type ChannelPurpose } from '../../core/types.js';
@@ -101,6 +102,21 @@ export const clubCommand: SlashCommand = {
         description: 'Estado de la sincronización con el proveedor de estadísticas (DT o admin)',
         options: [clubOption],
       },
+      {
+        type: OT.Subcommand,
+        name: 'zona',
+        description: 'Zona horaria con la que se leen las horas de convocatorias (solo admin)',
+        options: [
+          {
+            type: OT.String,
+            name: 'zona',
+            description: 'p. ej. America/Caracas, America/Santo_Domingo, Europe/Madrid',
+            required: true,
+            max_length: 40,
+          },
+          clubOption,
+        ],
+      },
     ],
   },
 
@@ -135,6 +151,7 @@ export const clubCommand: SlashCommand = {
         const current = seasons.find((s) => s.isCurrent);
         const fields = [
           { name: 'Identificador', value: `\`${c.club.slug}\``, inline: true },
+          { name: 'Zona horaria', value: c.club.timezone, inline: true },
           { name: 'Temporada actual', value: current ? escapeMd(current.name) : 'Sin definir', inline: true },
           {
             name: 'Tu rol',
@@ -161,6 +178,12 @@ export const clubCommand: SlashCommand = {
         const channelId = optId(ctx.command, 'canal') ?? '';
         await configureChannel(ctx.repos, c, purpose, channelId);
         return ok(`Canal de ${PURPOSE_LABELS[purpose].toLowerCase()}: <#${channelId}>.`);
+      }
+
+      case 'zona': {
+        const c = await contextFor(ctx);
+        const tz = await setClubTimezone(ctx.repos, c, optString(ctx.command, 'zona') ?? '');
+        return ok(`Zona horaria del club: **${tz}**. Las horas de las convocatorias se leerán en esa zona.`);
       }
 
       case 'sincronizacion': {

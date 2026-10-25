@@ -18,10 +18,14 @@ const HELP = [
   '`/ranking` — goleadores, asistencias, nota, pases, entradas…',
   '`/club sincronizacion` — estado de la sincronización (DT/admin)',
   '',
-  '**Información**',
-  '`/club info` · `/temporada ver`',
+  '**Partidos**',
+  '`/convocatoria crear` — convoca con botones Voy / Duda / No voy (capitán o superior)',
+  '`/convocatoria ver` · `lista` — muestra las convocatorias abiertas',
   '',
-  'Próximamente: convocatorias y alineaciones.',
+  '**Información**',
+  '`/club info` · `/temporada ver` · `/club zona` (zona horaria)',
+  '',
+  'Próximamente: alineaciones y recordatorios.',
 ].join('\n');
 
 export const pirloCommand: SlashCommand = {

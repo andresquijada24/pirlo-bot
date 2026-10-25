@@ -11,7 +11,7 @@ import type { ClubContext, ClubRole } from '../../src/core/types.js';
 function ctx(role: ClubRole | null, isGuildManager = false): ClubContext {
   return {
     actor: { discordUserId: '111111111111111111', displayName: 'X', guildId: '1'.repeat(18), isGuildManager },
-    club: { id: 'c', slug: 'c', name: 'C', status: 'activo', statsProvider: 'manual' },
+    club: { id: 'c', slug: 'c', name: 'C', status: 'activo', statsProvider: 'manual', timezone: 'America/Caracas' },
     membership: role
       ? {
           id: 'm',

@@ -1,4 +1,5 @@
 import { clubCommand } from './club.js';
+import { callupButtons, convocatoriaCommand } from './convocatoria.js';
 import { linkButtons, solicitudesCommand, vincularCommand } from './link.js';
 import { pirloCommand } from './pirlo.js';
 import { plantillaCommand } from './plantilla.js';
@@ -16,6 +17,7 @@ export const commands: readonly SlashCommand[] = [
   temporadaCommand,
   statsCommand,
   rankingCommand,
+  convocatoriaCommand,
 ];
 
 export const commandsByName: ReadonlyMap<string, SlashCommand> = new Map(
@@ -23,5 +25,5 @@ export const commandsByName: ReadonlyMap<string, SlashCommand> = new Map(
 );
 
 export const componentHandlers: ReadonlyMap<string, ComponentHandler> = new Map(
-  [linkButtons].map((h) => [h.prefix, h]),
+  [linkButtons, callupButtons].map((h) => [h.prefix, h]),
 );

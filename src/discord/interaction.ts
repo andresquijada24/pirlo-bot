@@ -70,6 +70,11 @@ export function optBoolean(cmd: ParsedCommand, name: string): boolean | undefine
   return o && typeof o.value === 'boolean' ? o.value : undefined;
 }
 
+export function optInteger(cmd: ParsedCommand, name: string): number | undefined {
+  const o = cmd.options.get(name);
+  return o && typeof o.value === 'number' ? o.value : undefined;
+}
+
 /** Opciones de tipo usuario o canal: Discord envía el ID como `value`. */
 export function optId(cmd: ParsedCommand, name: string): string | undefined {
   const o = cmd.options.get(name);

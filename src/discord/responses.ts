@@ -45,6 +45,18 @@ export function updateMessage(content: string): APIInteractionResponse {
   };
 }
 
+/** Reemplaza el mensaje del botón pulsado por uno nuevo con embeds y componentes. */
+export function updateWith(opts: Omit<ReplyOptions, 'ephemeral'>): APIInteractionResponse {
+  return {
+    type: RT.UpdateMessage,
+    data: {
+      embeds: opts.embeds ?? [],
+      components: opts.components ?? [],
+      allowed_mentions: NO_PINGS,
+    },
+  };
+}
+
 export function embed(e: Omit<APIEmbed, 'color'>): APIEmbed {
   return { color: BRAND_COLOR, ...e };
 }

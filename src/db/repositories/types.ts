@@ -1,4 +1,7 @@
 import type {
+  Callup,
+  CallupAnswer,
+  CallupResponse,
   ChannelPurpose,
   Club,
   ClubRole,
@@ -33,6 +36,7 @@ export interface RegisterClubInput {
 export interface ClubRepository {
   listByGuild(guildId: string): Promise<Club[]>;
   register(input: RegisterClubInput): Promise<{ clubId: string; membershipId: string }>;
+  setTimezone(clubId: string, timezone: string): Promise<void>;
   /** Conecta un club existente (por identificador) a otro servidor. Solo un admin del club. Devuelve el id. */
   connectGuild(input: { slug: string; guildId: string; guildName: string | null; actorDiscordId: string }): Promise<string>;
 }
@@ -97,6 +101,22 @@ export interface AuditRepository {
   log(entry: AuditEntry): Promise<void>;
 }
 
+export interface CallupRepository {
+  /** Crea la convocatoria (y su evento del calendario). Devuelve su id. */
+  create(
+    clubId: string,
+    input: { title: string; opponent: string | null; startsAt: Date; closesAt: Date | null },
+    actorDiscordId: string,
+  ): Promise<string>;
+  findById(clubId: string, callupId: string): Promise<Callup | null>;
+  /** Abiertas cuyo inicio no pasó hace más de unas horas, de la más próxima a la más lejana. */
+  listUpcoming(clubId: string, limit: number): Promise<Callup[]>;
+  responses(clubId: string, callupId: string): Promise<CallupResponse[]>;
+  /** Lanza CONFLICT si está cerrada o fuera de plazo. */
+  respond(clubId: string, callupId: string, playerId: string, answer: CallupAnswer): Promise<void>;
+  close(clubId: string, callupId: string, actorDiscordId: string): Promise<void>;
+}
+
 export interface StatsRepository {
   /** Totales por temporada a nivel sesión. seasonId null = todas (incluye sesiones sin temporada). */
   sessionRows(clubId: string, seasonId: string | null): Promise<SessionStatRow[]>;
@@ -121,4 +141,5 @@ export interface Repositories {
   stats: StatsRepository;
   externalPlayers: ExternalPlayerRepository;
   sync: SyncRepository;
+  callups: CallupRepository;
 }

@@ -31,6 +31,7 @@ export const OT = {
   Subcommand: 1 as ApplicationCommandOptionType.Subcommand,
   SubcommandGroup: 2 as ApplicationCommandOptionType.SubcommandGroup,
   String: 3 as ApplicationCommandOptionType.String,
+  Integer: 4 as ApplicationCommandOptionType.Integer,
   Boolean: 5 as ApplicationCommandOptionType.Boolean,
   User: 6 as ApplicationCommandOptionType.User,
   Channel: 7 as ApplicationCommandOptionType.Channel,
@@ -44,6 +45,8 @@ export const EPHEMERAL = 64 as MessageFlags.Ephemeral;
 
 export const COMPONENT_ACTION_ROW = 1 as ComponentType.ActionRow;
 export const COMPONENT_BUTTON = 2 as ComponentType.Button;
+export const BUTTON_PRIMARY = 1 as ButtonStyle.Primary;
+export const BUTTON_SECONDARY = 2 as ButtonStyle.Secondary;
 export const BUTTON_SUCCESS = 3 as ButtonStyle.Success;
 export const BUTTON_DANGER = 4 as ButtonStyle.Danger;
 

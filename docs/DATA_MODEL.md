@@ -38,6 +38,11 @@ nunca `0`.
 
 ## Gestión
 
+Cada club tiene `clubs.timezone` (por defecto `America/Caracas`): las fechas que escribe el club
+se interpretan en esa zona y Discord las muestra en la hora local de cada usuario.
+Las convocatorias se crean con `create_callup` (también crea su evento del calendario) y se
+responden con `respond_callup` (solo miembros activos, mientras esté abierta y en plazo).
+
 `events` (calendario), `callups` + `callup_responses` (Voy / No voy / Duda), `lineups` +
 `lineup_slots`, `scheduled_posts` (recordatorios y publicaciones automáticas).
 

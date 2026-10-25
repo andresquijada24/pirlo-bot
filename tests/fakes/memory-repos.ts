@@ -10,6 +10,7 @@ import type { AuditEntry, Repositories } from '../../src/db/repositories/types.j
 import type { SessionStatRow } from '../../src/core/stats/service.js';
 import type { ProviderId } from '../../src/providers/types.js';
 import type { SyncRunSummary } from '../../src/sync/types.js';
+import type { Callup, CallupResponse } from '../../src/core/types.js';
 
 /**
  * Repositorios en memoria SOLO para pruebas. Reproducen las reglas relevantes de la base de
@@ -33,6 +34,8 @@ export function createMemoryRepos() {
     sessionRows: [] as (SessionStatRow & { clubId: string; playedOn?: string })[],
     externalPlayers: [] as { clubId: string; gamertag: string; playerId: string | null }[],
     syncRuns: [] as (SyncRunSummary & { clubId: string; provider: ProviderId })[],
+    callups: [] as Callup[],
+    callupResponses: [] as (CallupResponse & { clubId: string; callupId: string })[],
   };
 
   const activeIn = (clubId: string) => state.memberships.filter((m) => m.clubId === clubId && m.active);
@@ -43,6 +46,10 @@ export function createMemoryRepos() {
       async listByGuild(guildId) {
         const ids = state.clubGuilds.filter((cg) => cg.guildId === guildId).map((cg) => cg.clubId);
         return state.clubs.filter((c) => ids.includes(c.id));
+      },
+      async setTimezone(clubId, timezone) {
+        const c = state.clubs.find((x) => x.id === clubId);
+        if (c) c.timezone = timezone;
       },
       async register(input) {
         if (state.clubs.some((c) => c.slug === input.slug)) {
@@ -58,6 +65,7 @@ export function createMemoryRepos() {
           name: input.name,
           status: 'activo',
           statsProvider: 'manual',
+          timezone: 'America/Caracas',
         };
         state.clubs.push(club);
         state.clubGuilds.push({ clubId: club.id, guildId: input.guildId });
@@ -254,6 +262,52 @@ export function createMemoryRepos() {
           if (r.clubId === clubId && r.name.toLowerCase() === gt) r.playerId = playerId;
         }
         return mine.length;
+      },
+    },
+
+    callups: {
+      async create(clubId, input) {
+        const c: Callup = {
+          id: id(),
+          clubId,
+          title: input.title,
+          opponent: input.opponent,
+          startsAt: input.startsAt.toISOString(),
+          closesAt: input.closesAt ? input.closesAt.toISOString() : null,
+          status: 'abierta',
+        };
+        state.callups.push(c);
+        return c.id;
+      },
+      async findById(clubId, callupId) {
+        const c = state.callups.find((x) => x.clubId === clubId && x.id === callupId);
+        return c ? { ...c } : null;
+      },
+      async listUpcoming(clubId, limit) {
+        return state.callups
+          .filter((c) => c.clubId === clubId && c.status === 'abierta')
+          .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+          .slice(0, limit);
+      },
+      async responses(clubId, callupId) {
+        return state.callupResponses
+          .filter((r) => r.clubId === clubId && r.callupId === callupId)
+          .map((r) => ({ playerId: r.playerId, answer: r.answer }));
+      },
+      async respond(clubId, callupId, playerId, answer) {
+        const c = state.callups.find((x) => x.clubId === clubId && x.id === callupId);
+        if (!c) throw notFound('Convocatoria');
+        if (c.status !== 'abierta') throw conflict('Esta convocatoria está cerrada.');
+        if (Date.now() >= Date.parse(c.closesAt ?? c.startsAt)) throw conflict('El plazo para responder ya terminó.');
+        const prev = state.callupResponses.find((r) => r.callupId === callupId && r.playerId === playerId);
+        if (prev) prev.answer = answer;
+        else state.callupResponses.push({ clubId, callupId, playerId, answer });
+      },
+      async close(clubId, callupId) {
+        const c = state.callups.find((x) => x.clubId === clubId && x.id === callupId);
+        if (!c) throw notFound('Convocatoria');
+        if (c.status !== 'abierta') throw conflict('La convocatoria ya estaba cerrada.');
+        c.status = 'cerrada';
       },
     },
 

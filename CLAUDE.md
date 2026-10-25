@@ -57,7 +57,7 @@ Discord → HTTPS firmado (Ed25519) → `api/index.ts` (Vercel, Hono) → `src/d
 2. Supabase y base de datos ✅
 3. Núcleo multiclub y permisos ✅
 4. Discord y comandos slash ✅
-5. MARÍTIMO CF como primer proveedor (conector, sincronización, `/stats`, `/ranking` ✅; falta que maritimo.app publique `api_v1`)
+5. MARÍTIMO CF como primer proveedor ✅ (sincronización activa cada 15 min)
 6. Proveedores de otros clubes
-7. Rankings, estadísticas, convocatorias y alineaciones
+7. Rankings, estadísticas, convocatorias y alineaciones (convocatorias ✅; faltan alineaciones y recordatorios)
 8. Pruebas completas y despliegue

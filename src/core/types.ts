@@ -38,6 +38,8 @@ export interface Club {
   name: string;
   status: 'activo' | 'inactivo';
   statsProvider: 'maritimo' | 'ourproclub' | 'ea' | 'manual';
+  /** Zona horaria IANA con la que se interpretan las fechas que escribe el club. */
+  timezone: string;
 }
 
 export interface Membership {
@@ -84,4 +86,23 @@ export interface ClubContext {
   actor: Actor;
   club: Club;
   membership: Membership | null;
+}
+
+export const CALLUP_ANSWERS = ['voy', 'no_voy', 'duda'] as const;
+export type CallupAnswer = (typeof CALLUP_ANSWERS)[number];
+
+export interface Callup {
+  id: string;
+  clubId: string;
+  title: string;
+  opponent: string | null;
+  /** Instantes en ISO 8601 (UTC). */
+  startsAt: string;
+  closesAt: string | null;
+  status: 'abierta' | 'cerrada' | 'cancelada';
+}
+
+export interface CallupResponse {
+  playerId: string;
+  answer: CallupAnswer;
 }

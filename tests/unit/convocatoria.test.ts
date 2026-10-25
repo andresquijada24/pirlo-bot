@@ -142,3 +142,13 @@ describe('/club zona', () => {
     expect(textOf(await run(slash(CAPTAIN, 'club', 'zona', [str('zona', 'UTC')])))).toMatch('permiso');
   });
 });
+
+describe('/convocatoria crear: hora pasada', () => {
+  it('sugiere la versión pm si la hora escrita ya pasó', async () => {
+    // A las 00:00 ya pasaron todas las horas "de hoy" salvo que se usen las de la noche.
+    const res = await run(
+      slash(CAPTAIN, 'convocatoria', 'crear', [str('titulo', 'X'), str('fecha', '2020-01-01'), str('hora', '9:30')]),
+    );
+    expect(textOf(res)).toMatch('ya pasaron');
+  });
+});

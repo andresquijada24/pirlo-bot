@@ -33,7 +33,12 @@ export async function createCallup(
 
   const startsAt = parseLocalDateTime(input.day, input.time, ctx.club.timezone, now);
   if (startsAt.getTime() <= now.getTime()) {
-    throw validation('Esa fecha y hora ya pasaron (se interpretan en la zona horaria del club).');
+    // Caso típico: "11:30" pensando en la noche. Si sumando 12 h queda en el futuro, se sugiere.
+    const pm = new Date(startsAt.getTime() + 12 * 3_600_000);
+    const hint = pm.getTime() > now.getTime() && /^\s*\d{1,2}([:.h\s]\d{2})?\s*$/.test(input.time) && Number(input.time.trim().split(/[:.h\s]/)[0]) < 12
+      ? ` ¿Quisiste decir ${input.time.trim()}pm?`
+      : '';
+    throw validation(`Esa fecha y hora ya pasaron (hora del club: ${ctx.club.timezone}).${hint}`);
   }
 
   let closesAt: Date | null = null;

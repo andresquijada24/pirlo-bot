@@ -55,7 +55,7 @@ export function zonedToUtc(p: Parts, tz: string): Date {
 }
 
 const DATE_HELP = 'Escribe la fecha como 25/10, 25/10/2026, 2026-10-25, hoy o mañana.';
-const TIME_HELP = 'Escribe la hora como 21:30 o 9:30pm.';
+const TIME_HELP = 'Escribe solo la hora, por ejemplo 21:30 o 9:30pm.';
 
 function validDay(y: number, m: number, d: number): boolean {
   const dt = new Date(Date.UTC(y, m - 1, d));
@@ -91,25 +91,39 @@ export function parseDay(input: string, tz: string, now: Date = new Date()): { y
       if (m < today.month || (m === today.month && d < today.day)) y += 1;
     }
   } else {
-    throw validation(`Fecha no válida. ${DATE_HELP}`);
+    throw validation(`Fecha no válida («${input.trim().slice(0, 20)}»). ${DATE_HELP}`);
   }
   if (!validDay(y, m, d)) throw validation(`Esa fecha no existe. ${DATE_HELP}`);
   return { year: y, month: m, day: d };
 }
 
-/** "21:30", "9:30pm", "9pm", "21h" → hora y minuto. */
+/**
+ * "21:30", "9:30pm", "9:30 p. m.", "21h", "21.30", "21 30", "a las 9 pm", "21:30 hrs" → hora y minuto.
+ * Se normaliza lo que suelen meter los teclados del móvil (espacios especiales, ":" de ancho completo,
+ * "p. m." con puntos y espacios).
+ */
 export function parseTime(input: string): { hour: number; minute: number } {
-  const s = input.trim().toLowerCase().replace(/\s+/g, '').replace(/\./g, '');
-  const r = /^(\d{1,2})(?::|h)?(\d{2})?(am|pm|h)?$/.exec(s);
-  if (!r) throw validation(`Hora no válida. ${TIME_HELP}`);
+  const shown = input.trim().slice(0, 20);
+  const fail = () => validation(`Hora no válida («${shown}»). ${TIME_HELP}`);
+  const s = input
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/^\s*a\s+las?\s+/, '')
+    .replace(/(horas|hrs|hs)\s*$/, '')
+    .replace(/[.\s]+/g, (m) => (m.includes('.') ? ':' : ' '))
+    .trim();
+  // Sufijo am/pm en cualquiera de sus formas: "pm", "p m", "p:m:" (tras convertir los puntos).
+  const ampm = /\s*([ap])[\s:]*m[\s:]*$/.exec(s);
+  const body = (ampm ? s.slice(0, ampm.index) : s).replace(/[\s:]+$/, '');
+  const r = /^(\d{1,2})(?:[:h\s]\s*(\d{2}))?h?$/.exec(body) ?? /^(\d{1,2})(\d{2})$/.exec(body);
+  if (!r) throw fail();
   let hour = Number(r[1]);
   const minute = r[2] ? Number(r[2]) : 0;
-  const suffix = r[3];
-  if (suffix === 'am' || suffix === 'pm') {
-    if (hour < 1 || hour > 12) throw validation(`Hora no válida. ${TIME_HELP}`);
-    hour = (hour % 12) + (suffix === 'pm' ? 12 : 0);
+  if (ampm) {
+    if (hour < 1 || hour > 12) throw fail();
+    hour = (hour % 12) + (ampm[1] === 'p' ? 12 : 0);
   }
-  if (hour > 23 || minute > 59) throw validation(`Hora no válida. ${TIME_HELP}`);
+  if (hour > 23 || minute > 59) throw fail();
   return { hour, minute };
 }
 

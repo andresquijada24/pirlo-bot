@@ -1,11 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { CALLUP_ANSWERS, CHANNEL_PURPOSES, CLUB_ROLES, POSITION_CODES } from '../../core/types.js';
-import type { Callup, Club, LinkRequest, Membership, Season } from '../../core/types.js';
+import type { Callup, Club, LinkRequest, Lineup, Membership, Season } from '../../core/types.js';
 import { check } from '../errors.js';
 import type {
   AuditRepository,
   CallupRepository,
+  LineupRepository,
   ChannelRepository,
   ClubRepository,
   LinkRequestRepository,
@@ -197,6 +198,33 @@ const toCallup = (r: z.infer<typeof callupRow>): Callup => ({
   status: r.status,
 });
 const CALLUP_COLUMNS = Object.keys(callupRow.shape).join(', ');
+const lineupRow = z.object({
+  id: z.string().uuid(),
+  club_id: z.string().uuid(),
+  callup_id: z.string().uuid().nullable(),
+  formation: z.string(),
+  status: z.enum(['borrador', 'publicada']),
+  lineup_slots: z.array(
+    z.object({
+      slot: z.number().int(),
+      position: z.enum(POSITION_CODES).nullable(),
+      player_id: z.string().uuid().nullable(),
+      is_substitute: z.boolean(),
+    }),
+  ),
+});
+const toLineup = (r: z.infer<typeof lineupRow>): Lineup => ({
+  id: r.id,
+  clubId: r.club_id,
+  callupId: r.callup_id,
+  formation: r.formation,
+  status: r.status,
+  slots: r.lineup_slots
+    .map((s) => ({ slot: s.slot, position: s.position, playerId: s.player_id, substitute: s.is_substitute }))
+    .sort((a, b) => a.slot - b.slot),
+});
+const LINEUP_COLUMNS = 'id, club_id, callup_id, formation, status, lineup_slots(slot, position, player_id, is_substitute)';
+
 /** Una convocatoria sigue en la lista unas horas después de empezar (por si el partido se alarga). */
 const CALLUP_GRACE_MS = 3 * 60 * 60 * 1000;
 
@@ -610,6 +638,20 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
       );
       return z.array(callupRow).parse(rows).map(toCallup);
     },
+    async next(clubId) {
+      const row = check(
+        await db
+          .from('callups')
+          .select(CALLUP_COLUMNS)
+          .eq('club_id', clubId)
+          .neq('status', 'cancelada')
+          .gte('starts_at', new Date(Date.now() - CALLUP_GRACE_MS).toISOString())
+          .order('starts_at')
+          .limit(1)
+          .maybeSingle(),
+      );
+      return row ? toCallup(callupRow.parse(row)) : null;
+    },
     async responses(clubId, callupId) {
       const rows = check(
         await db.from('callup_responses').select('player_id, answer').eq('club_id', clubId).eq('callup_id', callupId),
@@ -636,5 +678,68 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
     },
   };
 
-  return { clubs, memberships, linkRequests, channels, seasons, audit, stats, externalPlayers, sync, callups };
+  const lineups: LineupRepository = {
+    async create(clubId, input, actorDiscordId) {
+      const id = check(
+        await db.rpc('create_lineup', {
+          p_club_id: clubId,
+          p_callup_id: input.callupId,
+          p_formation: input.formation,
+          p_positions: input.positions,
+          p_replace: input.replace,
+          p_actor_discord_id: actorDiscordId,
+        }),
+      );
+      return z.string().uuid().parse(id);
+    },
+    async findByCallup(clubId, callupId) {
+      const row = check(
+        await db
+          .from('lineups')
+          .select(LINEUP_COLUMNS)
+          .eq('club_id', clubId)
+          .eq('callup_id', callupId)
+          .eq('lineup_slots.club_id', clubId)
+          .maybeSingle(),
+      );
+      return row ? toLineup(lineupRow.parse(row)) : null;
+    },
+    async assign(clubId, lineupId, playerId, target) {
+      const slot = check(
+        await db.rpc('lineup_assign', {
+          p_club_id: clubId,
+          p_lineup_id: lineupId,
+          p_player_id: playerId,
+          p_position: 'position' in target ? target.position : null,
+          p_substitute: 'substitute' in target,
+        }),
+      );
+      return z.number().int().parse(slot);
+    },
+    async remove(clubId, lineupId, playerId) {
+      const r = check(
+        await db.rpc('lineup_remove', { p_club_id: clubId, p_lineup_id: lineupId, p_player_id: playerId }),
+      );
+      return z.boolean().parse(r);
+    },
+    async publish(clubId, lineupId, actorDiscordId) {
+      check(
+        await db.rpc('publish_lineup', { p_club_id: clubId, p_lineup_id: lineupId, p_actor_discord_id: actorDiscordId }),
+      );
+    },
+  };
+
+  return {
+    clubs,
+    memberships,
+    linkRequests,
+    channels,
+    seasons,
+    audit,
+    stats,
+    externalPlayers,
+    sync,
+    callups,
+    lineups,
+  };
 }

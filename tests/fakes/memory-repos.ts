@@ -10,7 +10,7 @@ import type { AuditEntry, Repositories } from '../../src/db/repositories/types.j
 import type { SessionStatRow } from '../../src/core/stats/service.js';
 import type { ProviderId } from '../../src/providers/types.js';
 import type { SyncRunSummary } from '../../src/sync/types.js';
-import type { Callup, CallupResponse } from '../../src/core/types.js';
+import type { Callup, CallupResponse, Lineup } from '../../src/core/types.js';
 
 /**
  * Repositorios en memoria SOLO para pruebas. Reproducen las reglas relevantes de la base de
@@ -36,6 +36,7 @@ export function createMemoryRepos() {
     syncRuns: [] as (SyncRunSummary & { clubId: string; provider: ProviderId })[],
     callups: [] as Callup[],
     callupResponses: [] as (CallupResponse & { clubId: string; callupId: string })[],
+    lineups: [] as Lineup[],
   };
 
   const activeIn = (clubId: string) => state.memberships.filter((m) => m.clubId === clubId && m.active);
@@ -289,6 +290,12 @@ export function createMemoryRepos() {
           .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
           .slice(0, limit);
       },
+      async next(clubId) {
+        const c = state.callups
+          .filter((x) => x.clubId === clubId && x.status !== 'cancelada')
+          .sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0];
+        return c ? { ...c } : null;
+      },
       async responses(clubId, callupId) {
         return state.callupResponses
           .filter((r) => r.clubId === clubId && r.callupId === callupId)
@@ -308,6 +315,69 @@ export function createMemoryRepos() {
         if (!c) throw notFound('Convocatoria');
         if (c.status !== 'abierta') throw conflict('La convocatoria ya estaba cerrada.');
         c.status = 'cerrada';
+      },
+    },
+
+    lineups: {
+      async create(clubId, input) {
+        const prev = state.lineups.findIndex((l) => l.clubId === clubId && l.callupId === input.callupId);
+        if (prev >= 0) {
+          if (!input.replace) throw conflict('Esta convocatoria ya tiene alineación.');
+          state.lineups.splice(prev, 1);
+        }
+        const l: Lineup = {
+          id: id(),
+          clubId,
+          callupId: input.callupId,
+          formation: input.formation,
+          status: 'borrador',
+          slots: input.positions.map((position, i) => ({ slot: i + 1, position, playerId: null, substitute: false })),
+        };
+        state.lineups.push(l);
+        return l.id;
+      },
+      async findByCallup(clubId, callupId) {
+        const l = state.lineups.find((x) => x.clubId === clubId && x.callupId === callupId);
+        return l ? structuredClone(l) : null;
+      },
+      async assign(clubId, lineupId, playerId, target) {
+        const l = state.lineups.find((x) => x.clubId === clubId && x.id === lineupId);
+        if (!l) throw notFound('Alineación');
+        if (!activeIn(clubId).some((m) => m.playerId === playerId)) {
+          throw conflict('Ese jugador no forma parte de la plantilla.');
+        }
+        for (const s of l.slots) if (!s.substitute && s.playerId === playerId) s.playerId = null;
+        l.slots = l.slots.filter((s) => !(s.substitute && s.playerId === playerId));
+        if ('substitute' in target) {
+          const used = new Set(l.slots.map((s) => s.slot));
+          const free = [...Array(12).keys()].map((i) => i + 12).find((n) => !used.has(n));
+          if (!free) throw conflict('El banquillo está lleno (12 suplentes).');
+          l.slots.push({ slot: free, position: null, playerId, substitute: true });
+          return free;
+        }
+        const slot = l.slots.find((s) => !s.substitute && s.position === target.position && !s.playerId);
+        if (!slot) {
+          throw conflict(
+            l.slots.some((s) => s.position === target.position)
+              ? `Todas las posiciones ${target.position} ya están ocupadas. Quita antes a alguien.`
+              : `La formación no tiene la posición ${target.position}.`,
+          );
+        }
+        slot.playerId = playerId;
+        return slot.slot;
+      },
+      async remove(clubId, lineupId, playerId) {
+        const l = state.lineups.find((x) => x.clubId === clubId && x.id === lineupId);
+        if (!l) return false;
+        const before = JSON.stringify(l.slots);
+        for (const s of l.slots) if (!s.substitute && s.playerId === playerId) s.playerId = null;
+        l.slots = l.slots.filter((s) => !(s.substitute && s.playerId === playerId));
+        return JSON.stringify(l.slots) !== before;
+      },
+      async publish(clubId, lineupId) {
+        const l = state.lineups.find((x) => x.clubId === clubId && x.id === lineupId);
+        if (!l) throw notFound('Alineación');
+        l.status = 'publicada';
       },
     },
 

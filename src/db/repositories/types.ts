@@ -1,5 +1,6 @@
 import type {
   Callup,
+  Lineup,
   CallupAnswer,
   CallupResponse,
   ChannelPurpose,
@@ -111,10 +112,32 @@ export interface CallupRepository {
   findById(clubId: string, callupId: string): Promise<Callup | null>;
   /** Abiertas cuyo inicio no pasó hace más de unas horas, de la más próxima a la más lejana. */
   listUpcoming(clubId: string, limit: number): Promise<Callup[]>;
+  /** Próxima convocatoria no cancelada (abierta o cerrada), aunque haya empezado hace unas horas. */
+  next(clubId: string): Promise<Callup | null>;
   responses(clubId: string, callupId: string): Promise<CallupResponse[]>;
   /** Lanza CONFLICT si está cerrada o fuera de plazo. */
   respond(clubId: string, callupId: string, playerId: string, answer: CallupAnswer): Promise<void>;
   close(clubId: string, callupId: string, actorDiscordId: string): Promise<void>;
+}
+
+export interface LineupRepository {
+  /** Crea la alineación de una convocatoria con 11 huecos titulares (positions) vacíos. */
+  create(
+    clubId: string,
+    input: { callupId: string; formation: string; positions: PositionCode[]; replace: boolean },
+    actorDiscordId: string,
+  ): Promise<string>;
+  findByCallup(clubId: string, callupId: string): Promise<Lineup | null>;
+  /** Titular en una posición (primer hueco libre) o suplente. Mueve si ya estaba. Devuelve el hueco. */
+  assign(
+    clubId: string,
+    lineupId: string,
+    playerId: string,
+    target: { position: PositionCode } | { substitute: true },
+  ): Promise<number>;
+  /** false si no estaba en la alineación. */
+  remove(clubId: string, lineupId: string, playerId: string): Promise<boolean>;
+  publish(clubId: string, lineupId: string, actorDiscordId: string): Promise<void>;
 }
 
 export interface StatsRepository {
@@ -142,4 +165,5 @@ export interface Repositories {
   externalPlayers: ExternalPlayerRepository;
   sync: SyncRepository;
   callups: CallupRepository;
+  lineups: LineupRepository;
 }

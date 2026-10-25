@@ -1,3 +1,4 @@
+import { alineacionCommand } from './alineacion.js';
 import { clubCommand } from './club.js';
 import { callupButtons, convocatoriaCommand } from './convocatoria.js';
 import { linkButtons, solicitudesCommand, vincularCommand } from './link.js';
@@ -18,6 +19,7 @@ export const commands: readonly SlashCommand[] = [
   statsCommand,
   rankingCommand,
   convocatoriaCommand,
+  alineacionCommand,
 ];
 
 export const commandsByName: ReadonlyMap<string, SlashCommand> = new Map(

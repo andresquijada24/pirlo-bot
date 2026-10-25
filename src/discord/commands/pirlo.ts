@@ -21,11 +21,12 @@ const HELP = [
   '**Partidos**',
   '`/convocatoria crear` — convoca con botones Voy / Duda / No voy (capitán o superior)',
   '`/convocatoria ver` · `lista` — muestra las convocatorias abiertas',
+  '`/alineacion crear` · `poner` · `suplente` · `quitar` · `publicar` — alineación (DT/admin)',
   '',
   '**Información**',
   '`/club info` · `/temporada ver` · `/club zona` (zona horaria)',
   '',
-  'Próximamente: alineaciones y recordatorios.',
+  'Próximamente: recordatorios automáticos.',
 ].join('\n');
 
 export const pirloCommand: SlashCommand = {

@@ -8,6 +8,7 @@ import {
   notFoundPage,
   renderClubPage,
   loadPlayerPage,
+  parseMatchFilter,
   renderPlayerPage,
   renderClubsDirectory,
   renderScorersWidget,
@@ -125,7 +126,7 @@ export function createApp(deps: AppDeps) {
     const notFound = () => c.html(notFoundPage(), 404, PAGE_HEADERS);
     if (!deps.repos) return notFound();
     try {
-      const data = await loadClubPage(deps.repos, c.req.param('slug').toLowerCase());
+      const data = await loadClubPage(deps.repos, c.req.param('slug').toLowerCase(), parseMatchFilter(c.req.query('tipo')));
       if (!data) return notFound();
       return c.html(renderClubPage(data), 200, { ...PAGE_HEADERS, 'cache-control': 'public, max-age=300' });
     } catch (err) {
@@ -137,7 +138,12 @@ export function createApp(deps: AppDeps) {
     const notFound = () => c.html(notFoundPage(), 404, PAGE_HEADERS);
     if (!deps.repos) return notFound();
     try {
-      const data = await loadPlayerPage(deps.repos, c.req.param('slug').toLowerCase(), c.req.param('key'));
+      const data = await loadPlayerPage(
+        deps.repos,
+        c.req.param('slug').toLowerCase(),
+        c.req.param('key'),
+        parseMatchFilter(c.req.query('tipo')),
+      );
       if (!data) return notFound();
       return c.html(renderPlayerPage(data), 200, { ...PAGE_HEADERS, 'cache-control': 'public, max-age=300' });
     } catch (err) {

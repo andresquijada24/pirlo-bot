@@ -669,7 +669,9 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
   };
 
   const stats: StatsRepository = {
-    async sessionRows(clubId, seasonId) {
+    async sessionRows(clubId, seasonId, matchTypes) {
+      // Filtrado por tipo de partido: solo EA (los proveedores por sesión no distinguen tipo).
+      if (matchTypes) return statRowsFrom('v_ea_player_season_stats', clubId, seasonId, matchTypes);
       const out: SessionStatRow[] = [];
       // Proveedores por sesión (Marítimo…) y partidos de EA procesados (solo el lado propio).
       for (const view of ['v_player_session_season_stats', 'v_ea_player_season_stats']) {
@@ -679,7 +681,12 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
     },
   };
 
-  async function statRowsFrom(view: string, clubId: string, seasonId: string | null): Promise<SessionStatRow[]> {
+  async function statRowsFrom(
+    view: string,
+    clubId: string,
+    seasonId: string | null,
+    matchTypes?: readonly string[],
+  ): Promise<SessionStatRow[]> {
     const out: SessionStatRow[] = [];
     // Se pagina: PostgREST limita el número de filas por respuesta.
     for (let from = 0; ; from += PAGE) {
@@ -692,6 +699,7 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
         .order('player_id', { nullsFirst: true })
         .range(from, from + PAGE - 1);
       if (seasonId) q = q.eq('season_id', seasonId);
+      if (matchTypes) q = q.in('match_type', [...matchTypes]);
       const rows = z.array(sessionStatRow).parse(check(await q));
       out.push(...rows.map(toSessionStatRow));
       if (rows.length < PAGE) return out;

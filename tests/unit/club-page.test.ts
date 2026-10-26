@@ -287,3 +287,23 @@ describe('foto del jugador (The Grounds)', () => {
     expect(html).toMatch('/vincular');
   });
 });
+
+describe('pestañas por tipo de partido', () => {
+  it('Todos, Liga, Copa y Amistosos filtran partidos y estadísticas; la ficha conserva la pestaña', async () => {
+    const { app } = await setup();
+    const todos = await (await app.request('/club/club-prueba')).text();
+    expect(todos).toMatch('aria-current="page" class="tab on">Todos <small>1</small>');
+    expect(todos).toMatch('href="/club/club-prueba?tipo=amistosos" class="tab">Amistosos <small>0</small>');
+    const liga = await (await app.request('/club/club-prueba?tipo=liga')).text();
+    expect(liga).toMatch('Rival Ficticio');
+    expect(liga).toMatch('href="/club/club-prueba/jugador/ea%3A1?tipo=liga"');
+    const amistosos = await (await app.request('/club/club-prueba?tipo=amistosos')).text();
+    expect(amistosos).toMatch('Todavía no hay partidos.');
+    expect(amistosos).not.toMatch('JugadorFicticio');
+    const raro = await (await app.request('/club/club-prueba?tipo=%3Cscript%3E')).text();
+    expect(raro).toMatch('aria-current="page" class="tab on">Todos');
+    const ficha = await app.request('/club/club-prueba/jugador/ea%3A1?tipo=liga');
+    expect(ficha.status).toBe(200);
+    expect(await ficha.text()).toMatch('aria-current="page" class="tab on">Liga');
+  });
+});

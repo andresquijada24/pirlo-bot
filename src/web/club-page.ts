@@ -11,7 +11,23 @@ import { currentVersion, updateTags } from './version.js';
  * HTML generado en el servidor, sin JavaScript ni recursos externos.
  */
 
+/** Pestañas por tipo de partido (EA): todos, liga, copa (playoffs) o amistosos. */
+export const MATCH_FILTERS = {
+  todos: { label: 'Todos', types: null },
+  liga: { label: 'Liga', types: ['leagueMatch'] },
+  copa: { label: 'Copa', types: ['playoffMatch'] },
+  amistosos: { label: 'Amistosos', types: ['friendlyMatch'] },
+} as const satisfies Record<string, { label: string; types: readonly EaMatchSummary['matchType'][] | null }>;
+export type MatchFilter = keyof typeof MATCH_FILTERS;
+
+export function parseMatchFilter(v: string | undefined): MatchFilter {
+  return v && Object.hasOwn(MATCH_FILTERS, v) ? (v as MatchFilter) : 'todos';
+}
+
 export interface ClubPageData {
+  filter: MatchFilter;
+  /** Partidos de la temporada por pestaña (para mostrar los contadores). */
+  counts: Record<MatchFilter, number>;
   club: Club;
   hasCrest: boolean;
   /** Sitio oficial del club (https) o null. */
@@ -51,6 +67,7 @@ function inSeason(m: EaMatchSummary, season: Season | null, timeZone: string): b
 export async function loadClubPage(
   repos: Pick<Repositories, 'clubs' | 'seasons' | 'ea' | 'stats' | 'memberships'>,
   slug: string,
+  filter: MatchFilter = 'todos',
 ): Promise<ClubPageData | null> {
   if (!/^[a-z0-9-]{3,40}$/.test(slug)) return null;
   const club = await repos.clubs.findPublic(slug);
@@ -64,7 +81,15 @@ export async function loadClubPage(
     repos.clubs.website(club.id).catch(() => null),
   ]);
   const season = seasons.find((s) => s.isCurrent) ?? null;
-  const matches = allMatches.filter((m) => inSeason(m, season, club.timezone));
+  const seasonMatches = allMatches.filter((m) => inSeason(m, season, club.timezone));
+  const types = MATCH_FILTERS[filter].types as readonly EaMatchSummary['matchType'][] | null;
+  const matches = types ? seasonMatches.filter((m) => types.includes(m.matchType)) : seasonMatches;
+  const counts = Object.fromEntries(
+    (Object.keys(MATCH_FILTERS) as MatchFilter[]).map((f) => {
+      const t = MATCH_FILTERS[f].types as readonly string[] | null;
+      return [f, t ? seasonMatches.filter((m) => t.includes(m.matchType)).length : seasonMatches.length];
+    }),
+  ) as Record<MatchFilter, number>;
 
   const record = { played: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0, cleanSheets: 0 };
   for (const m of matches) {
@@ -79,7 +104,7 @@ export async function loadClubPage(
   }
 
   const names = new Map(roster.map((m) => [m.playerId, m.displayName]));
-  const rows = await repos.stats.sessionRows(club.id, season?.id ?? null);
+  const rows = await repos.stats.sessionRows(club.id, season?.id ?? null, types ?? undefined);
   const players = aggregate(rows, names)
     .filter((t) => (t.matchesPlayed ?? 0) > 0)
     .sort(
@@ -90,6 +115,8 @@ export async function loadClubPage(
     );
 
   return {
+    filter,
+    counts,
     club,
     hasCrest: crest !== null,
     website: website && /^https:\/\//.test(website) ? website : null,
@@ -297,6 +324,10 @@ footer img{width:22px;height:22px;vertical-align:middle;border-radius:6px;margin
 .navbtn{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:12px;background:var(--card);border:1px solid var(--line);color:var(--text);text-decoration:none;font-weight:600;font-size:15px}
 .navbtn:hover,.navbtn:focus-visible{border-color:var(--accent);color:var(--accent)}
 .navbtn.home{padding:9px 11px}
+.tabs{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.tab{padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--text);text-decoration:none;font-weight:600;font-size:14px}
+.tab small{color:var(--muted);font-weight:600;margin-left:4px}
+.tab.on{background:var(--accent);border-color:var(--accent);color:#020617}.tab.on small{color:#0b1020}
 .site{display:inline-block;margin-top:12px;font-weight:600;text-decoration:none}
 .site:hover{text-decoration:underline}
 @media (max-width:560px){header.hero{flex-direction:column;text-align:center}.chips{justify-content:center}.crest,.crest img{width:88px;height:88px}}
@@ -306,6 +337,18 @@ const HOME_ICON =
   '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 3.2 2.5 11.1a1 1 0 0 0 1.3 1.5l.7-.6V20a1 1 0 0 0 1 1h4.5v-5.5h4V21h4.5a1 1 0 0 0 1-1v-8l.7.6a1 1 0 1 0 1.3-1.5L12 3.2Z"/></svg>';
 
 /** Barra superior: "Volver" al nivel anterior y la casita para el menú principal (sin JavaScript). */
+function filterTabs(base: string, d: Pick<ClubPageData, 'filter' | 'counts'>): string {
+  // Sin partidos de EA (p. ej. clubes con datos por sesión) las pestañas no aportan nada.
+  if (d.counts.todos === 0) return '';
+  return `<nav class="tabs" aria-label="Tipo de partido">${(Object.keys(MATCH_FILTERS) as MatchFilter[])
+    .map((f) => {
+      const href = f === 'todos' ? base : `${base}?tipo=${f}`;
+      const cur = f === d.filter ? ' aria-current="page" class="tab on"' : ' class="tab"';
+      return `<a href="${href}"${cur}>${MATCH_FILTERS[f].label} <small>${d.counts[f]}</small></a>`;
+    })
+    .join('')}</nav>`;
+}
+
 function navBar(back: { href: string; label: string }): string {
   return (
     `<nav class="nav"><a class="navbtn" href="${back.href}"><span aria-hidden="true">←</span> ${esc(back.label)}</a>` +
@@ -343,7 +386,7 @@ export function renderClubPage(d: ClubPageData): string {
           ? `<ol>${l.entries
               .map(
                 (e) =>
-                  `<li><span>${e.position}. <a class="pl" href="${playerHref(club.slug, e.totals.key)}">${esc(e.totals.name)}</a></span><b>${esc(l.format ? l.format(e.value) : String(e.value))}</b></li>`,
+                  `<li><span>${e.position}. <a class="pl" href="${playerHref(club.slug, e.totals.key, d.filter)}">${esc(e.totals.name)}</a></span><b>${esc(l.format ? l.format(e.value) : String(e.value))}</b></li>`,
               )
               .join('')}</ol>`
           : '<div class="meta">Sin datos suficientes.</div>') +
@@ -357,7 +400,7 @@ export function renderClubPage(d: ClubPageData): string {
       `<th>Pases</th><th>Acierto</th><th>Errados</th>` +
       `<th>Entradas</th><th>Acierto</th><th title="Entradas ganadas + intercepciones + bloqueos + despejes">Def.</th>` +
       `<th>Paradas</th><th title="Porterías a cero">P. a 0</th><th>Calif.</th></tr></thead><tbody>${d.players
-        .map((p) => `<tr><td><a class="pl" href="${playerHref(club.slug, p.key)}">${esc(p.name)}</a></td>${statCells(p)}</tr>`)
+        .map((p) => `<tr><td><a class="pl" href="${playerHref(club.slug, p.key, d.filter)}">${esc(p.name)}</a></td>${statCells(p)}</tr>`)
         .join('')}</tbody><tfoot><tr><td>Total equipo</td>${statCells(teamTotals(d.players))}</tr></tfoot></table></div>` +
       '<p class="legend">Efect. = goles ÷ tiros · Pases y Entradas = completados/intentados · Def. = entradas ganadas + intercepciones + bloqueos + despejes (los que dé la fuente) · — = sin dato</p>'
     : '<div class="card empty">Todavía no hay estadísticas de jugadores.</div>';
@@ -378,6 +421,7 @@ ${navBar({ href: '/clubes', label: 'Volver a clubes' })}
       ? `<a class="site" href="${esc(d.website)}" rel="noopener noreferrer nofollow" target="_blank">🔗 ${esc(d.website.replace(/^https:\/\//, '').replace(/\/$/, ''))} ↗</a>`
       : ''
   }</div></header>
+${filterTabs(base, d)}
 <h2>Últimos partidos</h2><div class="card">${matches}</div>
 <h2>Líderes</h2><div class="leaders">${leaders}</div>
 <h2>Plantilla</h2>${players}
@@ -501,8 +545,8 @@ h3{font-size:17px;margin:0 0 6px;font-weight:700}
 // ---------------------------------------------------------------------------
 
 /** Enlace a la ficha. La clave es la del agregado (id del jugador o "fuente:id en la fuente"). */
-export function playerHref(slug: string, key: string): string {
-  return `/club/${encodeURIComponent(slug)}/jugador/${encodeURIComponent(key)}`;
+export function playerHref(slug: string, key: string, filter: MatchFilter = 'todos'): string {
+  return `/club/${encodeURIComponent(slug)}/jugador/${encodeURIComponent(key)}${filter === 'todos' ? '' : `?tipo=${filter}`}`;
 }
 
 const PLAYER_KEY = /^[A-Za-z0-9:_.-]{1,80}$/;
@@ -528,13 +572,15 @@ export async function loadPlayerPage(
   repos: Pick<Repositories, 'clubs' | 'seasons' | 'ea' | 'stats' | 'memberships'>,
   slug: string,
   key: string,
+  filter: MatchFilter = 'todos',
 ): Promise<PlayerPageData | null> {
   if (!PLAYER_KEY.test(key)) return null;
-  const page = await loadClubPage(repos, slug);
+  const page = await loadClubPage(repos, slug, filter);
   if (!page) return null;
   const roster = await repos.memberships.listActive(page.club.id);
   const names = new Map(roster.map((m) => [m.playerId, m.displayName]));
-  const allRows = await repos.stats.sessionRows(page.club.id, null);
+  const types = MATCH_FILTERS[filter].types as readonly EaMatchSummary['matchType'][] | null;
+  const allRows = await repos.stats.sessionRows(page.club.id, null, types ?? undefined);
   const career = aggregate(allRows, names).find((t) => t.key === key) ?? null;
   const season = page.players.find((t) => t.key === key) ?? null;
   if (!career && !season) return null;
@@ -546,7 +592,8 @@ export async function loadPlayerPage(
         .map((r) => r.sourcePlayerId),
     ),
   ];
-  const matches = eaIds.length ? await repos.ea.playerMatches(page.club.id, eaIds, 30) : [];
+  const all = eaIds.length ? await repos.ea.playerMatches(page.club.id, eaIds, 200) : [];
+  const matches = (types ? all.filter((m) => types.includes(m.matchType)) : all).slice(0, 30);
   const playerId = (season ?? career)!.playerId;
   const hasPhoto = playerId ? (await repos.memberships.withPhoto(page.club.id)).has(playerId) : false;
   return { page, season, career, name: (season ?? career)!.name, matches, playerId, hasPhoto };
@@ -597,7 +644,7 @@ export function renderPlayerPage(d: PlayerPageData): string {
           const score = m.goalsFor !== null && m.goalsAgainst !== null ? `${m.goalsFor}–${m.goalsAgainst}` : '—';
           return (
             `<tr><td>${esc(when(m.playedAt, club.timezone))}</td><td>${esc(m.opponentName ?? 'Rival')}</td>` +
-            `<td><span class="res ${res?.cls ?? ''}" style="display:inline-grid;width:auto;height:auto;padding:2px 8px">${res?.label ?? '·'} ${score}</span></td>` +
+            `<td><span class="res ${res?.cls ?? ''}" style="display:inline-grid;width:auto;height:auto;padding:2px 8px">${res?.label ?? '·'} ${score}</span> <small class="meta">${TYPE[m.matchType]}</small></td>` +
             `<td>${esc(m.position ? (POSITION[m.position] ?? m.position) : '—')}</td>` +
             `${num(m.goals)}${num(m.assists)}${num(m.shots)}${ofCell(m.passesMade, m.passesAttempted)}${ofCell(m.tacklesMade, m.tacklesAttempted)}` +
             `<td>${m.rating === null ? '—' : m.rating.toFixed(1)}${m.manOfTheMatch ? ' <span class="mvp" title="MVP">⭐</span>' : ''}</td></tr>`
@@ -638,6 +685,7 @@ ${navBar({ href: base, label: `Volver a ${club.name}` })}
 <div class="sub"><a href="${base}">${esc(club.name)}</a> · EA SPORTS FC Pro Clubs</div>
 <div class="chips">${chips}</div></div></header>
 ${guide}
+${filterTabs(`${base}/jugador/${encodeURIComponent((d.season ?? d.career)!.key)}`, d.page)}
 <h2>${esc(d.page.season?.name ?? 'Temporada')}</h2>${d.season ? statGrid(d.season) : '<div class="card empty">Sin partidos esta temporada.</div>'}
 <h2>Carrera en ${esc(club.name)}</h2>${d.career ? statGrid(d.career) : '<div class="card empty">Sin datos.</div>'}
 <h2>Últimos partidos</h2>${log}

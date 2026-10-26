@@ -9,6 +9,7 @@ import {
   renderClubPage,
   loadPlayerPage,
   parseMatchFilter,
+  parseView,
   renderPlayerPage,
   renderClubsDirectory,
   renderScorersWidget,
@@ -91,9 +92,14 @@ export function createApp(deps: AppDeps) {
    * Página pública de un club (solo si un admin la activó con /club web). HTML sin JavaScript
    * propio salvo /update.js (aviso de actualización, mismo origen); estilos en línea e imágenes propias.
    */
+  /**
+   * Páginas públicas: el navegador siempre comprueba si hay versión nueva (max-age=0) y la red de
+   * Vercel guarda la página 5 minutos (s-maxage); cada despliegue la renueva al instante.
+   */
+  const PAGE_CACHE = 'public, max-age=0, s-maxage=300, stale-while-revalidate=60';
   const PAGE_HEADERS = {
     'content-security-policy':
-      "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+      "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
     'x-content-type-options': 'nosniff',
     'referrer-policy': 'no-referrer',
   };
@@ -101,7 +107,7 @@ export function createApp(deps: AppDeps) {
     if (!deps.repos) return c.html(notFoundPage(), 503, PAGE_HEADERS);
     try {
       const clubs = await deps.repos.clubs.listPublic();
-      return c.html(renderClubsDirectory(clubs), 200, { ...PAGE_HEADERS, 'cache-control': 'public, max-age=300' });
+      return c.html(renderClubsDirectory(clubs), 200, { ...PAGE_HEADERS, 'cache-control': PAGE_CACHE });
     } catch (err) {
       deps.log?.error({ err }, 'No se pudo generar el directorio de clubes');
       return c.html(notFoundPage(), 500, PAGE_HEADERS);
@@ -117,7 +123,7 @@ export function createApp(deps: AppDeps) {
     if (!deps.repos) return c.html(renderScorersWidget([]), 200, WIDGET_HEADERS);
     try {
       const scorers = await loadTopScorers(deps.repos, 5);
-      return c.html(renderScorersWidget(scorers), 200, { ...WIDGET_HEADERS, 'cache-control': 'public, max-age=300' });
+      return c.html(renderScorersWidget(scorers), 200, { ...WIDGET_HEADERS, 'cache-control': PAGE_CACHE });
     } catch (err) {
       deps.log?.error({ err }, 'No se pudo generar el ranking de goleadores');
       return c.html(renderScorersWidget([]), 500, WIDGET_HEADERS);
@@ -127,9 +133,14 @@ export function createApp(deps: AppDeps) {
     const notFound = () => c.html(notFoundPage(), 404, PAGE_HEADERS);
     if (!deps.repos) return notFound();
     try {
-      const data = await loadClubPage(deps.repos, c.req.param('slug').toLowerCase(), parseMatchFilter(c.req.query('tipo')));
+      const data = await loadClubPage(
+        deps.repos,
+        c.req.param('slug').toLowerCase(),
+        parseMatchFilter(c.req.query('tipo')),
+        parseView({ orden: c.req.query('orden'), dir: c.req.query('dir'), buscar: c.req.query('buscar') }),
+      );
       if (!data) return notFound();
-      return c.html(renderClubPage(data), 200, { ...PAGE_HEADERS, 'cache-control': 'public, max-age=300' });
+      return c.html(renderClubPage(data), 200, { ...PAGE_HEADERS, 'cache-control': PAGE_CACHE });
     } catch (err) {
       deps.log?.error({ err }, 'No se pudo generar la página del club');
       return c.html(notFoundPage(), 500, PAGE_HEADERS);
@@ -146,7 +157,7 @@ export function createApp(deps: AppDeps) {
         parseMatchFilter(c.req.query('tipo')),
       );
       if (!data) return notFound();
-      return c.html(renderPlayerPage(data), 200, { ...PAGE_HEADERS, 'cache-control': 'public, max-age=300' });
+      return c.html(renderPlayerPage(data), 200, { ...PAGE_HEADERS, 'cache-control': PAGE_CACHE });
     } catch (err) {
       deps.log?.error({ err }, 'No se pudo generar la ficha del jugador');
       return c.html(notFoundPage(), 500, PAGE_HEADERS);

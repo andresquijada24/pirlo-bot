@@ -231,10 +231,10 @@ describe('estadísticas detalladas de la plantilla', () => {
   it('la página muestra las columnas nuevas y la fila de totales', async () => {
     const { app } = await setup();
     const html = await (await app.request('/club/club-prueba')).text();
-    expect(html).toMatch('<th title="Acierto de tiro: goles ÷ tiros">Acierto tiro</th>');
-    expect(html).toMatch('<th>Errados</th>');
-    expect(html).toMatch('<td>Total equipo</td>');
-    expect(html).toMatch('<th>Paradas</th>');
+    expect(html).toMatch('title="Goles ÷ tiros">Acierto de tiro</a>');
+    expect(html).toMatch('Pases errados</a></th>');
+    expect(html).toMatch('<td>Total del equipo</td>');
+    expect(html).toMatch('Paradas</a></th>');
     for (const top of ['Top goleador', 'Top asistidor', 'Top defensa', 'Top portero', 'Mejor calificación']) expect(html).toMatch(top);
   });
 
@@ -305,5 +305,30 @@ describe('pestañas por tipo de partido', () => {
     const ficha = await app.request('/club/club-prueba/jugador/ea%3A1?tipo=liga');
     expect(ficha.status).toBe(200);
     expect(await ficha.text()).toMatch('aria-current="page" class="tab on">Liga');
+  });
+});
+
+describe('tabla de la plantilla ordenable y con búsqueda', () => {
+  it('ordenar por columna con un clic, invertir, buscar por nombre; sin abreviaturas', async () => {
+    const { applyView, parseView } = await import('../../src/web/club-page.js');
+    const mk = (name: string, goals: number | null, rating: number | null) =>
+      ({ name, goals, avgRating: rating, assists: null }) as never;
+    const list = [mk('Beto', 3, 7.1), mk('Ana', 5, null), mk('Ñandú', null, 8)];
+    expect(applyView(list, parseView({ orden: 'goles' })).map((p: { name: string }) => p.name)).toEqual(['Ana', 'Beto', 'Ñandú']);
+    expect(applyView(list, parseView({ orden: 'goles', dir: 'asc' })).map((p: { name: string }) => p.name)).toEqual(['Beto', 'Ana', 'Ñandú']);
+    expect(applyView(list, parseView({ orden: 'calificacion' })).map((p: { name: string }) => p.name)).toEqual(['Ñandú', 'Beto', 'Ana']);
+    expect(applyView(list, parseView({ buscar: 'nandu' })).map((p: { name: string }) => p.name)).toEqual(['Ñandú']);
+    expect(parseView({ orden: '<script>', dir: 'x' })).toEqual({ sort: 'goles', dir: 'desc', search: '' });
+
+    const { app } = await setup();
+    const html = await (await app.request('/club/club-prueba?orden=asistencias&dir=desc&tipo=liga')).text();
+    expect(html).toMatch('class="on" aria-sort="descending"><a href="/club/club-prueba?tipo=liga&amp;orden=asistencias&amp;dir=asc#plantilla"'.replace(/&amp;/g, '&'));
+    for (const t of ['Partidos jugados', 'Acierto de pase', 'Acciones defensivas', 'Porterías a cero', 'Calificación']) {
+      expect(html).toMatch(`>${t}`);
+    }
+    expect(html).not.toMatch('>PJ<');
+    expect(html).toMatch('name="buscar"');
+    const none = await (await app.request('/club/club-prueba?buscar=zzz')).text();
+    expect(none).toMatch('Ningún jugador coincide');
   });
 });

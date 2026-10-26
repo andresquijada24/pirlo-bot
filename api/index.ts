@@ -14,6 +14,8 @@ import { runEaRecaps } from '../src/jobs/ea-recaps.js';
 import { svgToPng } from '../src/render/match-card.js';
 import { runSessionRecaps } from '../src/jobs/session-recaps.js';
 import { runOurProClub } from '../src/jobs/ourproclub.js';
+import { readMatchImage } from '../src/providers/ourproclub/match-image.js';
+import { createTesseractOcr, type ClosableOcr } from '../src/providers/ourproclub/tesseract.js';
 import { createChannelReader } from '../src/discord/channel-reader.js';
 import { renderSessionCardSvg } from '../src/render/session-card.js';
 import { createGuildApi } from '../src/discord/onboarding.js';
@@ -113,16 +115,22 @@ const app = createApp({
             return undefined;
           });
           // Espejo de Our Pro Club (canal elegido por cada club): avisos de partido y sesiones.
+          // El lector de imágenes (OCR) solo se carga si hay un partido nuevo que leer.
+          let ocr: ClosableOcr | null = null;
           const ourproclub = await runOurProClub({
             repos,
             reader: createChannelReader(env.DISCORD_BOT_TOKEN),
             poster,
             blockedGuilds,
+            readImage: async (png, known) =>
+              readMatchImage(png, (ocr ??= await createTesseractOcr()), known),
             log: logger,
-          }).catch((err: unknown) => {
-            logger.error({ err }, 'Fallo en el espejo de Our Pro Club');
-            return undefined;
-          });
+          })
+            .catch((err: unknown) => {
+              logger.error({ err }, 'Fallo en el espejo de Our Pro Club');
+              return undefined;
+            })
+            .finally(() => (ocr as ClosableOcr | null)?.close().catch(() => undefined));
           // Resumen de cada sesión nueva de los proveedores por sesión (Marítimo, Our Pro Club).
           const sessionRecaps = await runSessionRecaps({
             repos,

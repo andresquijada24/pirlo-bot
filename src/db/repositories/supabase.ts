@@ -918,6 +918,26 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
       check(sesiones);
       return [fichas, ea, sesiones].some((r) => (r.count ?? 0) > 0);
     },
+    async gamertags(clubId) {
+      const [fichas, sesiones] = await Promise.all([
+        db.from('external_players').select('gamertag').eq('club_id', clubId).limit(500),
+        db
+          .from('player_session_stats')
+          .select('source_player_name')
+          .eq('club_id', clubId)
+          .order('created_at', { ascending: false })
+          .limit(1000),
+      ]);
+      const names = [
+        ...(check(fichas) as { gamertag: string | null }[]).map((r) => r.gamertag),
+        ...(check(sesiones) as { source_player_name: string | null }[]).map(
+          (r) => r.source_player_name,
+        ),
+      ];
+      const seen = new Map<string, string>();
+      for (const n of names) if (n && !seen.has(n.toLowerCase())) seen.set(n.toLowerCase(), n);
+      return [...seen.values()];
+    },
     async accountsOf(discordUserId) {
       const rows = check(
         await db

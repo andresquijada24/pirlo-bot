@@ -25,7 +25,7 @@ const ROW = 60;
 const TOTAL = 64;
 const FOOTER = 104;
 
-const C = {
+export const C = {
   bg1: '#020617',
   bg2: '#0a1640',
   bg3: '#1e1b4b',
@@ -43,28 +43,29 @@ const C = {
   violet: '#a78bfa',
 };
 
-const esc = (s: string) =>
+export const esc = (s: string) =>
   s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-const show = (v: number | null) => (v === null ? '—' : String(v));
-const pct = (made: number | null, att: number | null) =>
+export const show = (v: number | null) => (v === null ? '—' : String(v));
+export const pct = (made: number | null, att: number | null) =>
   made === null || att === null || att === 0 ? null : Math.round((100 * made) / att);
-const sumOrNull = (...xs: (number | null)[]) => {
+export const sumOrNull = (...xs: (number | null)[]) => {
   const v = xs.filter((x): x is number => x !== null);
   return v.length ? v.reduce((a, b) => a + b, 0) : null;
 };
 
 /** Acciones defensivas: entradas ganadas + intercepciones + bloqueos + despejes (lo que haya). */
-export const defensive = (p: SessionRecapPlayer) =>
-  sumOrNull(p.tacklesMade, p.interceptions, p.blocks, p.clearances);
+export const defensive = (
+  p: Pick<SessionRecapPlayer, 'tacklesMade' | 'interceptions' | 'blocks' | 'clearances'>,
+) => sumOrNull(p.tacklesMade, p.interceptions, p.blocks, p.clearances);
 
-function ratingColor(r: number): string {
+export function ratingColor(r: number): string {
   if (r >= 8) return C.win;
   if (r >= 7) return '#3b82f6';
   if (r >= 6) return C.draw;
   return C.loss;
 }
 
-function star(cx: number, cy: number, r: number, fill: string): string {
+export function star(cx: number, cy: number, r: number, fill: string): string {
   const pts: string[] = [];
   for (let i = 0; i < 10; i++) {
     const rad = i % 2 === 0 ? r : r * 0.45;

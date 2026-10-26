@@ -37,7 +37,8 @@
   ],
   "functions": {
     "api/index.ts": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "includeFiles": "node_modules/{tesseract.js,tesseract.js-core}/**"
     }
   }
 }

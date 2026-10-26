@@ -2,8 +2,16 @@ import { localDay } from '../core/stats/ea-session.js';
 import type { Repositories } from '../db/repositories/types.js';
 import { compareIds, type ChannelReader, type DiscordMessage } from '../discord/channel-reader.js';
 import { DiscordPostError, type ChannelPoster } from '../discord/poster.js';
+import { toClubMatch, type MatchImageRead } from '../providers/ourproclub/match-image.js';
 import { readSessionRecap } from '../providers/ourproclub/recap.js';
 import type { ExternalSession } from '../providers/types.js';
+import { svgToPng } from '../render/match-card.js';
+import {
+  renderResultCardSvg,
+  resultOf,
+  type MatchResult,
+  type ResultCardInput,
+} from '../render/result-card.js';
 import { REFERENCE_GUILD_ID } from './reminders.js';
 
 /**
@@ -11,8 +19,9 @@ import { REFERENCE_GUILD_ID } from './reminders.js';
  *
  * Solo en los clubes que eligieron su canal con `/club canal` (uso «Our Pro Club»): ese es su
  * consentimiento. Solo se leen mensajes del bot de Our Pro Club.
- * - Partido terminado (Our Pro Club publica una imagen): aviso al momento en el canal de resultados,
- *   con esa imagen. Los números de cada partido solo existen dentro de la imagen: no se inventan.
+ * - Partido terminado (Our Pro Club publica una imagen): se lee la imagen (lector de texto gratuito)
+ *   y se publica al momento la tarjeta de partido propia de PIRLO en el canal de resultados. Si la
+ *   lectura no es segura, solo un aviso de texto: nunca números dudosos ni la imagen de otro bot.
  * - «Session Recap» (texto con los números de cada jugador): se guarda como sesión del club; la
  *   tarea de resúmenes publica la tarjeta de PIRLO. En clubes que ya reciben sus sesiones de otra
  *   fuente (Marítimo por su API, o EA) no se guarda, para no contar dos veces los mismos partidos.
@@ -39,22 +48,50 @@ const matchImage = (m: DiscordMessage) =>
     (a) => /^image\//.test(a.contentType ?? '') || /\.(png|jpe?g|webp)$/i.test(a.filename),
   );
 
-export function matchMessage(clubName: string): string {
-  return `**Partido terminado · ${clubName}** · estadísticas del partido de Our Pro Club. El resumen completo de PIRLO llega al cerrar la sesión.`;
+export function matchMessage(clubName: string, match: MatchResult | null): string {
+  if (!match)
+    return `**Partido terminado · ${clubName}** · las estadísticas de este partido llegan con el resumen de la sesión.`;
+  const res = resultOf(match).label.toLowerCase();
+  return `**${clubName} ${match.goalsFor}–${match.goalsAgainst} ${match.opponentName}** · ${res}${match.competition ? ` · ${match.competition.toLowerCase()}` : ''}`;
 }
 
 export async function runOurProClub(deps: {
-  repos: Pick<Repositories, 'ourproclub' | 'channels' | 'clubs' | 'sync' | 'ea'>;
+  repos: Pick<
+    Repositories,
+    'ourproclub' | 'channels' | 'clubs' | 'sync' | 'ea' | 'externalPlayers'
+  >;
   reader: ChannelReader;
   poster: ChannelPoster;
+  /** Lector de la imagen de partido (OCR). Sin él solo se publica el aviso de texto. */
+  readImage?: (png: Uint8Array, knownPlayers: string[]) => Promise<MatchImageRead | null>;
+  render?: (input: ResultCardInput) => Promise<Uint8Array>;
   blockedGuilds: ReadonlySet<string>;
   now?: () => number;
   log?: { error: (obj: object, msg: string) => void };
 }): Promise<OurProClubResult> {
   const { repos, reader, poster } = deps;
   const now = deps.now ?? Date.now;
+  const render = deps.render ?? ((input: ResultCardInput) => svgToPng(renderResultCardSvg(input)));
   const blocked = new Set([...deps.blockedGuilds, REFERENCE_GUILD_ID]);
   const result: OurProClubResult = { clubs: 0, matches: 0, sessions: 0 };
+
+  /** Lee la imagen; cualquier fallo del lector = sin datos (se publica solo el aviso). */
+  async function readClubMatch(
+    m: DiscordMessage,
+    url: string,
+    club: { id: string; name: string; timezone: string },
+  ): Promise<MatchResult | null> {
+    if (!deps.readImage) return null;
+    try {
+      const png = await reader.image(url);
+      const known = await repos.externalPlayers.gamertags(club.id);
+      const read = await deps.readImage(png, known);
+      return read ? toClubMatch(read, [club.name], localDay(m.timestamp, club.timezone)) : null;
+    } catch (err) {
+      deps.log?.error({ err, clubId: club.id }, 'No se pudo leer la imagen de partido');
+      return null;
+    }
+  }
 
   for (const source of await repos.ourproclub.channels()) {
     if (blocked.has(source.guildId)) continue;
@@ -107,18 +144,23 @@ export async function runOurProClub(deps: {
         const image = matchImage(m);
         if (image && fresh && canPost) {
           try {
-            const data = await reader.image(image.url);
-            await poster.post(
-              results.channelId,
-              { content: matchMessage(club.name), allowed_mentions: { parse: [] } },
-              [
-                {
-                  name: `partido-${m.id}.png`,
-                  data,
-                  contentType: image.contentType ?? 'image/png',
-                },
-              ],
-            );
+            const match = await readClubMatch(m, image.url, club);
+            const content = matchMessage(club.name, match);
+            const body = { content, allowed_mentions: { parse: [] } };
+            if (match) {
+              const crest = await repos.clubs.crest(club.id).catch(() => null);
+              const png = await render({
+                match,
+                clubName: club.name,
+                clubCrestPng: crest,
+                source: 'Our Pro Club',
+              });
+              await poster.post(results.channelId, body, [
+                { name: `partido-${m.id}.png`, data: png, contentType: 'image/png' },
+              ]);
+            } else {
+              await poster.post(results.channelId, body);
+            }
             result.matches++;
           } catch (err) {
             // Error definitivo de Discord (p. ej. sin permiso en el canal): no se reintenta cada minuto.

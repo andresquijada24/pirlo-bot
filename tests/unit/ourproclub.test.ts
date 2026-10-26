@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ChannelReader, DiscordMessage } from '../../src/discord/channel-reader.js';
+import type { MatchImageRead } from '../../src/providers/ourproclub/match-image.js';
+import type { ResultCardInput } from '../../src/render/result-card.js';
 import { DiscordPostError, type ChannelPoster, type PosterFile } from '../../src/discord/poster.js';
 import { runOurProClub } from '../../src/jobs/ourproclub.js';
 import { REFERENCE_GUILD_ID } from '../../src/jobs/reminders.js';
@@ -94,6 +96,32 @@ const recapMsg = (id: string, minutesAgo: number) =>
     ],
   });
 
+// Lectura ficticia de una imagen de partido (el club de visitante).
+const matchRead: MatchImageRead = {
+  home: { name: 'RIVAL FC', score: 2 },
+  away: { name: 'CLUB OPC', score: 1 },
+  competition: 'LIGA',
+  humans: { home: 4, away: 2 },
+  players: [
+    {
+      name: 'Uno',
+      rating: 7.5,
+      goals: 1,
+      assists: 0,
+      shots: 3,
+      dribbles: 10,
+      passesMade: 20,
+      passesAttempted: 25,
+      tacklesMade: 2,
+      tacklesAttempted: 4,
+      interceptions: 1,
+      blocks: 0,
+      clearances: 0,
+      saves: 0,
+    },
+  ],
+};
+
 async function setup(opts: { guild?: string; provider?: 'maritimo' } = {}) {
   const env = createMemoryRepos();
   const guild = opts.guild ?? GUILD;
@@ -145,18 +173,36 @@ describe('espejo de Our Pro Club', () => {
       opc('1000000000000000003', 1, { author: { id: '1', username: 'Alguien', bot: false } }),
     ];
     const f = fakes(channel);
+    const rendered: ResultCardInput[] = [];
+    const known: string[][] = [];
     const deps = {
       repos: env.repos,
       reader: f.reader,
       poster: f.poster,
       blockedGuilds: new Set<string>(),
       now: () => NOW,
+      readImage: async (_png: Uint8Array, names: string[]) => {
+        known.push(names);
+        return matchRead;
+      },
+      render: async (input: ResultCardInput) => {
+        rendered.push(input);
+        return new Uint8Array([137, 80, 78, 71]);
+      },
     };
     expect(await runOurProClub(deps)).toMatchObject({ clubs: 1, matches: 1 });
     expect(f.sent).toHaveLength(1);
     expect(f.sent[0]!.channelId).toBe(RESULTS);
-    expect(String(f.sent[0]!.body.content)).toMatch('Partido terminado · Club OPC');
+    // Tarjeta propia de PIRLO (no la imagen de Our Pro Club), con el club a la izquierda.
+    expect(f.sent[0]!.body.content).toBe('**Club OPC 1–2 RIVAL FC** · derrota · liga');
     expect(f.sent[0]!.files![0]!.name).toBe('partido-1000000000000000002.png');
+    expect(f.sent[0]!.files![0]!.contentType).toBe('image/png');
+    expect([rendered[0]!.match.home, rendered[0]!.match.playedOn, rendered[0]!.source]).toEqual([
+      false,
+      '2026-10-26',
+      'Our Pro Club',
+    ]);
+    expect(known[0]).toEqual([]);
     // Siguiente pasada: lee desde el último procesado y no repite.
     channel.push(opc('1000000000000000004', 0));
     await runOurProClub(deps);
@@ -164,6 +210,34 @@ describe('espejo de Our Pro Club', () => {
     expect(f.sent).toHaveLength(2);
     await runOurProClub(deps);
     expect(f.sent).toHaveLength(2);
+  });
+
+  it('si la imagen no se lee con seguridad, solo un aviso de texto (nunca números dudosos)', async () => {
+    for (const readImage of [
+      undefined,
+      async () => null,
+      async () => {
+        throw new Error('lector caído');
+      },
+      // Lee bien, pero el club no aparece en el marcador: no se sabe cuál es su lado.
+      async () => ({ ...matchRead, away: { name: 'Otro Club', score: 1 } }),
+    ]) {
+      const { env } = await setup();
+      const f = fakes([opc('1000000000000000040', 1)]);
+      await runOurProClub({
+        repos: env.repos,
+        reader: f.reader,
+        poster: f.poster,
+        blockedGuilds: new Set(),
+        now: () => NOW,
+        ...(readImage ? { readImage } : {}),
+      });
+      expect(f.sent).toHaveLength(1);
+      expect(f.sent[0]!.files).toBeUndefined();
+      expect(String(f.sent[0]!.body.content)).toMatch(
+        '**Partido terminado · Club OPC** · las estadísticas de este partido llegan con el resumen de la sesión.',
+      );
+    }
   });
 
   it('el Session Recap se guarda como sesión del club (no en clubes que ya reciben sesiones de Marítimo)', async () => {

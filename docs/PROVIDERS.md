@@ -87,6 +87,11 @@ Todos implementan el contrato `StatsProvider` de `src/providers/types.ts`.
   propio) en filas como las de las sesiones, así que `/stats` y `/ranking` suman EA y los demás
   proveedores. El jugador se reconoce por el gamertag de su ficha en ese club (`/plantilla
   gamertag`); sin coincidencia aparece con su gamertag de EA. Temporada = fecha local del partido.
+- **Resumen en Discord**: la tarea programada publica en el canal de **resultados** del club
+  (`/club canal`, uso Resultados) un mensaje con los partidos recién procesados: marcador, goles,
+  asistencias, MVP y notas. Sin ese canal no se publica nada. Cada partido se anuncia una sola vez
+  (`ea_matches.recap_posted_at`), solo si se procesó en las últimas 24 h, nunca en el servidor de
+  referencia ni en los bloqueados, y sin menciones.
 - **Rivales**: nombre, marcador, gamertags y estadísticas se guardan solo dentro del club que jugó
   el partido; nunca entran en rankings ni estadísticas de la plantilla, y sus gamertags no se
   muestran en páginas públicas.

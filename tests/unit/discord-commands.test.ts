@@ -108,7 +108,7 @@ describe('/club', () => {
     expect(textOf(await run(slash(DT, 'club', 'canal', [str('uso', 'anuncios'), ch])))).toMatch('permiso');
     await run(slash(OWNER, 'club', 'canal', [str('uso', 'anuncios'), ch]));
     expect(await env.repos.channels.list(clubId)).toEqual([
-      { purpose: 'anuncios', channelId: '700000000000000001' },
+      { purpose: 'anuncios', channelId: '700000000000000001', guildId: '900000000000000001' },
     ]);
   });
 

@@ -243,7 +243,7 @@ describe('configuración y temporadas', () => {
 
     await configureChannel(env.repos, await resolveContext(env.repos, owner), 'anuncios', '7'.repeat(18));
     expect(await env.repos.channels.list(clubId)).toEqual([
-      { purpose: 'anuncios', channelId: '7'.repeat(18) },
+      { purpose: 'anuncios', channelId: '7'.repeat(18), guildId: '900000000000000001' },
     ]);
     expect(env.state.audit.some((a) => a.action === 'club.channel.set')).toBe(true);
   });

@@ -428,12 +428,12 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
     },
     async list(clubId) {
       const rows = check(
-        await db.from('club_channels').select('purpose, channel_id').eq('club_id', clubId),
+        await db.from('club_channels').select('purpose, channel_id, guild_id').eq('club_id', clubId),
       );
       return z
-        .array(z.object({ purpose: z.enum(CHANNEL_PURPOSES), channel_id: z.string() }))
+        .array(z.object({ purpose: z.enum(CHANNEL_PURPOSES), channel_id: z.string(), guild_id: z.string() }))
         .parse(rows)
-        .map((r) => ({ purpose: r.purpose, channelId: r.channel_id }));
+        .map((r) => ({ purpose: r.purpose, channelId: r.channel_id, guildId: r.guild_id }));
     },
   };
 
@@ -917,7 +917,42 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
           opponentName: r.opponent_name,
         }));
     },
+    async claimRecaps(clubId, limit) {
+      const rows = check(await db.rpc('claim_ea_recaps', { p_club_id: clubId, p_limit: limit }));
+      return z.array(z.string()).parse(rows);
+    },
+    async releaseRecaps(clubId, matchIds) {
+      if (matchIds.length === 0) return;
+      check(await db.rpc('release_ea_recaps', { p_club_id: clubId, p_match_ids: matchIds }));
+    },
+    async recaps(clubId, matchIds) {
+      if (matchIds.length === 0) return [];
+      const rows = check(await db.rpc('ea_recap', { p_club_id: clubId, p_match_ids: matchIds }));
+      return z
+        .array(
+          z.object({
+            matchId: z.string(),
+            matchType: z.enum(EA_MATCH_TYPES),
+            playedAt: z.string(),
+            goalsFor: z.number().nullable(),
+            goalsAgainst: z.number().nullable(),
+            result: z.enum(['victoria', 'empate', 'derrota']).nullable(),
+            opponentName: z.string().nullable(),
+            players: z.array(
+              z.object({
+                name: z.string(),
+                goals: z.number().nullable(),
+                assists: z.number().nullable(),
+                rating: numOrNull,
+                manOfTheMatch: z.boolean().nullable(),
+              }),
+            ),
+          }),
+        )
+        .parse(rows);
+    },
   };
+
 
   const reminders: ReminderRepository = {
     async due(limit, blockedGuilds) {

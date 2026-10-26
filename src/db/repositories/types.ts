@@ -77,7 +77,7 @@ export interface LinkRequestRepository {
 
 export interface ChannelRepository {
   set(clubId: string, guildId: string, purpose: ChannelPurpose, channelId: string): Promise<void>;
-  list(clubId: string): Promise<{ purpose: ChannelPurpose; channelId: string }[]>;
+  list(clubId: string): Promise<{ purpose: ChannelPurpose; channelId: string; guildId: string }[]>;
 }
 
 export interface SeasonRepository {
@@ -191,6 +191,20 @@ export interface EaMatchSummary {
   opponentName: string | null;
 }
 
+export interface EaRecapPlayer {
+  /** Nombre en el club si el gamertag está vinculado; si no, el gamertag de EA. */
+  name: string;
+  goals: number | null;
+  assists: number | null;
+  rating: number | null;
+  manOfTheMatch: boolean | null;
+}
+
+/** Datos de un resumen de partido: solo jugadores propios; el rival solo por nombre y marcador. */
+export interface EaRecap extends EaMatchSummary {
+  players: EaRecapPlayer[];
+}
+
 /** Enlace (con consentimiento) de cada club con su club de EA y partidos ya procesados. */
 export interface EaRepository {
   link(clubId: string, platform: EaLink['platform'], eaClubId: string, actorDiscordId: string): Promise<void>;
@@ -205,6 +219,11 @@ export interface EaRepository {
   /** Guarda un partido procesado; false si ya existía. */
   apply(clubId: string, match: ProcessedEaMatch): Promise<boolean>;
   recent(clubId: string, limit: number): Promise<EaMatchSummary[]>;
+  /** Reclama partidos recientes sin anunciar (cada uno solo una vez). Devuelve sus ids. */
+  claimRecaps(clubId: string, limit: number): Promise<string[]>;
+  /** Devuelve a la cola partidos cuyo anuncio falló por un error temporal. */
+  releaseRecaps(clubId: string, matchIds: string[]): Promise<void>;
+  recaps(clubId: string, matchIds: string[]): Promise<EaRecap[]>;
 }
 
 export interface StatsRepository {

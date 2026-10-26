@@ -304,7 +304,16 @@ describe('/club ea importar', () => {
     const first = textOf(await importar(DT));
     expect(first).toMatch('**2** partidos en el archivo · **2** nuevos · **2** procesados');
     expect(env.state.eaMatches.length).toBe(2);
+    // Sin canal de resultados, sugiere configurarlo; con él, avisa dónde saldrá el resumen.
+    expect(first).toMatch('uso: Resultados');
+    env.state.channels.push({
+      clubId: env.state.clubs[0]!.id,
+      guildId: '900000000000000001',
+      purpose: 'resultados',
+      channelId: '930000000000000007',
+    });
     expect(textOf(await importar(DT))).toMatch('2 ya estaban importados');
+    expect(textOf(await importar(DT))).toMatch('<#930000000000000007>');
     expect(env.state.eaMatches.length).toBe(2);
   });
 

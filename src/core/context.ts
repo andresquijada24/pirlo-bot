@@ -17,8 +17,18 @@ export async function resolveClub(
   guildId: string,
   slug?: string,
 ): Promise<Club> {
-  const clubs = (await repos.clubs.listByGuild(guildId)).filter((c) => c.status === 'activo');
+  const all = await repos.clubs.listByGuild(guildId);
+  const clubs = all.filter((c) => c.status === 'activo');
 
+  if (clubs.length === 0 && all.some((c) => c.status === 'pendiente')) {
+    throw new DomainError(
+      'CLUB_NOT_REGISTERED',
+      '⏳ El club de este servidor está pendiente de aprobación por PIRLO BOT. Te avisaremos por mensaje privado.',
+    );
+  }
+  if (clubs.length === 0 && all.some((c) => c.status === 'rechazado')) {
+    throw new DomainError('CLUB_NOT_REGISTERED', 'El club de este servidor no fue aprobado por PIRLO BOT.');
+  }
   if (clubs.length === 0) {
     throw new DomainError(
       'CLUB_NOT_REGISTERED',

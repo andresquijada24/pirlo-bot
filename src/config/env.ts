@@ -11,6 +11,8 @@ const EnvSchema = z.object({
   DISCORD_APPLICATION_ID: z.string().regex(/^\d+$/, 'Debe ser un ID numérico de Discord'),
   DISCORD_PUBLIC_KEY: z.string().regex(/^[0-9a-f]{64}$/i, 'Debe ser la Public Key hexadecimal'),
   DISCORD_BOT_TOKEN: z.string().min(1),
+  /** Dueños de PIRLO BOT (IDs de Discord separados por comas): aprueban los clubes nuevos. */
+  PIRLO_OWNER_DISCORD_IDS: z.string().optional(),
   DISCORD_DEV_GUILD_ID: z.string().regex(/^\d+$/).optional(),
 
   SUPABASE_URL: z.string().url().optional(),

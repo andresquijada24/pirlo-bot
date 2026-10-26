@@ -5,7 +5,8 @@
  * y no afectan a ningún otro servidor.
  *
  * Registro global (todos los servidores donde esté instalado el bot): requiere --global y
- * CONFIRM_GLOBAL=yes. Hacerlo solo con aprobación explícita.
+ * CONFIRM_GLOBAL=yes. Hacerlo solo con aprobación explícita (variable DISCORD_COMMANDS_GLOBAL=true
+ * del repositorio, que fija el dueño). Después quita las copias por servidor para no duplicarlas.
  *
  *   npm run commands:register
  *   CONFIRM_GLOBAL=yes npm run commands:register -- --global
@@ -67,7 +68,14 @@ async function main() {
       fail('Registro global bloqueado. Usa CONFIRM_GLOBAL=yes si está aprobado.');
     }
     await rest.put(Routes.applicationCommands(appId), { body });
-    console.log(`Registrados ${body.length} comandos de forma GLOBAL.`);
+    console.log(`Registrados ${body.length} comandos de forma GLOBAL (todos los servidores con el bot).`);
+    // Las copias por servidor saldrían duplicadas junto a las globales: se quitan (no borra datos).
+    const guilds = (await rest.get(Routes.userGuilds())) as { id: string }[];
+    for (const id of new Set([guildId, ...clubGuildIds].filter((g): g is string => Boolean(g)))) {
+      if (id === REFERENCE_GUILD_ID || !guilds.some((g) => g.id === id)) continue;
+      await rest.put(Routes.applicationGuildCommands(appId, id), { body: [] });
+      console.log(`Quitadas las copias por servidor en ${id} (ya usa las globales).`);
+    }
     return;
   }
   if (!guildId) fail('Falta DISCORD_DEV_GUILD_ID (el ID de tu servidor de pruebas).');

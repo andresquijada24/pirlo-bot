@@ -36,7 +36,8 @@ export interface Club {
   id: string;
   slug: string;
   name: string;
-  status: 'activo' | 'inactivo';
+  /** 'pendiente' hasta que el dueño de PIRLO BOT lo aprueba; 'rechazado' si no. */
+  status: 'activo' | 'inactivo' | 'pendiente' | 'rechazado';
   statsProvider: 'maritimo' | 'ourproclub' | 'ea' | 'manual';
   /** Zona horaria IANA con la que se interpretan las fechas que escribe el club. */
   timezone: string;

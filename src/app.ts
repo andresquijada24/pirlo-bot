@@ -16,6 +16,7 @@ import { commandsByName, componentHandlers } from './discord/commands/index.js';
 import type { ComponentHandler, SlashCommand } from './discord/commands/types.js';
 import { routeInteraction } from './discord/router.js';
 import { verifyDiscordRequest } from './discord/verify.js';
+import { onboardGuild, type GuildApi } from './discord/onboarding.js';
 import type { SyncResult } from './sync/engine.js';
 import type { ReminderResult } from './jobs/reminders.js';
 import type { EaProcessingResult } from './jobs/ea-processing.js';
@@ -38,6 +39,8 @@ export interface AppDeps {
   /** Descarga de adjuntos de Discord (importación de partidos). */
   download?: Downloader;
   downloadBytes?: BinaryDownloader;
+  /** Alta automática al instalar el bot (eventos webhook de Discord). */
+  onboarding?: { api: GuildApi; blockedGuilds: ReadonlySet<string>; ownerIds: ReadonlySet<string>; deadlineMs?: number };
   cron?: {
     secret: string | undefined;
     sync: (() => Promise<SyncResult>) | null;
@@ -65,6 +68,7 @@ export function createApp(deps: AppDeps) {
     ...(deps.discord ? { discord: deps.discord } : {}),
     ...(deps.download ? { download: deps.download } : {}),
     ...(deps.downloadBytes ? { downloadBytes: deps.downloadBytes } : {}),
+    ...(deps.onboarding ? { platform: { ownerIds: deps.onboarding.ownerIds, api: deps.onboarding.api } } : {}),
   };
   const app = new Hono();
 
@@ -152,6 +156,60 @@ export function createApp(deps: AppDeps) {
 
     // routeInteraction nunca lanza: los errores ya vienen convertidos en respuesta.
     return c.json(await routeInteraction(interaction, routerDeps));
+  });
+
+  /*
+   * Eventos webhook de Discord (Developer Portal → Webhooks). Solo APPLICATION_AUTHORIZED en un
+   * servidor: crea el club automáticamente. Discord exige 204 en menos de 3 s; si el alta tarda,
+   * se responde igual y el reintento de Discord es idempotente.
+   */
+  app.post('/api/discord/events', async (c) => {
+    const body = await c.req.text();
+    const valid = await verifyDiscordRequest({
+      body,
+      signature: c.req.header('x-signature-ed25519'),
+      timestamp: c.req.header('x-signature-timestamp'),
+      publicKey: deps.discordPublicKey,
+    });
+    if (!valid) return c.text('Firma inválida', 401);
+    let payload: {
+      type?: unknown;
+      event?: { type?: unknown; data?: { integration_type?: unknown; guild?: unknown; user?: unknown } };
+    };
+    try {
+      payload = JSON.parse(body) as typeof payload;
+    } catch {
+      return c.text('JSON inválido', 400);
+    }
+    const data = payload.event?.data;
+    const guild = data?.guild as { id?: unknown; name?: unknown } | undefined;
+    const user = data?.user as { id?: unknown; username?: unknown; global_name?: unknown } | undefined;
+    if (
+      payload.type === 1 &&
+      payload.event?.type === 'APPLICATION_AUTHORIZED' &&
+      data?.integration_type === 0 &&
+      typeof guild?.id === 'string' &&
+      typeof user?.id === 'string' &&
+      deps.repos &&
+      deps.onboarding
+    ) {
+      const userName =
+        typeof user.global_name === 'string' ? user.global_name : typeof user.username === 'string' ? user.username : '';
+      const work = onboardGuild(
+        {
+          repos: deps.repos,
+          api: deps.onboarding.api,
+          blockedGuilds: deps.onboarding.blockedGuilds,
+          ownerIds: deps.onboarding.ownerIds,
+          ...(deps.log ? { log: deps.log } : {}),
+        },
+        { guildId: guild.id, guildName: typeof guild.name === 'string' ? guild.name : '', userId: user.id, userName },
+      ).catch((err: unknown) => {
+        deps.log?.error({ err }, 'Fallo en el alta automática del club');
+      });
+      await Promise.race([work, new Promise((r) => setTimeout(r, deps.onboarding?.deadlineMs ?? 2_500))]);
+    }
+    return c.body(null, 204);
   });
 
   /*

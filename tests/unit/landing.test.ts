@@ -9,10 +9,10 @@ describe('public/index.html', () => {
     expect(html).toContain('scope=bot+applications.commands');
   });
 
-  it('pide solo los permisos mínimos (Ver canales, Enviar, Enlaces, Adjuntos = 51200)', () => {
+  it('pide solo los permisos mínimos (Ver canales, Enviar, Enlaces, Adjuntos, Historial = 117760)', () => {
     const perms = [...html.matchAll(/permissions=(\d+)/g)].map((m) => m[1]);
     expect(perms.length).toBeGreaterThan(0);
-    expect(new Set(perms)).toEqual(new Set(['51200']));
+    expect(new Set(perms)).toEqual(new Set(['117760']));
   });
 
   it('no contiene estadísticas ficticias en la vista de ejemplo', () => {

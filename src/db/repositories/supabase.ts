@@ -34,7 +34,7 @@ const clubRow = z.object({
   id: z.string().uuid(),
   slug: z.string(),
   name: z.string(),
-  status: z.enum(['activo', 'inactivo']),
+  status: z.enum(['activo', 'inactivo', 'pendiente', 'rechazado']),
   stats_provider: z.enum(['maritimo', 'ourproclub', 'ea', 'manual']),
   timezone: z.string(),
   reminder_minutes: z.number().int().nullable(),
@@ -282,6 +282,15 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
           .maybeSingle(),
       );
       return row ? toClub(clubRow.parse(row)) : null;
+    },
+    async setStatus(clubId, status, actorDiscordId) {
+      check(
+        await db.rpc('set_club_status', {
+          p_club_id: clubId,
+          p_status: status,
+          p_actor_discord_id: actorDiscordId,
+        }),
+      );
     },
     async setWebPublic(clubId, isPublic, actorDiscordId) {
       check(

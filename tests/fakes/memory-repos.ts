@@ -77,6 +77,11 @@ export function createMemoryRepos() {
         const c = state.clubs.find((x) => x.slug === slug && state.webPublic.has(x.id) && x.status === 'activo');
         return c ? { ...c } : null;
       },
+      async setStatus(clubId, status) {
+        const c = state.clubs.find((x) => x.id === clubId);
+        if (!c) throw conflict('Club no encontrado.');
+        c.status = status;
+      },
       async setWebPublic(clubId, isPublic, actorDiscordId) {
         const isAdmin = activeIn(clubId).some((m) => m.discordUserId === actorDiscordId && m.role === 'admin');
         if (!isAdmin) throw conflict('Solo un admin del club puede activar o desactivar la página web.');

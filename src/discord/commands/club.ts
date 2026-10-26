@@ -6,6 +6,7 @@ import {
   setClubCrest,
   setClubWeb,
 } from '../../core/clubs/service.js';
+import { requestApproval } from '../../core/platform.js';
 import { normalizeCrest } from '../../render/crest.js';
 import {
   EA_PLATFORM_LABELS,
@@ -275,6 +276,18 @@ export const clubCommand: SlashCommand = {
           slug: optString(ctx.command, 'identificador') ?? '',
           guildName: null,
         });
+        if (ctx.platform) {
+          const name = optString(ctx.command, 'nombre')?.trim() ?? res.slug;
+          await requestApproval(
+            { repos: ctx.repos, platform: ctx.platform },
+            { id: res.clubId, slug: res.slug, name },
+            { userId: ctx.actor.discordUserId, userName: ctx.actor.displayName, guildName: null },
+          );
+          return ok(
+            `Club registrado con el identificador \`${res.slug}\`. Ahora eres admin del club.\n` +
+              '⏳ Falta la aprobación final de PIRLO BOT; te avisaremos por mensaje privado.',
+          );
+        }
         return ok(
           `Club registrado con el identificador \`${res.slug}\`. Ahora eres admin del club.\n` +
             'Siguientes pasos: `/club canal` para elegir canales y `/temporada crear` para la temporada.',

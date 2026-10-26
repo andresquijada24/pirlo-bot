@@ -366,7 +366,7 @@ export function renderScorersWidget(scorers: TopScorer[]): string {
 <title>Goleadores · PIRLO BOT</title>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
-*{box-sizing:border-box}html,body{margin:0;background:transparent;color:#e8eef7;font-family:Rajdhani,system-ui,sans-serif;color-scheme:dark}
+*{box-sizing:border-box}html,body{margin:0;background:transparent;color:#e8eef7;font-family:Rajdhani,system-ui,sans-serif}
 h3{font-size:17px;margin:0 0 6px;font-weight:700}
 .row{display:grid;grid-template-columns:26px 1fr auto;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid #ffffff0f;color:inherit;text-decoration:none;font-size:16px}
 .row:last-child{border-bottom:0}.row:hover .n{color:#5fb0ff}

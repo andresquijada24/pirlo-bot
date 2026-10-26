@@ -137,7 +137,7 @@ export function registerPhotoUploadRoutes(app: Hono, deps: PhotoUploadDeps): voi
           `<input type="hidden" name="csrf" value="${esc(csrfFor(userSessionKey(deps.clientSecret), u.token))}">` +
           '<label class="file">Captura de The Grounds (PNG o JPG, máx. 4 MB)<input type="file" name="imagen" accept="image/png,image/jpeg,image/webp" required></label>' +
           CROP +
-          '<button class="btn" type="submit">Subir foto</button></form><script src="/foto.js" defer></script>',
+          '<button class="btn" type="submit">Subir foto</button></form><script src="/tarjeta.js" defer></script><script src="/foto.js" defer></script>',
         slug,
         back,
       ),
@@ -191,7 +191,7 @@ const GUIDE =
   '<li>Ponte de frente a la cámara y quita los menús de la pantalla.</li>' +
   '<li>Haz una captura: <b>PS5</b> botón Crear → Captura · <b>Xbox</b> botón Compartir · <b>PC</b> tecla de captura.</li>' +
   '<li>Pásala a este dispositivo (app de PlayStation o Xbox, o la carpeta de capturas) y súbela aquí.</li></ol>' +
-  '<p class="meta">Al elegirla, encuadra tu tarjeta con el marco: muévelo y cambia su tamaño desde la esquina. La ficha la muestra tal cual.</p>';
+  '<p class="meta">Al elegirla, PIRLO coloca el marco sobre tu tarjeta. Si hace falta, muévelo o cambia su tamaño desde la esquina. La ficha la muestra tal cual.</p>';
 
 /** Vista previa con el marco de recorte (lo maneja /foto.js; sin JavaScript se recorta solo). */
 const CROP =
@@ -218,7 +218,7 @@ code{background:#ffffff14;padding:1px 6px;border-radius:6px}
 #recorte{position:relative;overflow:hidden;border-radius:10px;margin:0 0 16px;user-select:none;touch-action:none;line-height:0}
 #recorte img{width:100%;height:auto;border-radius:10px;display:block}
 .marco{position:absolute;border:2px solid var(--accent);border-radius:8px;box-shadow:0 0 0 9999px #020617b3;cursor:move;touch-action:none}
-.asa{position:absolute;right:-4px;bottom:-4px;width:22px;height:22px;border-radius:50%;background:var(--accent);border:3px solid #020617;cursor:nwse-resize;touch-action:none}
+.asa{position:absolute;right:-4px;bottom:-4px;width:16px;height:16px;border-radius:50%;background:var(--accent);border:2px solid #020617;cursor:nwse-resize;touch-action:none}
 </style>${updateTags(currentVersion()).meta}</head>
 <body><main class="wrap"><p><a href="${back ?? `/club/${esc(slug)}`}">← Volver a la ficha</a></p><div class="card"><h1>${title}</h1>${body}</div></main></body></html>`;
 }

@@ -25,6 +25,26 @@
   // Marco en píxeles de la imagen mostrada.
   var box = { x: 0, y: 0, w: 0, h: 0 };
   var url = null;
+  // Tarjeta encontrada en la captura (fracciones), o null para el marco centrado.
+  var found = null;
+
+  /** Busca la tarjeta en una copia reducida de la imagen (no sale del navegador). */
+  function detect() {
+    found = null;
+    if (typeof window.detectarTarjeta !== 'function' || !img.naturalWidth) return;
+    try {
+      var cw = Math.min(320, img.naturalWidth);
+      var ch = Math.max(1, Math.round((img.naturalHeight * cw) / img.naturalWidth));
+      var canvas = document.createElement('canvas');
+      canvas.width = cw;
+      canvas.height = ch;
+      var g = canvas.getContext('2d');
+      g.drawImage(img, 0, 0, cw, ch);
+      found = window.detectarTarjeta(g.getImageData(0, 0, cw, ch).data, cw, ch);
+    } catch {
+      found = null; // Sin acceso a los píxeles: marco centrado.
+    }
+  }
 
   function clamp(v, lo, hi) {
     return Math.max(lo, Math.min(hi, v));
@@ -47,6 +67,29 @@
   function reset() {
     var W = img.clientWidth;
     var H = img.clientHeight;
+    if (found) {
+      // Marco directo sobre la tarjeta: misma forma de tarjeta, centrado y con un pequeño margen.
+      var fw = found.w * W;
+      var fh = found.h * H;
+      var bh = fh * 1.03;
+      var bw = bh * RATIO;
+      if (bw < fw * 1.03) {
+        bw = fw * 1.03;
+        bh = bw / RATIO;
+      }
+      bw = Math.min(bw, W);
+      bh = Math.min(bh, H);
+      var cx = found.x * W + fw / 2;
+      var cy = found.y * H + fh / 2;
+      box = {
+        x: clamp(cx - bw / 2, 0, W - bw),
+        y: clamp(cy - bh / 2, 0, H - bh),
+        w: bw,
+        h: bh,
+      };
+      render();
+      return;
+    }
     var h = H * 0.8;
     var w = h * RATIO;
     if (w > W * 0.9) {
@@ -67,6 +110,7 @@
     url = URL.createObjectURL(file);
     img.onload = function () {
       stage.hidden = false;
+      detect();
       reset();
     };
     img.src = url;

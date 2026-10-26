@@ -9,6 +9,10 @@
     {
       "source": "/club/(.*)",
       "destination": "/api"
+    },
+    {
+      "source": "/clubes",
+      "destination": "/api"
     }
   ],
   "functions": {

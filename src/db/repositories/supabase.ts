@@ -264,6 +264,13 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
       const row = check(await db.from('clubs').select(CLUB_COLUMNS).eq('id', clubId).maybeSingle());
       return row ? toClub(clubRow.parse(row)) : null;
     },
+    async listPublic() {
+      const rows = check(await db.rpc('list_public_clubs'));
+      return z
+        .array(z.object({ slug: z.string(), name: z.string(), has_crest: z.boolean() }))
+        .parse(rows)
+        .map((r) => ({ slug: r.slug, name: r.name, hasCrest: r.has_crest }));
+    },
     async findPublic(slug) {
       const row = check(
         await db

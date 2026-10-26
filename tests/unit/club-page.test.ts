@@ -88,3 +88,24 @@ describe('página web del club', () => {
     }
   });
 });
+
+describe('directorio de clubes', () => {
+  it('lista solo los clubes con la página publicada', async () => {
+    const { app, env, clubId } = await setup();
+    let html = await (await app.request('/clubes')).text();
+    expect(html).toMatch('Todavía ningún club');
+    await env.repos.clubs.setWebPublic(clubId, true, OWNER.userId);
+    const res = await app.request('/clubes');
+    html = await res.text();
+    expect(res.status).toBe(200);
+    expect(html).toMatch('href="/club/club-prueba"');
+    expect(html).toMatch('Club &lt;Prueba&gt;');
+    expect(res.headers.get('content-security-policy')).toMatch("default-src 'none'");
+  });
+
+  it('la página principal enlaza el directorio', async () => {
+    const { readFileSync } = await import('node:fs');
+    const landing = readFileSync(new URL('../../public/index.html', import.meta.url), 'utf8');
+    expect(landing).toMatch('href="/clubes"');
+  });
+});

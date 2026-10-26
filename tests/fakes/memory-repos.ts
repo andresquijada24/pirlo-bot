@@ -67,6 +67,12 @@ export function createMemoryRepos() {
         const c = state.clubs.find((x) => x.id === clubId);
         return c ? { ...c } : null;
       },
+      async listPublic() {
+        return state.clubs
+          .filter((c) => state.webPublic.has(c.id) && c.status === 'activo')
+          .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+          .map((c) => ({ slug: c.slug, name: c.name, hasCrest: state.crests.has(c.id) }));
+      },
       async findPublic(slug) {
         const c = state.clubs.find((x) => x.slug === slug && state.webPublic.has(x.id) && x.status === 'activo');
         return c ? { ...c } : null;

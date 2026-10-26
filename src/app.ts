@@ -2,7 +2,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { Hono } from 'hono';
 import { isDomainError } from './core/errors.js';
 import { parseIngest } from './providers/ea/ingest.js';
-import { loadClubPage, notFoundPage, renderClubPage } from './web/club-page.js';
+import { loadClubPage, notFoundPage, renderClubPage, renderClubsDirectory } from './web/club-page.js';
 import type { APIInteraction } from 'discord-api-types/v10';
 import type { Repositories } from './db/repositories/types.js';
 import { commandsByName, componentHandlers } from './discord/commands/index.js';
@@ -73,6 +73,16 @@ export function createApp(deps: AppDeps) {
     'x-content-type-options': 'nosniff',
     'referrer-policy': 'no-referrer',
   };
+  app.get('/clubes', async (c) => {
+    if (!deps.repos) return c.html(notFoundPage(), 503, PAGE_HEADERS);
+    try {
+      const clubs = await deps.repos.clubs.listPublic();
+      return c.html(renderClubsDirectory(clubs), 200, { ...PAGE_HEADERS, 'cache-control': 'public, max-age=300' });
+    } catch (err) {
+      deps.log?.error({ err }, 'No se pudo generar el directorio de clubes');
+      return c.html(notFoundPage(), 500, PAGE_HEADERS);
+    }
+  });
   app.get('/club/:slug', async (c) => {
     const notFound = () => c.html(notFoundPage(), 404, PAGE_HEADERS);
     if (!deps.repos) return notFound();

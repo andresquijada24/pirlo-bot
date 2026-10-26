@@ -43,6 +43,8 @@ export interface ClubRepository {
   /** null desactiva los recordatorios. */
   setReminderMinutes(clubId: string, minutes: number | null): Promise<void>;
   findById(clubId: string): Promise<Club | null>;
+  /** Clubes con la página web publicada (para el directorio /clubes). */
+  listPublic(): Promise<{ slug: string; name: string; hasCrest: boolean }[]>;
   /** Club con la página web pública activada (por su identificador) o null. */
   findPublic(slug: string): Promise<Club | null>;
   /** Activa o desactiva la página web pública. Solo un admin del club. */

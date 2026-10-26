@@ -47,6 +47,7 @@ export function createMemoryRepos() {
     /** Gamertag de cada ficha por club ("clubId:playerId"), como club_memberships.gamertag. */
     memberGamertags: new Map<string, string>(),
     crests: new Map<string, string>(),
+    webPublic: new Set<string>(),
   };
 
   const activeIn = (clubId: string) => state.memberships.filter((m) => m.clubId === clubId && m.active);
@@ -65,6 +66,19 @@ export function createMemoryRepos() {
       async findById(clubId) {
         const c = state.clubs.find((x) => x.id === clubId);
         return c ? { ...c } : null;
+      },
+      async findPublic(slug) {
+        const c = state.clubs.find((x) => x.slug === slug && state.webPublic.has(x.id) && x.status === 'activo');
+        return c ? { ...c } : null;
+      },
+      async setWebPublic(clubId, isPublic, actorDiscordId) {
+        const isAdmin = activeIn(clubId).some((m) => m.discordUserId === actorDiscordId && m.role === 'admin');
+        if (!isAdmin) throw conflict('Solo un admin del club puede activar o desactivar la página web.');
+        if (isPublic) state.webPublic.add(clubId);
+        else state.webPublic.delete(clubId);
+      },
+      async webPublic(clubId) {
+        return state.webPublic.has(clubId);
       },
       async crest(clubId) {
         return state.crests.get(clubId) ?? null;
@@ -286,8 +300,8 @@ export function createMemoryRepos() {
           .filter((r) => r.clubId === clubId && (seasonId === null || r.seasonId === seasonId))
           .map(({ clubId: _c, playedOn: _p, ...r }) => r);
         // Como v_ea_player_season_stats: solo el lado propio, vinculado por el gamertag de la ficha.
-        // (Aquí sin temporada: solo aparece al pedir "todas".)
-        if (seasonId !== null) return sessions;
+        // Simplificación: aquí los partidos de EA cuentan en cualquier temporada que se pida.
+        void seasonId;
         const byPlayer = new Map<string, SessionStatRow>();
         const sum = (a: number | null, b: number | null) => (a === null ? b : b === null ? a : a + b);
         for (const m of state.eaMatches.filter((x) => x.clubId === clubId)) {
@@ -588,7 +602,7 @@ export function createMemoryRepos() {
           .filter((m) => m.clubId === clubId)
           .sort((a, b) => b.playedAt.localeCompare(a.playedAt))
           .slice(0, limit)
-          .map(({ matchId, matchType, playedAt, goalsFor, goalsAgainst, result, opponentName }) => ({
+          .map(({ matchId, matchType, playedAt, goalsFor, goalsAgainst, result, opponentName, opponentColors }) => ({
             matchId,
             matchType,
             playedAt,
@@ -596,6 +610,7 @@ export function createMemoryRepos() {
             goalsAgainst,
             result,
             opponentName,
+            opponentColors: opponentColors ?? null,
           }));
       },
     },

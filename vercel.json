@@ -5,6 +5,10 @@
     {
       "source": "/api/(.*)",
       "destination": "/api"
+    },
+    {
+      "source": "/club/(.*)",
+      "destination": "/api"
     }
   ],
   "functions": {

@@ -104,3 +104,13 @@ Todos implementan el contrato `StatsProvider` de `src/providers/types.ts`.
 - **Rivales**: nombre, marcador, gamertags y estadísticas se guardan solo dentro del club que jugó
   el partido; nunca entran en rankings ni estadísticas de la plantilla, y sus gamertags no se
   muestran en páginas públicas.
+
+## Página web pública del club
+
+- `pirlo-bot.vercel.app/club/<identificador>`: resultados, balance de la temporada, líderes y
+  estadísticas de la plantilla. **Desactivada por defecto**: solo un admin la publica o la retira
+  con `/club web` (`clubs.web_public`, auditado).
+- HTML generado en el servidor (`src/web/club-page.ts`), sin JavaScript ni recursos externos, con
+  una política de seguridad estricta (`default-src 'none'`). El escudo se sirve en
+  `/club/<identificador>/escudo.png`.
+- Los rivales solo aparecen por nombre, colores de equipación y marcador; nunca sus gamertags.

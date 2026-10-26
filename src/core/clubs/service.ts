@@ -96,3 +96,19 @@ export async function setClubCrest(
   }
   await repos.clubs.setCrest(ctx.club.id, pngBase64, ctx.actor.discordUserId);
 }
+
+/** URL pública de la web de PIRLO BOT. */
+export const PUBLIC_BASE_URL = 'https://pirlo-bot.vercel.app';
+
+/** Activa o desactiva la página web pública del club. Solo un admin del club. */
+export async function setClubWeb(
+  repos: Pick<Repositories, 'clubs'>,
+  ctx: ClubContext,
+  isPublic: boolean,
+): Promise<string> {
+  if (ctx.membership?.role !== 'admin') {
+    throw permissionDenied('Solo un admin del club puede activar o desactivar la página web.');
+  }
+  await repos.clubs.setWebPublic(ctx.club.id, isPublic, ctx.actor.discordUserId);
+  return `${PUBLIC_BASE_URL}/club/${ctx.club.slug}`;
+}

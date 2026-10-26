@@ -26,6 +26,8 @@ export function createMemoryRepos() {
   const state = {
     clubs: [] as Club[],
     clubGuilds: [] as { clubId: string; guildId: string }[],
+    websites: new Map<string, string>(),
+    guildNames: new Map<string, string>(),
     multiClubGuilds: new Set<string>(),
     memberships: [] as (Membership & { active: boolean })[],
     linkRequests: [] as LinkRequest[],
@@ -85,10 +87,25 @@ export function createMemoryRepos() {
           status: c.status,
           createdAt: '2026-10-26T00:00:00.000Z',
           webPublic: state.webPublic.has(c.id),
-          guilds: state.clubGuilds.filter((g) => g.clubId === c.id).map((g) => ({ id: g.guildId, name: null })),
+          websiteUrl: state.websites.get(c.id) ?? null,
+          guilds: state.clubGuilds
+            .filter((g) => g.clubId === c.id)
+            .map((g) => ({ id: g.guildId, name: state.guildNames.get(g.guildId) ?? null })),
           members: activeIn(c.id).length,
           eaLinked: state.eaLinks.some((l) => l.clubId === c.id),
         }));
+      },
+      async website(clubId) {
+        return state.websites.get(clubId) ?? null;
+      },
+      async setWebsite(clubId, url, actorDiscordId) {
+        const isAdmin = activeIn(clubId).some((m) => m.discordUserId === actorDiscordId && m.role === 'admin');
+        if (!isAdmin) throw conflict('Solo un admin del club puede cambiar su sitio web.');
+        if (url) state.websites.set(clubId, url);
+        else state.websites.delete(clubId);
+      },
+      async setGuildName(guildId, name) {
+        if (!state.guildNames.has(guildId)) state.guildNames.set(guildId, name);
       },
       async setStatus(clubId, status) {
         const c = state.clubs.find((x) => x.id === clubId);

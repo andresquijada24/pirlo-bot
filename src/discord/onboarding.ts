@@ -21,6 +21,8 @@ import { requestApproval } from '../core/platform.js';
 export interface GuildApi {
   /** Canales de texto del servidor (id y nombre). */
   textChannels(guildId: string): Promise<{ id: string; name: string }[]>;
+  /** Nombre de un servidor donde está el bot (null si no se puede leer). */
+  guildName?(guildId: string): Promise<string | null>;
   /** Mensaje privado a un usuario. */
   dm(userId: string, body: Record<string, unknown>): Promise<void>;
 }
@@ -180,6 +182,11 @@ export function createGuildApi(
     return (await res.json()) as unknown;
   };
   return {
+    async guildName(guildId) {
+      if (!SNOWFLAKE.test(guildId)) return null;
+      const g = (await call('GET', `/guilds/${guildId}`)) as { name?: unknown };
+      return typeof g.name === 'string' && g.name.trim() ? g.name.trim().slice(0, 100) : null;
+    },
     async textChannels(guildId) {
       if (!SNOWFLAKE.test(guildId)) return [];
       const list = await call('GET', `/guilds/${guildId}/channels`);

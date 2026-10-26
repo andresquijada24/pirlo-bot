@@ -2,7 +2,7 @@ import type { Repositories } from '../../db/repositories/types.js';
 import { permissionDenied } from '../errors.js';
 import { assertCan } from '../permissions/index.js';
 import type { Actor, ChannelPurpose, ClubContext } from '../types.js';
-import { clubNameSchema, parse, slugSchema, snowflakeSchema } from '../validation.js';
+import { clubNameSchema, parse, slugSchema, snowflakeSchema, websiteSchema } from '../validation.js';
 
 /**
  * Registra un club en el servidor actual. Solo quien tiene "Gestionar servidor" en Discord.
@@ -111,4 +111,18 @@ export async function setClubWeb(
   }
   await repos.clubs.setWebPublic(ctx.club.id, isPublic, ctx.actor.discordUserId);
   return `${PUBLIC_BASE_URL}/club/${ctx.club.slug}`;
+}
+
+/** Guarda (o quita, con null) el sitio web oficial del club. Solo un admin del club. */
+export async function setClubWebsite(
+  repos: Pick<Repositories, 'clubs'>,
+  ctx: ClubContext,
+  url: string | null,
+): Promise<string | null> {
+  if (ctx.membership?.role !== 'admin') {
+    throw permissionDenied('Solo un admin del club puede cambiar su sitio web.');
+  }
+  const clean = url === null ? null : parse(websiteSchema, url);
+  await repos.clubs.setWebsite(ctx.club.id, clean, ctx.actor.discordUserId);
+  return clean;
 }

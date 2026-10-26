@@ -31,7 +31,11 @@ function setup(discordUserId = OWNER) {
       clientId: '1562889315657195530',
       clientSecret: SECRET,
       origin: ORIGIN,
-      api: { textChannels: async () => [], dm: async (id) => void dms.push(id) },
+      api: {
+        textChannels: async () => [],
+        dm: async (id) => void dms.push(id),
+        guildName: async (id) => (id === '900000000000000001' ? 'Servidor Real' : null),
+      },
       fetch: fakeFetch,
       now: () => NOW,
     },
@@ -117,6 +121,9 @@ describe('panel interno', () => {
     ).text();
     expect(html).toMatch('Pendientes de aprobación');
     expect(html).toMatch('Club &lt;Nuevo&gt;');
+    // El nombre del servidor se pide a Discord y se guarda.
+    expect(html).toMatch('Servidor Real');
+    expect(env.state.guildNames.get('900000000000000001')).toBe('Servidor Real');
     expect(html).toMatch(`/panel/clubs/${clubId}/estado`);
 
     const token = signSession(SECRET, OWNER, NOW + 3600_000);

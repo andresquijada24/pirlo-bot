@@ -44,6 +44,7 @@ export interface AdminClubRow {
   status: Club['status'];
   createdAt: string;
   webPublic: boolean;
+  websiteUrl: string | null;
   guilds: { id: string; name: string | null }[];
   members: number;
   eaLinked: boolean;
@@ -68,6 +69,12 @@ export interface ClubRepository {
   setWebPublic(clubId: string, isPublic: boolean, actorDiscordId: string): Promise<void>;
   /** ¿Tiene activada la página web? */
   webPublic(clubId: string): Promise<boolean>;
+  /** Sitio web oficial del club o null. */
+  website(clubId: string): Promise<string | null>;
+  /** Guarda o quita (null) el sitio web. Solo un admin del club (lo comprueba la base de datos). */
+  setWebsite(clubId: string, url: string | null, actorDiscordId: string): Promise<void>;
+  /** Guarda el nombre de un servidor de Discord si aún no lo tenía (panel interno). */
+  setGuildName(guildId: string, name: string): Promise<void>;
   /** Escudo del club (PNG en base64) o null. Aparte de findById para no cargarlo siempre. */
   crest(clubId: string): Promise<string | null>;
   /** Guarda o quita (null) el escudo. Solo un admin del club (lo comprueba la base de datos). */

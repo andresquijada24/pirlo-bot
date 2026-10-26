@@ -5,6 +5,7 @@ import {
   registerClub,
   setClubCrest,
   setClubWeb,
+  setClubWebsite,
 } from '../../core/clubs/service.js';
 import { requestApproval } from '../../core/platform.js';
 import { normalizeCrest } from '../../render/crest.js';
@@ -159,6 +160,22 @@ export const clubCommand: SlashCommand = {
         description: 'Página web pública del club con resultados y estadísticas (solo admin)',
         options: [
           { type: OT.Boolean, name: 'activar', description: 'Sí = publicarla · No = retirarla', required: true },
+          clubOption,
+        ],
+      },
+      {
+        type: OT.Subcommand,
+        name: 'sitio',
+        description: 'Sitio web oficial del club, se muestra en su página de PIRLO (solo admin)',
+        options: [
+          {
+            type: OT.String,
+            name: 'url',
+            description: 'Dirección completa con https://, p. ej. https://www.maritimo.app',
+            required: false,
+            max_length: 200,
+          },
+          { type: OT.Boolean, name: 'quitar', description: 'Quita el sitio web del club', required: false },
           clubOption,
         ],
       },
@@ -379,6 +396,18 @@ export const clubCommand: SlashCommand = {
                 'De los rivales solo se ven nombre, colores y marcador. Retírala cuando quieras con `/club web activar: No`.'
             : `Página de **${escapeMd(c.club.name)}** retirada. El enlace ya no muestra nada.`,
         );
+      }
+
+      case 'sitio': {
+        const c = await contextFor(ctx);
+        if (optBoolean(ctx.command, 'quitar')) {
+          await setClubWebsite(ctx.repos, c, null);
+          return ok(`Sitio web de **${escapeMd(c.club.name)}** quitado.`);
+        }
+        const url = optString(ctx.command, 'url');
+        if (!url) throw validation('Escribe la dirección en "url" (con https://) o usa "quitar".');
+        const saved = await setClubWebsite(ctx.repos, c, url);
+        return ok(`🔗 Sitio web de **${escapeMd(c.club.name)}**: ${saved}\nSe muestra en la página del club en PIRLO BOT.`);
       }
 
       case 'escudo': {

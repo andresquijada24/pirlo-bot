@@ -132,3 +132,21 @@ describe('directorio de clubes', () => {
     expect(landing).not.toMatch('Vista ilustrativa');
   });
 });
+
+describe('sitio web del club', () => {
+  it('solo un admin lo guarda; solo https; se ve en la página pública', async () => {
+    const { app, env, run, clubId } = await setup();
+    await env.repos.clubs.setWebPublic(clubId, true, OWNER.userId);
+    const dt = textOf(await run(slash(DT, 'club', 'sitio', [str('url', 'https://www.maritimo.app')])));
+    expect(dt).toMatch('Solo un admin');
+    const bad = textOf(await run(slash(OWNER, 'club', 'sitio', [str('url', 'javascript:alert(1)')])));
+    expect(bad).toMatch('https://');
+    const okMsg = textOf(await run(slash(OWNER, 'club', 'sitio', [str('url', 'https://www.maritimo.app')])));
+    expect(okMsg).toMatch('https://www.maritimo.app');
+    const html = await (await app.request('/club/club-prueba')).text();
+    expect(html).toMatch('href="https://www.maritimo.app" rel="noopener noreferrer nofollow" target="_blank"');
+    expect(html).toMatch('www.maritimo.app ↗');
+    await run(slash(OWNER, 'club', 'sitio', [{ name: 'quitar', type: 5, value: true }]));
+    expect(await (await app.request('/club/club-prueba')).text()).not.toMatch('maritimo.app');
+  });
+});

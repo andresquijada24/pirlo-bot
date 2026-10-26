@@ -208,3 +208,100 @@ describe('publicación del resumen de sesión', () => {
     expect(after.sent.length).toBe(0);
   });
 });
+
+describe('clubes de EA: la misma tarjeta, por sesión (día)', () => {
+  it('agrupa por día local, suma estadísticas, calcula porterías a cero y la media por partido', async () => {
+    const { eaSessions } = await import('../../src/core/stats/ea-session.js');
+    const base = {
+      matchType: 'leagueMatch' as const,
+      result: 'victoria' as const,
+      opponentName: 'Rival',
+      opponentColors: null,
+    };
+    const pl = (name: string, goals: number, rating: number) => ({
+      name,
+      position: null,
+      goals,
+      assists: 0,
+      rating,
+      shots: 2,
+      passesMade: 10,
+      passesAttempted: 12,
+      tacklesMade: 1,
+      tacklesAttempted: 2,
+      saves: null,
+      manOfTheMatch: null,
+    });
+    const sessions = eaSessions(
+      [
+        // 25 oct 22:00 y 23:30 en Caracas (UTC-4) → mismo día local aunque en UTC sea el 26.
+        {
+          ...base,
+          matchId: '1',
+          playedAt: '2026-10-26T02:00:00Z',
+          goalsFor: 2,
+          goalsAgainst: 0,
+          players: [pl('Ana', 2, 8.0)],
+        },
+        {
+          ...base,
+          matchId: '2',
+          playedAt: '2026-10-26T03:30:00Z',
+          goalsFor: 1,
+          goalsAgainst: 1,
+          result: 'empate',
+          players: [pl('Ana', 1, 7.0)],
+        },
+        {
+          ...base,
+          matchId: '3',
+          playedAt: '2026-10-26T20:00:00Z',
+          goalsFor: 3,
+          goalsAgainst: 0,
+          players: [pl('Ana', 0, 6.0)],
+        },
+      ],
+      'America/Caracas',
+      new Map([['ana', 7.2]]),
+    );
+    expect(
+      sessions.map((s) => [s.playedOn, s.matchesPlayed, s.wins, s.draws, s.cleanSheets]),
+    ).toEqual([
+      ['2026-10-25', 2, 1, 1, 1],
+      ['2026-10-26', 1, 1, 0, 1],
+    ]);
+    const ana = sessions[0]!.players[0]!;
+    expect([
+      ana.matchesPlayed,
+      ana.goals,
+      ana.rating,
+      ana.passesMade,
+      ana.interceptions,
+      ana.seasonRating,
+    ]).toEqual([2, 3, 7.5, 20, null, 7.2]);
+  });
+
+  it('el mensaje lista cada partido con su marcador', async () => {
+    const { eaSessionMessage } = await import('../../src/jobs/ea-recaps.js');
+    const { eaSessions } = await import('../../src/core/stats/ea-session.js');
+    const [s] = eaSessions(
+      [
+        {
+          matchId: '1',
+          matchType: 'friendlyMatch',
+          result: 'derrota',
+          opponentName: 'Rival Ficticio',
+          opponentColors: null,
+          playedAt: '2026-10-25T20:00:00Z',
+          goalsFor: 1,
+          goalsAgainst: 2,
+          players: [],
+        },
+      ],
+      'America/Caracas',
+    );
+    expect(eaSessionMessage(s!, { name: 'Club EA', slug: 'club-ea' }, false)).toBe(
+      '**Resumen de sesión · Club EA** · dom 25 oct 2026 · 0V 0E 1D\n• Amistoso · 1–2 vs Rival Ficticio',
+    );
+  });
+});

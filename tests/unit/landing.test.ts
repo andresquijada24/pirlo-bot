@@ -37,3 +37,14 @@ describe('identidad visual', () => {
     }
   });
 });
+
+describe('tarjetas de funciones y guía', () => {
+  it('cada tarjeta lleva a su sección de la guía, y la guía tiene esas secciones', () => {
+    const guide = readFileSync(new URL('../../public/guia.html', import.meta.url), 'utf8');
+    for (const id of ['estadisticas', 'rankings', 'convocatorias', 'alineaciones', 'plantilla', 'avisos']) {
+      expect(html).toMatch(`<a class="card" href="/guia.html#${id}">`);
+      expect(guide).toMatch(`<section id="${id}">`);
+    }
+    expect(guide).not.toMatch(/<script>/);
+  });
+});

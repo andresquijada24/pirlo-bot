@@ -150,7 +150,7 @@ describe('sitio web del club', () => {
     expect(okMsg).toMatch('https://www.maritimo.app');
     const html = await (await app.request('/club/club-prueba')).text();
     expect(html).toMatch('href="https://www.maritimo.app" rel="noopener noreferrer nofollow" target="_blank"');
-    expect(html).toMatch('www.maritimo.app ↗');
+    expect(html).toMatch('www.maritimo.app<svg');
     await run(slash(OWNER, 'club', 'sitio', [{ name: 'quitar', type: 5, value: true }]));
     expect(await (await app.request('/club/club-prueba')).text()).not.toMatch('maritimo.app');
   });

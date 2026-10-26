@@ -342,6 +342,17 @@
           border-color 0.2s,
           transform 0.2s;
       }
+      a.card {
+        display: block;
+        color: inherit;
+        text-decoration: none;
+      }
+      .card .more {
+        display: inline-block;
+        margin-top: 12px;
+        color: var(--blue-glow);
+        font-weight: 700;
+      }
       .card:hover {
         border-color: rgba(95, 176, 255, 0.4);
         transform: translateY(-3px);
@@ -546,7 +557,7 @@
             Pensado para varios clubes a la vez: cada club ve y gestiona solo sus propios datos.
           </p>
           <div class="grid">
-            <div class="card">
+            <a class="card" href="/guia.html#estadisticas">
               <div class="ico">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <path d="M3 3v18h18" /><path d="M7 15l4-4 3 3 5-6" />
@@ -554,8 +565,9 @@
               </div>
               <h3>Estadísticas</h3>
               <p>Goles, asistencias, entradas, efectividad defensiva y porterías imbatidas verificadas.</p>
-            </div>
-            <div class="card">
+              <span class="more">Cómo funciona →</span>
+            </a>
+            <a class="card" href="/guia.html#rankings">
               <div class="ico">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4Z" /><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3" />
@@ -563,8 +575,9 @@
               </div>
               <h3>Rankings y récords</h3>
               <p>Clasificaciones por posición, por sesión y por temporada, más el histórico del club.</p>
-            </div>
-            <div class="card">
+              <span class="more">Cómo funciona →</span>
+            </a>
+            <a class="card" href="/guia.html#convocatorias">
               <div class="ico">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <rect x="3" y="4" width="18" height="17" rx="2" /><path d="M16 2v4M8 2v4M3 10h18M9 15l2 2 4-4" />
@@ -572,8 +585,9 @@
               </div>
               <h3>Convocatorias</h3>
               <p>Convoca con un comando y cada jugador confirma con un botón: Voy, No voy o Duda.</p>
-            </div>
-            <div class="card">
+              <span class="more">Cómo funciona →</span>
+            </a>
+            <a class="card" href="/guia.html#alineaciones">
               <div class="ico">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="12" cy="12" r="3" /><path d="M12 3v6M12 15v6" />
@@ -581,8 +595,9 @@
               </div>
               <h3>Alineaciones</h3>
               <p>Arma la formación, asigna posiciones y publícala en el canal del club.</p>
-            </div>
-            <div class="card">
+              <span class="more">Cómo funciona →</span>
+            </a>
+            <a class="card" href="/guia.html#plantilla">
               <div class="ico">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8" />
@@ -590,8 +605,9 @@
               </div>
               <h3>Plantilla y roles</h3>
               <p>Vincula jugadores con su cuenta de Discord. Roles de admin, DT, capitán y jugador.</p>
-            </div>
-            <div class="card">
+              <span class="more">Cómo funciona →</span>
+            </a>
+            <a class="card" href="/guia.html#avisos">
               <div class="ico">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0" />
@@ -599,7 +615,8 @@
               </div>
               <h3>Calendario y avisos</h3>
               <p>Eventos, recordatorios y publicaciones automáticas en los canales que elijas.</p>
-            </div>
+              <span class="more">Cómo funciona →</span>
+            </a>
           </div>
         </section>
 

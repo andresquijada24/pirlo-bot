@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Guía · PIRLO BOT</title>
+    <meta
+      name="description"
+      content="Cómo usar PIRLO BOT: estadísticas, rankings, convocatorias, alineaciones, plantilla y avisos para tu club de EA SPORTS FC 27."
+    />
+    <meta name="theme-color" content="#05080f" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Rajdhani:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #05080f;
+        --bg-2: #0a1220;
+        --panel: rgba(14, 24, 42, 0.72);
+        --line: rgba(64, 156, 255, 0.18);
+        --blue: #2f8cff;
+        --blue-glow: #5fb0ff;
+        --text: #e8eef7;
+        --muted: #8a99b0;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: 'Rajdhani', system-ui, sans-serif;
+        font-size: 18px;
+        line-height: 1.55;
+        min-height: 100vh;
+      }
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: -2;
+        background:
+          radial-gradient(ellipse 80% 60% at 70% 20%, rgba(47, 140, 255, 0.16), transparent 60%),
+          linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+      }
+      .wrap {
+        width: min(960px, 100% - 32px);
+        margin-inline: auto;
+        padding: 24px 0 64px;
+      }
+      .nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 28px;
+      }
+      .navbtn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 14px;
+        border-radius: 12px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        color: var(--text);
+        text-decoration: none;
+        font-weight: 700;
+      }
+      .navbtn:hover {
+        border-color: var(--blue-glow);
+        color: var(--blue-glow);
+      }
+      h1 {
+        font-family: 'Orbitron', sans-serif;
+        font-size: clamp(26px, 5vw, 38px);
+        letter-spacing: 0.04em;
+      }
+      .lead {
+        color: var(--muted);
+        margin: 8px 0 22px;
+      }
+      .index {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 30px;
+      }
+      .index a {
+        padding: 7px 14px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        color: var(--text);
+        text-decoration: none;
+        font-weight: 600;
+      }
+      .index a:hover {
+        border-color: var(--blue-glow);
+      }
+      section {
+        background: var(--panel);
+        border: 1px solid rgba(95, 176, 255, 0.14);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 18px;
+        scroll-margin-top: 20px;
+      }
+      section:target {
+        border-color: var(--blue-glow);
+        box-shadow: 0 0 0 1px var(--blue-glow);
+      }
+      h2 {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 24px;
+        margin-bottom: 8px;
+      }
+      .ico {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+        background: rgba(47, 140, 255, 0.14);
+        color: var(--blue-glow);
+        flex: none;
+      }
+      .ico svg {
+        width: 22px;
+        height: 22px;
+      }
+      p {
+        color: #c4cfdf;
+      }
+      ol {
+        margin: 12px 0 4px 22px;
+      }
+      li {
+        margin: 4px 0;
+      }
+      code {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 15px;
+        background: rgba(255, 255, 255, 0.07);
+        padding: 1px 6px;
+        border-radius: 6px;
+        color: var(--blue-glow);
+      }
+      .live {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 12px;
+        color: var(--blue-glow);
+        font-weight: 700;
+        text-decoration: none;
+      }
+      .live:hover {
+        text-decoration: underline;
+      }
+      .note {
+        color: var(--muted);
+        font-size: 16px;
+        margin-top: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <nav class="nav">
+        <a class="navbtn" href="/#funciones"><span aria-hidden="true">←</span> Volver</a>
+        <a class="navbtn" href="/" aria-label="Menú principal de PIRLO BOT" title="Menú principal">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path
+              fill="currentColor"
+              d="M12 3.2 2.5 11.1a1 1 0 0 0 1.3 1.5l.7-.6V20a1 1 0 0 0 1 1h4.5v-5.5h4V21h4.5a1 1 0 0 0 1-1v-8l.7.6a1 1 0 1 0 1.3-1.5L12 3.2Z"
+            />
+          </svg>
+        </a>
+      </nav>
+
+      <h1>Guía de PIRLO BOT</h1>
+      <p class="lead">
+        Todo se hace con comandos en el Discord de tu club. Escribe <code>/</code> y elige el comando; PIRLO
+        responde al momento.
+      </p>
+      <div class="index">
+        <a href="#estadisticas">Estadísticas</a>
+        <a href="#rankings">Rankings</a>
+        <a href="#convocatorias">Convocatorias</a>
+        <a href="#alineaciones">Alineaciones</a>
+        <a href="#plantilla">Plantilla y roles</a>
+        <a href="#avisos">Calendario y avisos</a>
+      </div>
+
+      <section id="estadisticas">
+        <h2>
+          <span class="ico"
+            ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M3 3v18h18" /><path d="M7 15l4-4 3 3 5-6" /></svg
+          ></span>
+          Estadísticas
+        </h2>
+        <p>
+          Goles, asistencias, tiros y acierto de tiro, pases y entradas con su acierto, acciones defensivas,
+          paradas, porterías a cero y calificación de cada jugador, por temporada y separadas en liga, copa y
+          amistosos.
+        </p>
+        <ol>
+          <li>Un admin conecta el club de EA: <code>/club ea vincular</code>.</li>
+          <li>Después de jugar, sube los partidos: <code>/club ea importar</code>.</li>
+          <li>Cada jugador ve las suyas con <code>/stats</code> y su ficha en la página del club.</li>
+        </ol>
+        <a class="live" href="/club/lacritas-fc">Ver un club en vivo →</a>
+      </section>
+
+      <section id="rankings">
+        <h2>
+          <span class="ico"
+            ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4Z" />
+              <path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3" /></svg
+          ></span>
+          Rankings y récords
+        </h2>
+        <p>
+          Top goleador, top asistidor, top defensa, top portero y mejor calificación del club, en Discord y en la
+          web. Los porcentajes solo cuentan con una muestra mínima, para que nadie lidere con dos partidos.
+        </p>
+        <ol>
+          <li><code>/ranking</code> y elige la estadística: goles, asistencias, calificación, pases, entradas…</li>
+          <li>Elige la temporada o el histórico completo.</li>
+        </ol>
+        <a class="live" href="/clubes">Ver los clubes →</a>
+      </section>
+
+      <section id="convocatorias">
+        <h2>
+          <span class="ico"
+            ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="17" rx="2" /><path d="M16 2v4M8 2v4M3 10h18M9 15l2 2 4-4" /></svg
+          ></span>
+          Convocatorias
+        </h2>
+        <p>Convoca un partido y cada jugador responde con un botón. La lista se actualiza sola.</p>
+        <ol>
+          <li>Un admin elige el canal: <code>/club canal</code> → Convocatorias.</li>
+          <li>Un capitán, DT o admin convoca: <code>/convocatoria crear</code> con rival, fecha y hora.</li>
+          <li>Cada jugador pulsa <b>Voy</b>, <b>Duda</b> o <b>No voy</b>.</li>
+          <li>Consulta quién va con <code>/convocatoria lista</code>.</li>
+        </ol>
+      </section>
+
+      <section id="alineaciones">
+        <h2>
+          <span class="ico"
+            ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="12" cy="12" r="3" /><path
+                d="M12 3v6M12 15v6"
+              /></svg
+          ></span>
+          Alineaciones
+        </h2>
+        <p>Arma el once con sus posiciones y suplentes y publícalo en el canal del club.</p>
+        <ol>
+          <li>El DT crea la alineación: <code>/alineacion crear</code> con la formación.</li>
+          <li>Coloca a cada jugador: <code>/alineacion poner</code> · suplentes con <code>/alineacion suplente</code>.</li>
+          <li>Publícala: <code>/alineacion publicar</code>.</li>
+        </ol>
+      </section>
+
+      <section id="plantilla">
+        <h2>
+          <span class="ico"
+            ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+              <path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8" /></svg
+          ></span>
+          Plantilla y roles
+        </h2>
+        <p>
+          Cada jugador vincula su cuenta de Discord con su gamertag de EA. Roles de admin, DT, capitán y jugador.
+          Cada jugador tiene su ficha con foto.
+        </p>
+        <ol>
+          <li>El jugador pide entrar: <code>/vincular</code>.</li>
+          <li>Un DT o admin aprueba: <code>/solicitudes</code>.</li>
+          <li>Se vincula el gamertag: <code>/plantilla gamertag</code>.</li>
+          <li>
+            Foto de The Grounds: <code>/plantilla foto</code> en Discord, o desde la web en la ficha del jugador
+            («Cambiar foto»).
+          </li>
+        </ol>
+      </section>
+
+      <section id="avisos">
+        <h2>
+          <span class="ico"
+            ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0" /></svg
+          ></span>
+          Calendario y avisos
+        </h2>
+        <p>PIRLO publica por su cuenta en los canales que elijas: recordatorios y resultados de cada partido.</p>
+        <ol>
+          <li>Elige los canales: <code>/club canal</code> (anuncios, convocatorias, resultados…).</li>
+          <li>Recordatorio antes de cada convocatoria: <code>/club recordatorios</code> con los minutos.</li>
+          <li>Zona horaria del club: <code>/club zona</code>.</li>
+        </ol>
+        <p class="note">Si el servidor tiene canales llamados #resultados, #convocatorias o #anuncios, PIRLO los asigna solo.</p>
+      </section>
+    </main>
+    <script src="/update.js" defer></script>
+  </body>
+</html>

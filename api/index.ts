@@ -66,7 +66,25 @@ const app = createApp({
     schedulerKeyHash: repos ? () => repos.sync.schedulerKeyHash() : null,
     sync:
       repos && maritimo
-        ? () => runSync({ repo: repos.sync, provider: maritimo.provider, clubId: maritimo.clubId, log: logger })
+        ? async () => {
+            const result = await runSync({
+              repo: repos.sync,
+              provider: maritimo.provider,
+              clubId: maritimo.clubId,
+              log: logger,
+            });
+            // Sesión nueva o corregida: se publica en el mismo momento, sin esperar a la tarea «tick».
+            if ((result.inserted ?? 0) > 0) {
+              await runSessionRecaps({
+                repos,
+                poster,
+                blockedGuilds: new Set(env.POSTING_BLOCKED_GUILDS?.split(',') ?? []),
+                render: (input) => svgToPng(renderSessionCardSvg(input)),
+                log: logger,
+              }).catch((err: unknown) => logger.error({ err }, 'Fallo al publicar la sesión recién llegada'));
+            }
+            return result;
+          }
         : null,
     tick: repos
       ? async () => {

@@ -3,6 +3,8 @@ import { validation } from '../core/errors.js';
 /** Foto del jugador en su ficha: retrato 4:5. */
 export const PHOTO_WIDTH = 480;
 export const PHOTO_HEIGHT = 600;
+/** Alto máximo de una tarjeta recortada (se guarda con su forma, sin franjas). */
+export const PHOTO_MAX_HEIGHT = 1000;
 /** Límite en base64 (la base de datos admite hasta 270 000 caracteres). */
 const PHOTO_MAX_BASE64 = 260_000;
 
@@ -32,8 +34,8 @@ const isPortrait = (w: number, h: number) => w / h >= 0.45 && w / h <= 1.05;
 
 /**
  * Convierte la captura de The Grounds (PNG/JPG/WebP) en un retrato JPEG 4:5 en base64.
- * - Con recorte (elegido en la web) o con una imagen ya vertical: se muestra entera, tal cual
- *   (la tarjeta completa, centrada sobre el fondo de la ficha).
+ * - Con recorte (elegido en la web) o con una imagen ya vertical: se guarda entera, tal cual, con
+ *   su propia forma (480 px de ancho), para que el marco de la ficha quede al ras de la tarjeta.
  * - Captura completa sin recorte: se recorta centrada en la zona con más detalle (el jugador).
  */
 export async function normalizePhoto(bytes: Uint8Array, crop: PhotoCrop | null = null): Promise<string> {
@@ -69,7 +71,8 @@ export async function normalizePhoto(bytes: Uint8Array, crop: PhotoCrop | null =
   }
   const whole = area !== null || isPortrait(W, H);
   base = whole
-    ? base.resize(PHOTO_WIDTH, PHOTO_HEIGHT, { fit: 'contain', background: '#0f172a' })
+    ? // Al ras: la tarjeta con su propia forma, sin franjas (como mucho 480 × 1000).
+      base.resize(PHOTO_WIDTH, PHOTO_MAX_HEIGHT, { fit: 'inside', withoutEnlargement: false })
     : base.resize(PHOTO_WIDTH, PHOTO_HEIGHT, { fit: 'cover', position: sharp.strategy.attention });
   base = base.flatten({ background: '#0f172a' });
   for (const quality of [82, 70, 58]) {

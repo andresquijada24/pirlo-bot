@@ -388,8 +388,9 @@ a.pl{color:var(--text);text-decoration:none;font-weight:600}a.pl:hover{color:var
 .site .ic:last-child{margin:0 0 0 4px;opacity:.7}
 .chip.mvp,.guide summary,.site{display:inline-flex;align-items:center}
 .mvp .ic{margin-right:4px}
-.photo{width:150px;height:188px;flex:none;border-radius:18px;overflow:hidden;border:3px solid var(--accent);background:#0f172a}
-.photo img{width:100%;height:100%;object-fit:cover;display:block}
+.photo{width:150px;flex:none;border-radius:14px;overflow:hidden;border:3px solid var(--accent);background:#0f172a;align-self:center}
+.photo img{width:100%;height:auto;display:block}
+.photo.none{height:188px}
 .photo.none{display:grid;place-items:center;align-content:center;gap:6px;font-weight:800;font-size:40px;color:var(--muted)}
 .photo.none small{font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase}
 header.player .who{flex:1;min-width:0}

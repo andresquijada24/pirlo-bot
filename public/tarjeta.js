@@ -24,11 +24,14 @@
       var sat = max === 0 ? 0 : (max - min) / max;
       mask[i] = max > 110 && sat > 0.28 ? 1 : 0;
     }
-    var seen = new Uint8Array(n);
+    // Etiqueta de zona de cada píxel (0 = sin zona).
+    var seen = new Int32Array(n);
+    var label = 0;
     var queue = new Int32Array(n);
     var best = null;
     for (var s = 0; s < n; s++) {
       if (!mask[s] || seen[s]) continue;
+      label++;
       var head = 0;
       var tail = 0;
       var count = 0;
@@ -37,7 +40,7 @@
       var y0 = h;
       var y1 = 0;
       queue[tail++] = s;
-      seen[s] = 1;
+      seen[s] = label;
       while (head < tail) {
         var p = queue[head++];
         var x = p % w;
@@ -48,19 +51,19 @@
         if (y < y0) y0 = y;
         if (y > y1) y1 = y;
         if (x > 0 && mask[p - 1] && !seen[p - 1]) {
-          seen[p - 1] = 1;
+          seen[p - 1] = label;
           queue[tail++] = p - 1;
         }
         if (x < w - 1 && mask[p + 1] && !seen[p + 1]) {
-          seen[p + 1] = 1;
+          seen[p + 1] = label;
           queue[tail++] = p + 1;
         }
         if (y > 0 && mask[p - w] && !seen[p - w]) {
-          seen[p - w] = 1;
+          seen[p - w] = label;
           queue[tail++] = p - w;
         }
         if (y < h - 1 && mask[p + w] && !seen[p + w]) {
-          seen[p + w] = 1;
+          seen[p + w] = label;
           queue[tail++] = p + w;
         }
       }
@@ -71,10 +74,49 @@
       if (bw / bh < 0.45 || bw / bh > 1.1 || count / (bw * bh) < 0.35) continue;
       // Casi toda la imagen: es la propia tarjeta ya recortada o un fondo; no hay nada que buscar.
       if (bw > w * 0.95 && bh > h * 0.95) continue;
-      if (!best || count > best.count) best = { x0: x0, y0: y0, bw: bw, bh: bh, count: count };
+      if (!best || count > best.count)
+        best = { x0: x0, y0: y0, bw: bw, bh: bh, count: count, label: label };
     }
     if (!best) return null;
-    return { x: best.x0 / w, y: best.y0 / h, w: best.bw / w, h: best.bh / h };
+    return ajustar(seen, w, best);
+  }
+
+  /**
+   * Borde exacto de la tarjeta: quita los salientes pegados a ella (los pentágonos de la izquierda,
+   * el ícono de posición de la derecha), que ocupan poca altura o anchura comparados con la tarjeta.
+   */
+  function ajustar(seen, w, best) {
+    var cols = new Int32Array(best.bw);
+    var rows = new Int32Array(best.bh);
+    for (var y = 0; y < best.bh; y++) {
+      for (var x = 0; x < best.bw; x++) {
+        if (seen[(best.y0 + y) * w + best.x0 + x] === best.label) {
+          cols[x]++;
+          rows[y]++;
+        }
+      }
+    }
+    var l = recorte(cols);
+    var t = recorte(rows);
+    var W = w;
+    var H = seen.length / w;
+    return {
+      x: (best.x0 + l[0]) / W,
+      y: (best.y0 + t[0]) / H,
+      w: (l[1] - l[0] + 1) / W,
+      h: (t[1] - t[0] + 1) / H,
+    };
+  }
+
+  /** Primer y último índice cuyo recuento llega a la mitad del máximo. */
+  function recorte(counts) {
+    var max = 0;
+    for (var i = 0; i < counts.length; i++) if (counts[i] > max) max = counts[i];
+    var a = 0;
+    var b = counts.length - 1;
+    while (a < b && counts[a] < max * 0.5) a++;
+    while (b > a && counts[b] < max * 0.5) b--;
+    return [a, b];
   }
 
   root.detectarTarjeta = detectarTarjeta;

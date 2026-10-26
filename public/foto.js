@@ -22,6 +22,8 @@
     h: document.querySelector('input[name="recorte_h"]'),
   };
   var RATIO = 0.72; // ancho / alto de una tarjeta de jugador de FC
+  // Forma del marco: la de la tarjeta encontrada o, si no, la de una tarjeta estándar.
+  var ratio = RATIO;
   // Marco en píxeles de la imagen mostrada.
   var box = { x: 0, y: 0, w: 0, h: 0 };
   var url = null;
@@ -33,7 +35,7 @@
     found = null;
     if (typeof window.detectarTarjeta !== 'function' || !img.naturalWidth) return;
     try {
-      var cw = Math.min(320, img.naturalWidth);
+      var cw = Math.min(640, img.naturalWidth);
       var ch = Math.max(1, Math.round((img.naturalHeight * cw) / img.naturalWidth));
       var canvas = document.createElement('canvas');
       canvas.width = cw;
@@ -68,33 +70,18 @@
     var W = img.clientWidth;
     var H = img.clientHeight;
     if (found) {
-      // Marco directo sobre la tarjeta: misma forma de tarjeta, centrado y con un pequeño margen.
-      var fw = found.w * W;
-      var fh = found.h * H;
-      var bh = fh * 1.03;
-      var bw = bh * RATIO;
-      if (bw < fw * 1.03) {
-        bw = fw * 1.03;
-        bh = bw / RATIO;
-      }
-      bw = Math.min(bw, W);
-      bh = Math.min(bh, H);
-      var cx = found.x * W + fw / 2;
-      var cy = found.y * H + fh / 2;
-      box = {
-        x: clamp(cx - bw / 2, 0, W - bw),
-        y: clamp(cy - bh / 2, 0, H - bh),
-        w: bw,
-        h: bh,
-      };
+      // Marco al ras de la tarjeta encontrada; al cambiar el tamaño conserva su forma.
+      box = { x: found.x * W, y: found.y * H, w: found.w * W, h: found.h * H };
+      ratio = box.w / box.h;
       render();
       return;
     }
+    ratio = RATIO;
     var h = H * 0.8;
-    var w = h * RATIO;
+    var w = h * ratio;
     if (w > W * 0.9) {
       w = W * 0.9;
-      h = w / RATIO;
+      h = w / ratio;
     }
     box = { x: (W - w) / 2, y: (H - h) / 2, w: w, h: h };
     render();
@@ -141,12 +128,12 @@
       box.y = clamp(drag.box.y + dy, 0, H - box.h);
     } else {
       // El eje que más se movió manda (hacia fuera agranda, hacia dentro achica).
-      var delta = Math.abs(dx) >= Math.abs(dy * RATIO) ? dx : dy * RATIO;
+      var delta = Math.abs(dx) >= Math.abs(dy * ratio) ? dx : dy * ratio;
       var w = clamp(drag.box.w + delta, 40, W - drag.box.x);
-      var h = w / RATIO;
+      var h = w / ratio;
       if (drag.box.y + h > H) {
         h = H - drag.box.y;
-        w = h * RATIO;
+        w = h * ratio;
       }
       box.w = w;
       box.h = h;

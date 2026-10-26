@@ -55,3 +55,38 @@ describe('marco automático sobre la tarjeta', () => {
     expect(detect(s.data, s.w, s.h)).toBeNull();
   });
 });
+
+describe('marco al ras de la tarjeta', () => {
+  it('los salientes pegados a la tarjeta (pentágonos, ícono de posición) no agrandan el marco', async () => {
+    const { default: sharp } = await import('sharp');
+    const box = (w: number, h: number, color: string) =>
+      sharp({ create: { width: w, height: h, channels: 3, background: color } })
+        .png()
+        .toBuffer();
+    const full = await sharp({
+      create: { width: 1600, height: 900, channels: 3, background: '#111622' },
+    })
+      .composite([
+        { input: await box(288, 400, '#c9a227'), left: 400, top: 250 },
+        // Tres pentágonos que sobresalen 30 px por la izquierda y un ícono por la derecha.
+        { input: await box(40, 40, '#c9a227'), left: 370, top: 330 },
+        { input: await box(40, 40, '#c9a227'), left: 370, top: 390 },
+        { input: await box(40, 40, '#c9a227'), left: 370, top: 450 },
+        { input: await box(36, 36, '#c9a227'), left: 670, top: 420 },
+      ])
+      .png()
+      .toBuffer();
+    const { data, info } = await sharp(full)
+      .resize({ width: 640 })
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const r = detect(new Uint8Array(data), info.width, info.height)!;
+    const px = (f: number, total: number) => Math.round(f * total);
+    // Bordes de la tarjeta con un margen de 1 % (unos 6 px en la imagen original).
+    expect(Math.abs(px(r.x, 1600) - 400)).toBeLessThan(16);
+    expect(Math.abs(px(r.x + r.w, 1600) - 688)).toBeLessThan(16);
+    expect(Math.abs(px(r.y, 900) - 250)).toBeLessThan(9);
+    expect(Math.abs(px(r.y + r.h, 900) - 650)).toBeLessThan(9);
+  });
+});

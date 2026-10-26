@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizePhoto, parseCrop, PHOTO_HEIGHT, PHOTO_WIDTH } from '../../src/render/photo.js';
+import { normalizePhoto, parseCrop, PHOTO_WIDTH } from '../../src/render/photo.js';
 
 // Imágenes sintéticas: solo existen en estas pruebas.
 async function screenshot() {
@@ -57,17 +57,22 @@ describe('foto del jugador: recorte de la tarjeta', () => {
     ).toBeNull();
   });
 
-  it('con recorte sale la tarjeta entera, tal cual, sin el resto de la captura', async () => {
+  it('con recorte sale la tarjeta entera, al ras: su propia forma, sin franjas ni restos', async () => {
     const crop = { x: 200 / 1600, y: 250 / 900, w: 288 / 1600, h: 400 / 900 };
     const { info, at } = await pixels(await normalizePhoto(await screenshot(), crop));
-    expect([info.width, info.height]).toEqual([PHOTO_WIDTH, PHOTO_HEIGHT]);
-    const [r, g, b] = at(PHOTO_WIDTH / 2, PHOTO_HEIGHT / 2);
-    expect(r).toBeGreaterThan(200);
-    expect(g + b).toBeLessThan(60);
-    // La tarjeta llena el alto (nada del gris de la captura) y a los lados queda el fondo de la ficha.
-    expect(at(PHOTO_WIDTH / 2, 4)[0]).toBeGreaterThan(200);
-    const [r2, g2, b2] = at(3, PHOTO_HEIGHT / 2);
-    expect(r2 < 40 && g2 < 50 && b2 < 70).toBe(true);
+    expect(info.width).toBe(PHOTO_WIDTH);
+    expect(info.height).toBe(Math.round((PHOTO_WIDTH * 400) / 288));
+    // Rojo en el centro y en las cuatro esquinas: ni gris de la captura ni franjas de fondo.
+    for (const [x, y] of [
+      [info.width / 2, info.height / 2],
+      [3, 3],
+      [info.width - 4, 3],
+      [3, info.height - 4],
+      [info.width - 4, info.height - 4],
+    ] as const) {
+      const [r, g, b] = at(Math.round(x), Math.round(y));
+      expect(r > 200 && g + b < 80).toBe(true);
+    }
   });
 
   it('una imagen ya recortada (vertical) se muestra entera', async () => {
@@ -77,9 +82,10 @@ describe('foto del jugador: recorte de la tarjeta', () => {
         .png()
         .toBuffer(),
     );
-    const { at } = await pixels(await normalizePhoto(card));
-    expect(at(PHOTO_WIDTH / 2, PHOTO_HEIGHT / 2)[1]).toBeGreaterThan(200);
-    expect(at(2, PHOTO_HEIGHT / 2)[1]).toBeLessThan(60); // franja de fondo a los lados: no se recortó
-    expect(at(PHOTO_WIDTH / 2, 3)[1]).toBeGreaterThan(200); // ni arriba
+    const { info, at } = await pixels(await normalizePhoto(card));
+    // Entera y con su forma (360×500 → 480×667): verde hasta los bordes, sin recortes ni franjas.
+    expect([info.width, info.height]).toEqual([PHOTO_WIDTH, Math.round((PHOTO_WIDTH * 500) / 360)]);
+    expect(at(2, Math.round(info.height / 2))[1]).toBeGreaterThan(200);
+    expect(at(PHOTO_WIDTH / 2, 3)[1]).toBeGreaterThan(200);
   });
 });

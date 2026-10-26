@@ -10,6 +10,7 @@ import { createDiscordPoster } from '../src/discord/poster.js';
 import { createDiscordDownloader } from '../src/discord/download.js';
 import { runReminders } from '../src/jobs/reminders.js';
 import { runEaProcessing } from '../src/jobs/ea-processing.js';
+import { runEaRecaps } from '../src/jobs/ea-recaps.js';
 
 /** Punto de entrada en Vercel. vercel.json reescribe /api/* hacia esta función. */
 const env = loadEnv();
@@ -49,18 +50,19 @@ const app = createApp({
         : null,
     tick: repos
       ? async () => {
-          const reminders = await runReminders({
-            repos,
-            poster,
-            blockedGuilds: new Set(env.POSTING_BLOCKED_GUILDS?.split(',') ?? []),
-            log: logger,
-          });
+          const blockedGuilds = new Set(env.POSTING_BLOCKED_GUILDS?.split(',') ?? []);
+          const reminders = await runReminders({ repos, poster, blockedGuilds, log: logger });
           // Un fallo de EA no debe afectar a los recordatorios ya enviados.
           const ea = await runEaProcessing({ repos, log: logger }).catch((err: unknown) => {
             logger.error({ err }, 'Fallo en el procesamiento de EA');
             return undefined;
           });
-          return ea ? { ...reminders, ea } : reminders;
+          // Resumen en el canal de resultados de cada club (solo partidos recién procesados).
+          const eaRecaps = await runEaRecaps({ repos, poster, blockedGuilds, log: logger }).catch((err: unknown) => {
+            logger.error({ err }, 'Fallo en los resúmenes de EA');
+            return undefined;
+          });
+          return { ...reminders, ...(ea ? { ea } : {}), ...(eaRecaps ? { eaRecaps } : {}) };
         }
       : null,
   },

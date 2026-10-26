@@ -400,6 +400,12 @@ async function executeEa(ctx: Parameters<SlashCommand['execute']>[0]) {
       if (r.processed < r.stored) {
         lines.push('⏳ El resto se procesa automáticamente en los próximos 15 minutos.');
       }
+      const results = (await ctx.repos.channels.list(c.club.id)).find((ch) => ch.purpose === 'resultados');
+      lines.push(
+        results
+          ? `📣 El resumen se publicará en <#${results.channelId}> en los próximos 15 minutos.`
+          : '💡 Para que PIRLO publique el resumen de cada partido, elige un canal con `/club canal` (uso: Resultados).',
+      );
       lines.push('Consulta los resultados con `/club ea estado`.');
       return ok(lines.join('\n'));
     }

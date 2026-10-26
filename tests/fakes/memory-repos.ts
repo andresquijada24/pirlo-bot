@@ -43,7 +43,7 @@ export function createMemoryRepos() {
     callupMessages: [] as { clubId: string; callupId: string; channelId: string; messageId: string }[],
     eaCache: new Map<string, CachedMatch>(),
     eaLinks: [] as EaLink[],
-    eaMatches: [] as (ProcessedEaMatch & { clubId: string })[],
+    eaMatches: [] as (ProcessedEaMatch & { clubId: string; recapPosted?: boolean })[],
     /** Gamertag de cada ficha por club ("clubId:playerId"), como club_memberships.gamertag. */
     memberGamertags: new Map<string, string>(),
   };
@@ -216,7 +216,7 @@ export function createMemoryRepos() {
       async list(clubId) {
         return state.channels
           .filter((c) => c.clubId === clubId)
-          .map((c) => ({ purpose: c.purpose, channelId: c.channelId }));
+          .map((c) => ({ purpose: c.purpose, channelId: c.channelId, guildId: c.guildId }));
       },
     },
 
@@ -518,6 +518,52 @@ export function createMemoryRepos() {
         if (state.eaMatches.some((x) => x.clubId === clubId && x.matchId === match.matchId)) return false;
         state.eaMatches.push({ ...match, clubId });
         return true;
+      },
+      async claimRecaps(clubId, limit) {
+        const ids: string[] = [];
+        for (const m of state.eaMatches
+          .filter((x) => x.clubId === clubId && !x.recapPosted)
+          .sort((a, b) => a.playedAt.localeCompare(b.playedAt))
+          .slice(0, Math.min(limit, 10))) {
+          m.recapPosted = true;
+          ids.push(m.matchId);
+        }
+        return ids;
+      },
+      async releaseRecaps(clubId, matchIds) {
+        for (const m of state.eaMatches) {
+          if (m.clubId === clubId && matchIds.includes(m.matchId)) m.recapPosted = false;
+        }
+      },
+      async recaps(clubId, matchIds) {
+        return state.eaMatches
+          .filter((m) => m.clubId === clubId && matchIds.includes(m.matchId))
+          .sort((a, b) => a.playedAt.localeCompare(b.playedAt))
+          .map((m) => ({
+            matchId: m.matchId,
+            matchType: m.matchType,
+            playedAt: m.playedAt,
+            goalsFor: m.goalsFor,
+            goalsAgainst: m.goalsAgainst,
+            result: m.result,
+            opponentName: m.opponentName,
+            players: m.players
+              .filter((p) => p.side === 'propio')
+              .map((p) => {
+                const owner = [...state.memberGamertags.entries()].find(
+                  ([k, gt]) => k.startsWith(`${clubId}:`) && gt.toLowerCase() === p.gamertag.toLowerCase(),
+                );
+                const member = owner && state.memberships.find((x) => x.clubId === clubId && x.playerId === owner[0].split(':')[1]);
+                return {
+                  name: member?.displayName ?? p.gamertag,
+                  goals: p.goals,
+                  assists: p.assists,
+                  rating: p.rating,
+                  manOfTheMatch: p.manOfTheMatch,
+                };
+              })
+              .sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1) || a.name.localeCompare(b.name)),
+          }));
       },
       async recent(clubId, limit) {
         return state.eaMatches

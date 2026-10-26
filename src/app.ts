@@ -145,6 +145,18 @@ export function createApp(deps: AppDeps) {
       return c.html(notFoundPage(), 500, PAGE_HEADERS);
     }
   });
+  app.get('/club/:slug/jugador/:id/foto.jpg', async (c) => {
+    const id = c.req.param('id');
+    if (!deps.repos || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) return c.body(null, 404);
+    const club = await deps.repos.clubs.findPublic(c.req.param('slug').toLowerCase()).catch(() => null);
+    const photo = club ? await deps.repos.memberships.photo(club.id, id).catch(() => null) : null;
+    if (!photo) return c.body(null, 404);
+    return c.body(Buffer.from(photo, 'base64'), 200, {
+      'content-type': 'image/jpeg',
+      'cache-control': 'public, max-age=600',
+      'x-content-type-options': 'nosniff',
+    });
+  });
   app.get('/club/:slug/escudo.png', async (c) => {
     if (!deps.repos) return c.body(null, 404);
     const club = await deps.repos.clubs.findPublic(c.req.param('slug').toLowerCase()).catch(() => null);

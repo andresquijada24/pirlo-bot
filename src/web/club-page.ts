@@ -281,6 +281,12 @@ a.pl{color:var(--text);text-decoration:none;font-weight:600}a.pl:hover{color:var
 .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
 .stat b{display:block;font-size:22px}.stat span{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:1px}
 .mvp{color:#facc15}
+.photo{width:150px;height:188px;flex:none;border-radius:18px;overflow:hidden;border:3px solid var(--accent);background:#0f172a}
+.photo img{width:100%;height:100%;object-fit:cover;display:block}
+.guide{margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 16px}
+.guide summary{cursor:pointer;font-weight:700}
+.guide ol{margin:12px 0 6px;padding-left:20px;line-height:1.6}
+code{background:#ffffff14;padding:1px 6px;border-radius:6px}
 .leaders h3 small{font-weight:500;color:#64748b}
 tfoot td{font-weight:800;border-top:2px solid var(--accent);background:#0b1225}
 .legend{color:var(--muted);font-size:12px;margin:8px 4px 0}
@@ -513,6 +519,9 @@ export interface PlayerPageData {
   career: PlayerTotals | null;
   name: string;
   matches: EaPlayerMatch[];
+  /** Id del jugador en PIRLO (null si no está vinculado: sin foto posible). */
+  playerId: string | null;
+  hasPhoto: boolean;
 }
 
 export async function loadPlayerPage(
@@ -538,7 +547,9 @@ export async function loadPlayerPage(
     ),
   ];
   const matches = eaIds.length ? await repos.ea.playerMatches(page.club.id, eaIds, 30) : [];
-  return { page, season, career, name: (season ?? career)!.name, matches };
+  const playerId = (season ?? career)!.playerId;
+  const hasPhoto = playerId ? (await repos.memberships.withPhoto(page.club.id)).has(playerId) : false;
+  return { page, season, career, name: (season ?? career)!.name, matches, playerId, hasPhoto };
 }
 
 function statGrid(t: PlayerTotals): string {
@@ -595,6 +606,24 @@ export function renderPlayerPage(d: PlayerPageData): string {
         .join('')}</tbody></table></div>`
     : '<div class="card empty">Sin partidos de EA registrados para este jugador (sus datos vienen por sesión).</div>';
 
+  const photo =
+    d.hasPhoto && d.playerId
+      ? `<div class="photo"><img src="${base}/jugador/${d.playerId}/foto.jpg" alt="${esc(d.name)} en The Grounds"></div>`
+      : crest;
+  const guide = d.hasPhoto
+    ? ''
+    : `<details class="guide"><summary>📸 ¿Eres ${esc(d.name)}? Pon tu foto de The Grounds</summary><ol>` +
+      '<li>En EA SPORTS FC 27 entra en <b>Clubes → The Grounds</b> con tu Pro.</li>' +
+      '<li>Ponte de frente a la cámara y quita los menús de la pantalla.</li>' +
+      '<li>Haz una captura: <b>PS5</b> botón Crear → Captura · <b>Xbox</b> botón Compartir · <b>PC</b> tecla de captura.</li>' +
+      '<li>Pásala al móvil o al PC (app de PlayStation o Xbox, o la carpeta de capturas).</li>' +
+      `<li>En el Discord de ${esc(club.name)} escribe <code>/plantilla foto</code> y adjunta la captura en <b>imagen</b>.</li>` +
+      `</ol><p class="meta">${
+        d.playerId
+          ? 'PIRLO la recorta centrada en tu jugador. Un DT o admin también puede subirla por ti.'
+          : 'Primero únete a la plantilla con <code>/vincular</code> y vincula tu gamertag de EA; después podrás subir la foto.'
+      }</p></details>`;
+
   const title = `${d.name} · ${club.name} · PIRLO BOT`;
   return `<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -605,9 +634,10 @@ export function renderPlayerPage(d: PlayerPageData): string {
 <link rel="icon" href="/favicon.png"><style>${CSS}</style>${updateTags(currentVersion()).meta}</head>
 <body><main class="wrap">
 ${navBar({ href: base, label: `Volver a ${club.name}` })}
-<header class="hero">${crest}<div><h1>${esc(d.name)}</h1>
+<header class="hero">${photo}<div><h1>${esc(d.name)}</h1>
 <div class="sub"><a href="${base}">${esc(club.name)}</a> · EA SPORTS FC Pro Clubs</div>
 <div class="chips">${chips}</div></div></header>
+${guide}
 <h2>${esc(d.page.season?.name ?? 'Temporada')}</h2>${d.season ? statGrid(d.season) : '<div class="card empty">Sin partidos esta temporada.</div>'}
 <h2>Carrera en ${esc(club.name)}</h2>${d.career ? statGrid(d.career) : '<div class="card empty">Sin datos.</div>'}
 <h2>Últimos partidos</h2>${log}

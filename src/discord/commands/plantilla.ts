@@ -1,13 +1,28 @@
-import { DomainError, validation } from '../../core/errors.js';
+import { DomainError, permissionDenied, validation } from '../../core/errors.js';
+import { normalizePhoto } from '../../render/photo.js';
+import { PUBLIC_BASE_URL } from '../../core/clubs/service.js';
+import { DownloadError, MAX_ATTACHMENT_BYTES } from '../download.js';
 import { assignRole, linkGamertag, listRoster, removeMember, setPositions } from '../../core/roster/service.js';
 import { POSITION_CODES, type ClubRole, type Membership, type PositionCode } from '../../core/types.js';
 import { CONTEXT_GUILD, OT } from '../constants.js';
-import { optId, optString } from '../interaction.js';
+import { optAttachment, optBoolean, optId, optString } from '../interaction.js';
 import { embed, escapeMd, ok, reply } from '../responses.js';
 import { clubOption, contextFor, mention, ROLE_LABELS, roleChoices } from './common.js';
 import type { CommandContext, SlashCommand } from './types.js';
 
 const ROLE_ORDER: ClubRole[] = ['admin', 'dt', 'capitan', 'jugador'];
+
+/** Instructivo para subir la foto (se muestra con /plantilla foto sin imagen). */
+export const PHOTO_GUIDE = [
+  '**1.** En EA SPORTS FC 27 entra en **Clubes → The Grounds** con tu Pro.',
+  '**2.** Ponte de frente a la cámara y quita los menús de la pantalla.',
+  '**3.** Haz una captura: **PS5** botón *Crear* → Captura de pantalla · **Xbox** botón *Compartir* · **PC** tecla de captura (p. ej. F12 en Steam).',
+  '**4.** Pásala al móvil o al PC: app de **PlayStation** o **Xbox** (Biblioteca de capturas), o la carpeta de capturas en PC.',
+  '**5.** Aquí en Discord escribe `/plantilla foto` y adjunta la captura en **imagen**.',
+  '',
+  'PIRLO recorta la imagen centrada en tu jugador y la pone en tu ficha. Para tener ficha con foto debes estar en la plantilla (`/vincular`) con tu gamertag de EA vinculado.',
+  'Un DT o admin puede subirla por ti con `/plantilla foto usuario:@jugador`.',
+].join('\n');
 const MAX_EMBED_DESCRIPTION = 4000;
 
 /** Convierte "mc, MCO dc" en ['MC','MCO','DC'] y rechaza códigos desconocidos. */
@@ -80,6 +95,22 @@ export const plantillaCommand: SlashCommand = {
       },
       {
         type: OT.Subcommand,
+        name: 'foto',
+        description: 'Sube tu foto de The Grounds para tu ficha (sin imagen: ver el instructivo)',
+        options: [
+          {
+            type: OT.Attachment,
+            name: 'imagen',
+            description: 'Captura de tu Pro en The Grounds (PNG o JPG)',
+            required: false,
+          },
+          userOption('Jugador (solo DT o admin; si no se indica, eres tú)', false),
+          { type: OT.Boolean, name: 'quitar', description: 'Quita la foto', required: false },
+          clubOption,
+        ],
+      },
+      {
+        type: OT.Subcommand,
         name: 'gamertag',
         description: 'Vincula el gamertag del juego para asignarle sus estadísticas (DT o admin)',
         options: [
@@ -147,6 +178,30 @@ export const plantillaCommand: SlashCommand = {
         if (!target) throw new DomainError('NOT_A_MEMBER', 'No formas parte de la plantilla de este club.');
         await setPositions(ctx.repos, c, target.id, positions);
         return ok(`Posiciones de ${escapeMd(target.displayName)}: ${[...new Set(positions)].join(', ')}.`);
+      }
+
+      case 'foto': {
+        const target = optId(ctx.command, 'usuario') ? await memberOf(ctx, c.club.id, 'usuario') : c.membership;
+        if (!target) throw new DomainError('NOT_A_MEMBER', 'No formas parte de la plantilla de este club. Únete con `/vincular`.');
+        const own = target.discordUserId === ctx.actor.discordUserId;
+        // Permiso antes de descargar nada (y otra vez en la base de datos al guardar).
+        if (!own && c.membership?.role !== 'admin' && c.membership?.role !== 'dt') {
+          throw permissionDenied('Solo puedes cambiar tu propia foto (o la de otros si eres DT o admin).');
+        }
+        if (optBoolean(ctx.command, 'quitar')) {
+          await ctx.repos.memberships.setPhoto(c.club.id, target.id, null, ctx.actor.discordUserId);
+          return ok(`Foto de ${escapeMd(target.displayName)} quitada.`);
+        }
+        const file = optAttachment(ctx.interaction, ctx.command, 'imagen');
+        if (!file) return reply(null, { embeds: [embed({ title: '📸 Tu foto de The Grounds en PIRLO', description: PHOTO_GUIDE })] });
+        if (file.size > MAX_ATTACHMENT_BYTES) throw validation('La imagen es demasiado grande (máx. 2 MB).');
+        if (!ctx.downloadBytes) throw validation('La subida de imágenes no está disponible ahora mismo.');
+        const bytes = await ctx.downloadBytes(file.url).catch((err: unknown) => {
+          throw validation(err instanceof DownloadError ? err.message : 'No se pudo leer la imagen.');
+        });
+        await ctx.repos.memberships.setPhoto(c.club.id, target.id, await normalizePhoto(bytes), ctx.actor.discordUserId);
+        const ficha = `${PUBLIC_BASE_URL}/club/${c.club.slug}/jugador/${target.playerId}`;
+        return ok(`Foto de ${escapeMd(target.displayName)} guardada 📸. Ya aparece en su ficha: ${ficha}`);
       }
 
       case 'gamertag': {

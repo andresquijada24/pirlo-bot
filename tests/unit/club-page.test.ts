@@ -263,3 +263,27 @@ describe('ficha individual del jugador', () => {
     expect((await app.request('/club/club-prueba/jugador/%3Cscript%3E')).status).toBe(404);
   });
 });
+
+describe('foto del jugador (The Grounds)', () => {
+  it('sin imagen muestra el instructivo; el jugador sube su foto y aparece en su ficha', async () => {
+    const { app, env, run, clubId } = await setup();
+    const guide = await run(slash(DT, 'plantilla', 'foto', []));
+    expect(JSON.stringify(guide)).toMatch('The Grounds');
+    const dt = env.state.memberships.find((m) => m.clubId === clubId && m.discordUserId === DT.userId)!;
+    await env.repos.memberships.setPhoto(clubId, dt.id, 'QUJD', DT.userId);
+    expect(await env.repos.memberships.photo(clubId, dt.playerId)).toBe('QUJD');
+    const img = await app.request(`/club/club-prueba/jugador/${dt.playerId}/foto.jpg`);
+    expect(img.status).toBe(200);
+    expect(img.headers.get('content-type')).toBe('image/jpeg');
+    expect((await app.request('/club/club-prueba/jugador/no-es-uuid/foto.jpg')).status).toBe(404);
+    // Otro jugador no puede cambiar la foto ajena.
+    await expect(env.repos.memberships.setPhoto(clubId, dt.id, null, '800000000000000999')).rejects.toThrow();
+  });
+
+  it('la ficha de un gamertag sin vincular explica cómo vincularse para tener foto', async () => {
+    const { app } = await setup();
+    const html = await (await app.request('/club/club-prueba/jugador/ea%3A1')).text();
+    expect(html).toMatch('¿Eres JugadorFicticio? Pon tu foto de The Grounds');
+    expect(html).toMatch('/vincular');
+  });
+});

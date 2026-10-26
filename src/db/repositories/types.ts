@@ -100,6 +100,12 @@ export interface MembershipRepository {
   updateRole(clubId: string, membershipId: string, role: ClubRole): Promise<void>;
   updatePositions(clubId: string, membershipId: string, positions: PositionCode[]): Promise<void>;
   end(clubId: string, membershipId: string): Promise<void>;
+  /** Foto (JPEG en base64) del jugador en este club, por id de jugador; null si no tiene. */
+  photo(clubId: string, playerId: string): Promise<string | null>;
+  /** ¿Qué jugadores del club tienen foto? (ids de jugador) */
+  withPhoto(clubId: string): Promise<Set<string>>;
+  /** Guarda o quita (null) la foto. El propio jugador o un admin/DT (lo comprueba la base de datos). */
+  setPhoto(clubId: string, membershipId: string, jpgBase64: string | null, actorDiscordId: string): Promise<void>;
 }
 
 export interface LinkRequestRepository {

@@ -44,6 +44,8 @@ export function createMemoryRepos() {
     eaCache: new Map<string, CachedMatch>(),
     eaLinks: [] as EaLink[],
     eaMatches: [] as (ProcessedEaMatch & { clubId: string })[],
+    /** Gamertag de cada ficha por club ("clubId:playerId"), como club_memberships.gamertag. */
+    memberGamertags: new Map<string, string>(),
   };
 
   const activeIn = (clubId: string) => state.memberships.filter((m) => m.clubId === clubId && m.active);
@@ -270,14 +272,49 @@ export function createMemoryRepos() {
 
     stats: {
       async sessionRows(clubId, seasonId) {
-        return state.sessionRows
+        const sessions = state.sessionRows
           .filter((r) => r.clubId === clubId && (seasonId === null || r.seasonId === seasonId))
           .map(({ clubId: _c, playedOn: _p, ...r }) => r);
+        // Como v_ea_player_season_stats: solo el lado propio, vinculado por el gamertag de la ficha.
+        // (Aquí sin temporada: solo aparece al pedir "todas".)
+        if (seasonId !== null) return sessions;
+        const byPlayer = new Map<string, SessionStatRow>();
+        const sum = (a: number | null, b: number | null) => (a === null ? b : b === null ? a : a + b);
+        for (const m of state.eaMatches.filter((x) => x.clubId === clubId)) {
+          for (const p of m.players.filter((x) => x.side === 'propio')) {
+            const owners = [...state.memberGamertags.entries()].filter(
+              ([k, gt]) => k.startsWith(`${clubId}:`) && gt.toLowerCase() === p.gamertag.toLowerCase(),
+            );
+            const playerId = owners.length === 1 ? owners[0]![0].split(':')[1]! : null;
+            const key = `${playerId}:${p.eaPlayerId}`;
+            const r = byPlayer.get(key) ?? {
+              seasonId: null, playerId, source: 'ea', sourcePlayerId: p.eaPlayerId, name: p.gamertag,
+              sessions: 1, matchesPlayed: 0, goals: null, assists: null, shots: null, dribbles: null,
+              passesMade: null, passesAttempted: null, tacklesMade: null, tacklesAttempted: null,
+              interceptions: null, blocks: null, clearances: null, saves: null, ratingPoints: null,
+              ratedMatches: null,
+            };
+            r.matchesPlayed = (r.matchesPlayed ?? 0) + 1;
+            r.goals = sum(r.goals, p.goals);
+            r.assists = sum(r.assists, p.assists);
+            r.shots = sum(r.shots, p.shots);
+            r.passesMade = sum(r.passesMade, p.passesMade);
+            r.passesAttempted = sum(r.passesAttempted, p.passesAttempted);
+            r.tacklesMade = sum(r.tacklesMade, p.tacklesMade);
+            r.tacklesAttempted = sum(r.tacklesAttempted, p.tacklesAttempted);
+            r.saves = sum(r.saves, p.saves);
+            r.ratingPoints = sum(r.ratingPoints, p.rating);
+            r.ratedMatches = sum(r.ratedMatches, p.rating === null ? null : 1);
+            byPlayer.set(key, r);
+          }
+        }
+        return [...sessions, ...byPlayer.values()];
       },
     },
 
     externalPlayers: {
       async linkGamertag(clubId, playerId, gamertag) {
+        state.memberGamertags.set(`${clubId}:${playerId}`, gamertag.trim());
         const gt = gamertag.trim().toLowerCase();
         const mine = state.externalPlayers.filter((e) => e.clubId === clubId && e.gamertag.toLowerCase() === gt);
         if (mine.some((e) => e.playerId !== null && e.playerId !== playerId)) {

@@ -305,7 +305,12 @@ export interface EaRepository {
 
 export interface StatsRepository {
   /** Totales por temporada a nivel sesión. seasonId null = todas (incluye sesiones sin temporada). */
-  sessionRows(clubId: string, seasonId: string | null): Promise<SessionStatRow[]>;
+  sessionRows(
+    clubId: string,
+    seasonId: string | null,
+    /** Solo partidos de EA de estos tipos (sin proveedores por sesión, que no distinguen tipo). */
+    matchTypes?: readonly ProcessedEaMatch['matchType'][],
+  ): Promise<SessionStatRow[]>;
 }
 
 export interface ExternalPlayerRepository {

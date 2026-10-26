@@ -161,6 +161,7 @@ export function createMemoryRepos() {
           reminderMinutes: null,
         };
         state.clubs.push(club);
+        state.webPublic.add(club.id); // Publicada por defecto (se puede retirar con /club web).
         state.clubGuilds.push({ clubId: club.id, guildId: input.guildId });
         const m = {
           id: id(),

@@ -43,10 +43,13 @@ async function setup() {
 }
 
 describe('página web del club', () => {
-  it('no existe hasta que un admin la activa', async () => {
+  it('se publica por defecto; solo un admin la retira o la vuelve a publicar', async () => {
     const { app, run } = await setup();
+    expect((await app.request('/club/club-prueba')).status).toBe(200);
+    expect(textOf(await run(slash(DT, 'club', 'web', [{ name: 'activar', type: 5, value: false }])))).toMatch('Solo un admin');
+    expect((await app.request('/club/club-prueba')).status).toBe(200);
+    await run(slash(OWNER, 'club', 'web', [{ name: 'activar', type: 5, value: false }]));
     expect((await app.request('/club/club-prueba')).status).toBe(404);
-    expect(textOf(await run(slash(DT, 'club', 'web', [{ name: 'activar', type: 5, value: true }])))).toMatch('Solo un admin');
     const ok = textOf(await run(slash(OWNER, 'club', 'web', [{ name: 'activar', type: 5, value: true }])));
     expect(ok).toMatch('https://pirlo-bot.vercel.app/club/club-prueba');
     expect((await app.request('/club/club-prueba')).status).toBe(200);
@@ -95,6 +98,7 @@ describe('página web del club', () => {
 describe('directorio de clubes', () => {
   it('lista solo los clubes con la página publicada', async () => {
     const { app, env, clubId } = await setup();
+    await env.repos.clubs.setWebPublic(clubId, false, OWNER.userId);
     let html = await (await app.request('/clubes')).text();
     expect(html).toMatch('Todavía ningún club');
     await env.repos.clubs.setWebPublic(clubId, true, OWNER.userId);
@@ -110,6 +114,7 @@ describe('directorio de clubes', () => {
 
   it('goleadores reales para la página principal: solo clubes públicos, sin rivales', async () => {
     const { app, env, clubId } = await setup();
+    await env.repos.clubs.setWebPublic(clubId, false, OWNER.userId);
     let res = await app.request('/widget/goleadores');
     expect(await res.text()).toMatch('Todavía no hay goles');
     await env.repos.clubs.setWebPublic(clubId, true, OWNER.userId);

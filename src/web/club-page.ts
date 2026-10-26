@@ -311,9 +311,9 @@ code{background:#ffffff14;padding:2px 6px;border-radius:6px}
 ${navBar({ href: '/', label: 'Volver' })}
 <a class="top" href="/"><img src="/logo.png" alt="">PIRLO BOT</a>
 <h1 style="margin-top:28px">Clubes</h1>
-<div class="sub">Clubes de EA SPORTS FC Pro Clubs que publicaron su página en PIRLO BOT.</div>
+<div class="sub">Clubes de EA SPORTS FC Pro Clubs en PIRLO BOT.</div>
 <h2>Páginas publicadas</h2><div class="clubs">${items}</div>
-<footer>Cada club decide si publica su página. <a href="/">Volver a PIRLO BOT</a></footer>
+<footer>Todos los clubes aprobados aparecen aquí; un admin puede retirar su página con /club web. <a href="/">Volver a PIRLO BOT</a></footer>
 </main>${updateTags(currentVersion()).script}</body></html>`;
 }
 

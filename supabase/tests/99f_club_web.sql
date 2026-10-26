@@ -10,8 +10,8 @@ insert into public.club_memberships (club_id, player_id, role) values
   ('af000000-0000-0000-0000-000000000001', 'af300000-0000-0000-0000-000000000002', 'dt');
 
 select pg_temp.expect(
-  (select not web_public from public.clubs where id = 'af000000-0000-0000-0000-000000000001'),
-  'la página empieza desactivada');
+  (select web_public from public.clubs where id = 'af000000-0000-0000-0000-000000000001'),
+  'la página se publica por defecto (20261026100000_club_web_default)');
 select pg_temp.expect_error($$
   select public.set_club_web('af000000-0000-0000-0000-000000000001', true, '780000000000000002')
 $$, 'P0001', 'un DT no la activa');

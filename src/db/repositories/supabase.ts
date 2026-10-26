@@ -722,7 +722,7 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
       // ilike sin comodines: se escapan % y _ (habituales en los gamertags).
       const exact = gamertag.trim().replace(/[\\%_]/g, (ch) => `\\${ch}`);
       if (!exact) return false;
-      const checks = await Promise.all([
+      const [fichas, ea, sesiones] = await Promise.all([
         db.from('external_players').select('id', { count: 'exact', head: true }).eq('club_id', clubId).ilike('gamertag', exact),
         db
           .from('ea_match_players')
@@ -736,10 +736,11 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
           .eq('club_id', clubId)
           .ilike('source_player_name', exact),
       ]);
-      return checks.some((r) => {
-        check(r);
-        return (r.count ?? 0) > 0;
-      });
+      // Cada consulta se comprueba por separado (tipos distintos); cualquier error se propaga.
+      check(fichas);
+      check(ea);
+      check(sesiones);
+      return [fichas, ea, sesiones].some((r) => (r.count ?? 0) > 0);
     },
     async accountsOf(discordUserId) {
       const rows = check(

@@ -354,8 +354,8 @@ export function createMemoryRepos() {
     },
 
     stats: {
-      async sessionRows(clubId, seasonId) {
-        const sessions = state.sessionRows
+      async sessionRows(clubId, seasonId, matchTypes) {
+        const sessions = matchTypes ? [] : state.sessionRows
           .filter((r) => r.clubId === clubId && (seasonId === null || r.seasonId === seasonId))
           .map(({ clubId: _c, playedOn: _p, ...r }) => r);
         // Como v_ea_player_season_stats: solo el lado propio, vinculado por el gamertag de la ficha.
@@ -363,7 +363,7 @@ export function createMemoryRepos() {
         void seasonId;
         const byPlayer = new Map<string, SessionStatRow>();
         const sum = (a: number | null, b: number | null) => (a === null ? b : b === null ? a : a + b);
-        for (const m of state.eaMatches.filter((x) => x.clubId === clubId)) {
+        for (const m of state.eaMatches.filter((x) => x.clubId === clubId && (!matchTypes || matchTypes.includes(x.matchType)))) {
           for (const p of m.players.filter((x) => x.side === 'propio')) {
             const owners = [...state.memberGamertags.entries()].filter(
               ([k, gt]) => k.startsWith(`${clubId}:`) && gt.toLowerCase() === p.gamertag.toLowerCase(),

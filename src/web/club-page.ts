@@ -111,6 +111,76 @@ const RESULT = {
 } as const;
 const TYPE = { leagueMatch: 'Liga', playoffMatch: 'Playoff', friendlyMatch: 'Amistoso' } as const;
 
+type StatLine = Pick<
+  PlayerTotals,
+  | 'matchesPlayed'
+  | 'goals'
+  | 'assists'
+  | 'shots'
+  | 'passesMade'
+  | 'passesAttempted'
+  | 'tacklesMade'
+  | 'tacklesAttempted'
+  | 'avgRating'
+>;
+
+/** Porcentaje entero, o null si falta un dato o no hubo intentos. */
+export function ratio(part: number | null, total: number | null): number | null {
+  return part !== null && total !== null && total > 0 ? Math.round((100 * part) / total) : null;
+}
+
+/** Fallados = intentados − completados; null si falta cualquiera de los dos. */
+export function missed(made: number | null, attempted: number | null): number | null {
+  return made !== null && attempted !== null && attempted >= made ? attempted - made : null;
+}
+
+const nd = '<td class="nd">—</td>';
+const num = (n: number | null, digits = 0) => (n === null ? nd : `<td>${n.toFixed(digits)}</td>`);
+const pctCell = (n: number | null) => (n === null ? nd : `<td>${n}%</td>`);
+const ofCell = (made: number | null, attempted: number | null) =>
+  made === null || attempted === null ? nd : `<td>${made}/${attempted}</td>`;
+
+function statCells(p: StatLine): string {
+  return (
+    num(p.matchesPlayed) +
+    num(p.goals) +
+    num(p.assists) +
+    num(p.shots) +
+    pctCell(ratio(p.goals, p.shots)) +
+    ofCell(p.passesMade, p.passesAttempted) +
+    pctCell(ratio(p.passesMade, p.passesAttempted)) +
+    num(missed(p.passesMade, p.passesAttempted)) +
+    ofCell(p.tacklesMade, p.tacklesAttempted) +
+    pctCell(ratio(p.tacklesMade, p.tacklesAttempted)) +
+    num(p.avgRating, 2)
+  );
+}
+
+/**
+ * Totales del equipo: suma de cada estadística entre los jugadores que la tienen (un dato que
+ * ningún jugador tiene sigue siendo «sin dato»). PJ del equipo no se suma: es el máximo.
+ */
+export function teamTotals(players: PlayerTotals[]): StatLine {
+  const sum = (k: keyof StatLine) =>
+    players.reduce<number | null>((acc, p) => (p[k] === null ? acc : (acc ?? 0) + (p[k] as number)), null);
+  const rated = players.filter((p) => p.avgRating !== null && (p.ratedMatches ?? 0) > 0);
+  const weight = rated.reduce((n, p) => n + (p.ratedMatches ?? 0), 0);
+  return {
+    matchesPlayed: players.reduce<number | null>(
+      (acc, p) => (p.matchesPlayed === null ? acc : Math.max(acc ?? 0, p.matchesPlayed)),
+      null,
+    ),
+    goals: sum('goals'),
+    assists: sum('assists'),
+    shots: sum('shots'),
+    passesMade: sum('passesMade'),
+    passesAttempted: sum('passesAttempted'),
+    tacklesMade: sum('tacklesMade'),
+    tacklesAttempted: sum('tacklesAttempted'),
+    avgRating: weight > 0 ? rated.reduce((n, p) => n + p.avgRating! * (p.ratedMatches ?? 0), 0) / weight : null,
+  };
+}
+
 function when(iso: string, timeZone: string): string {
   try {
     return new Intl.DateTimeFormat('es', {
@@ -181,6 +251,9 @@ th,td{padding:10px 12px;text-align:center;border-top:1px solid var(--line)}
 th{color:var(--muted);font-size:12px;letter-spacing:1px;text-transform:uppercase;border-top:0;background:#0b1225}
 td:first-child,th:first-child{text-align:left}
 td.nd{color:#64748b}
+table.stats{min-width:860px}
+tfoot td{font-weight:800;border-top:2px solid var(--accent);background:#0b1225}
+.legend{color:var(--muted);font-size:12px;margin:8px 4px 0}
 .empty{padding:20px;color:var(--muted);text-align:center}
 footer{margin-top:40px;color:var(--muted);font-size:13px;text-align:center}
 footer img{width:22px;height:22px;vertical-align:middle;border-radius:6px;margin-right:6px}
@@ -242,17 +315,14 @@ export function renderClubPage(d: ClubPageData): string {
     )
     .join('');
 
-  const cell = (v: number | null, digits?: number) =>
-    v === null ? '<td class="nd">—</td>' : `<td>${digits !== undefined ? v.toFixed(digits) : v}</td>`;
   const players = d.players.length
-    ? `<div class="card table"><table><thead><tr><th>Jugador</th><th>PJ</th><th>G</th><th>A</th><th>Tiros</th><th>Pases</th><th>Entradas</th><th>Nota</th></tr></thead><tbody>${d.players
-        .map(
-          (p) =>
-            `<tr><td>${esc(p.name)}</td>${cell(p.matchesPlayed)}${cell(p.goals)}${cell(p.assists)}${cell(p.shots)}` +
-            `${p.passPct === null ? '<td class="nd">—</td>' : `<td>${p.passPct.toFixed(0)}%</td>`}` +
-            `${cell(p.tacklesMade)}${cell(p.avgRating, 2)}</tr>`,
-        )
-        .join('')}</tbody></table></div>`
+    ? `<div class="card table"><table class="stats"><thead><tr><th>Jugador</th><th>PJ</th><th>G</th><th>A</th>` +
+      `<th>Tiros</th><th title="Goles por cada 100 tiros">Efect.</th>` +
+      `<th>Pases</th><th>Acierto</th><th>Errados</th>` +
+      `<th>Entradas</th><th>Acierto</th><th>Nota</th></tr></thead><tbody>${d.players
+        .map((p) => `<tr><td>${esc(p.name)}</td>${statCells(p)}</tr>`)
+        .join('')}</tbody><tfoot><tr><td>Total equipo</td>${statCells(teamTotals(d.players))}</tr></tfoot></table></div>` +
+      '<p class="legend">Efect. = goles ÷ tiros · Pases y Entradas = completados/intentados · — = sin dato</p>'
     : '<div class="card empty">Todavía no hay estadísticas de jugadores.</div>';
 
   const title = `${club.name} · PIRLO BOT`;

@@ -155,3 +155,77 @@ describe('sitio web del club', () => {
     expect(await (await app.request('/club/club-prueba')).text()).not.toMatch('maritimo.app');
   });
 });
+
+describe('estadísticas detalladas de la plantilla', () => {
+  it('efectividad, pases y entradas con aciertos y errados; totales del equipo; sin inventar datos', async () => {
+    const { ratio, missed, teamTotals } = await import('../../src/web/club-page.js');
+    expect(ratio(3, 12)).toBe(25);
+    expect(ratio(3, 0)).toBeNull();
+    expect(ratio(null, 10)).toBeNull();
+    expect(missed(74, 100)).toBe(26);
+    expect(missed(null, 100)).toBeNull();
+    const base = {
+      key: 'k',
+      playerId: null,
+      linked: false,
+      sessions: 1,
+      goalContributions: null,
+      dribbles: null,
+      passPct: null,
+      tacklePct: null,
+      interceptions: null,
+      blocks: null,
+      clearances: null,
+      saves: null,
+    };
+    const t = teamTotals([
+      {
+        ...base,
+        name: 'A',
+        matchesPlayed: 5,
+        goals: 4,
+        assists: 1,
+        shots: 10,
+        passesMade: 40,
+        passesAttempted: 50,
+        tacklesMade: 3,
+        tacklesAttempted: 6,
+        avgRating: 8,
+        ratedMatches: 5,
+      },
+      {
+        ...base,
+        name: 'B',
+        matchesPlayed: 3,
+        goals: 1,
+        assists: null,
+        shots: null,
+        passesMade: 20,
+        passesAttempted: 25,
+        tacklesMade: null,
+        tacklesAttempted: null,
+        avgRating: 6,
+        ratedMatches: 3,
+      },
+    ]);
+    expect(t).toEqual({
+      matchesPlayed: 5,
+      goals: 5,
+      assists: 1,
+      shots: 10,
+      passesMade: 60,
+      passesAttempted: 75,
+      tacklesMade: 3,
+      tacklesAttempted: 6,
+      avgRating: 7.25,
+    });
+  });
+
+  it('la página muestra las columnas nuevas y la fila de totales', async () => {
+    const { app } = await setup();
+    const html = await (await app.request('/club/club-prueba')).text();
+    expect(html).toMatch('<th title="Goles por cada 100 tiros">Efect.</th>');
+    expect(html).toMatch('<th>Errados</th>');
+    expect(html).toMatch('<td>Total equipo</td>');
+  });
+});

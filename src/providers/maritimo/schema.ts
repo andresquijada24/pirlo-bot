@@ -76,6 +76,18 @@ export const sesionSchema = z.object({
   jugadores: z.array(jugadorSesionSchema),
 });
 
+export const partidoSchema = z.object({
+  id: z.string().min(1),
+  competicion: z.enum(['relampago', 'torneo', 'amistoso', 'liga', 'copa']),
+  nombre: z.string().nullable(),
+  rival: z.string().nullable(),
+  inicio: iso,
+  estado: z.string().min(1),
+  goles_favor: count,
+  goles_contra: count,
+  actualizado_at: iso,
+});
+
 export const eliminadoSchema = z.object({
   tipo: z.enum(['jugador', 'sesion', 'partido']),
   id: z.string().min(1),

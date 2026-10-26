@@ -670,12 +670,11 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
 
   const stats: StatsRepository = {
     async sessionRows(clubId, seasonId, matchTypes) {
-      // Filtrado por tipo de partido: solo EA (los proveedores por sesión no distinguen tipo).
-      if (matchTypes) return statRowsFrom('v_ea_player_season_stats', clubId, seasonId, matchTypes);
       const out: SessionStatRow[] = [];
       // Proveedores por sesión (Marítimo…) y partidos de EA procesados (solo el lado propio).
       for (const view of ['v_player_session_season_stats', 'v_ea_player_season_stats']) {
-        out.push(...(await statRowsFrom(view, clubId, seasonId)));
+        // Con filtro de tipo, las sesiones sin tipo conocido (match_type NULL) quedan fuera.
+        out.push(...(await statRowsFrom(view, clubId, seasonId, matchTypes)));
       }
       return out;
     },
@@ -801,6 +800,26 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
     async applySession(clubId, provider, session) {
       const r = check(
         await db.rpc('sync_apply_session', { p_club: clubId, p_source: provider, p_session: session }),
+      );
+      return z.enum(['insertada', 'actualizada', 'sin_cambios']).parse(r);
+    },
+    async lastMatchVersion(clubId, provider) {
+      const row = check(
+        await db
+          .from('matches')
+          .select('source_updated_at')
+          .eq('club_id', clubId)
+          .eq('source', provider)
+          .not('source_updated_at', 'is', null)
+          .order('source_updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      );
+      return row ? z.object({ source_updated_at: z.string() }).parse(row).source_updated_at : null;
+    },
+    async applyMatch(clubId, provider, match) {
+      const r = check(
+        await db.rpc('sync_apply_match', { p_club: clubId, p_source: provider, p_match: match }),
       );
       return z.enum(['insertada', 'actualizada', 'sin_cambios']).parse(r);
     },
@@ -1129,6 +1148,42 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
         }))
         .sort((a, b) => b.playedAt.localeCompare(a.playedAt))
         .slice(0, limit);
+    },
+    async calendar(clubId, limit) {
+      const rows = check(
+        await db
+          .from('matches')
+          .select('id, match_type, played_at, goals_for, goals_against, result, opponent_name')
+          .eq('club_id', clubId)
+          .in('status', ['jugado', 'verificado'])
+          .not('match_type', 'is', null)
+          .order('played_at', { ascending: false })
+          .limit(limit),
+      );
+      const RESULT = { V: 'victoria', E: 'empate', D: 'derrota' } as const;
+      return z
+        .array(
+          z.object({
+            id: z.string(),
+            match_type: z.enum(EA_MATCH_TYPES),
+            played_at: z.string(),
+            goals_for: z.number().nullable(),
+            goals_against: z.number().nullable(),
+            result: z.enum(['V', 'E', 'D']).nullable(),
+            opponent_name: z.string().nullable(),
+          }),
+        )
+        .parse(rows)
+        .map((r) => ({
+          matchId: r.id,
+          matchType: r.match_type,
+          playedAt: r.played_at,
+          goalsFor: r.goals_for,
+          goalsAgainst: r.goals_against,
+          result: r.result ? RESULT[r.result] : null,
+          opponentName: r.opponent_name,
+          opponentColors: null,
+        }));
     },
     async recent(clubId, limit) {
       const rows = check(

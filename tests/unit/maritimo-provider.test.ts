@@ -158,6 +158,27 @@ describe('MaritimoStatsProvider', () => {
     expect(res.items.map((j) => [j.externalId, j.active])).toEqual([['a', true], ['b', false], ['c', false]]);
   });
 
+  it('calendario: competición y marcador; sin marcador queda null', async () => {
+    const { fetchFn, calls } = fakeServer({
+      '/partidos': () => ({
+        body: {
+          data: [
+            { id: 'p1', competicion: 'liga', nombre: null, rival: 'Rival', inicio: '2026-10-20T23:00:00Z',
+              estado: 'finalizado', goles_favor: 2, goles_contra: 0, actualizado_at: '2026-10-21T00:00:00Z' },
+            { id: 'p2', competicion: 'relampago', nombre: 'Relámpago', rival: null, inicio: '2026-10-21T23:00:00Z',
+              estado: 'abierto', goles_favor: null, goles_contra: null, actualizado_at: '2026-10-21T00:00:00Z' },
+          ],
+          next_cursor: null,
+          server_time: '2026-10-24T15:00:00Z',
+        },
+      }),
+    });
+    const res = await provider(fetchFn).matchesSince('2026-10-01T00:00:00Z');
+    expect(calls[0]!.url.searchParams.get('updated_since')).toBe('2026-10-01T00:00:00Z');
+    expect(res.items[0]).toMatchObject({ externalId: 'p1', competition: 'liga', goalsFor: 2, goalsAgainst: 0 });
+    expect(res.items[1]).toMatchObject({ competition: 'relampago', goalsFor: null, goalsAgainst: null });
+  });
+
   it('rechaza respuestas con formato inesperado en vez de guardar datos dudosos', async () => {
     const { fetchFn } = fakeServer({
       '/sesiones': () => ({

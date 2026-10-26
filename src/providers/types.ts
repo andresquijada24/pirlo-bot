@@ -77,6 +77,20 @@ export interface ExternalSession {
   players: ExternalSessionPlayerStats[];
 }
 
+/** Partido del calendario del proveedor (competición y marcador, sin estadísticas). */
+export interface ExternalMatch {
+  externalId: string;
+  competition: 'liga' | 'copa' | 'amistoso' | 'torneo' | 'relampago';
+  name: string | null;
+  opponent: string | null;
+  startsAt: string;
+  /** Estado en origen (finalizado, cancelado…). */
+  state: string;
+  goalsFor: number | null;
+  goalsAgainst: number | null;
+  updatedAt: string;
+}
+
 export interface ExternalDeletion {
   kind: 'jugador' | 'sesion' | 'partido';
   externalId: string;
@@ -98,6 +112,8 @@ export interface StatsProvider {
   playersSince(since: string | null): Promise<Pull<ExternalPlayer>>;
   sessionsSince(since: string | null): Promise<Pull<ExternalSession>>;
   deletionsSince?(since: string | null): Promise<Pull<ExternalDeletion>>;
+  /** Calendario del club (para separar liga, copa y amistosos). */
+  matchesSince?(since: string | null): Promise<Pull<ExternalMatch>>;
 }
 
 /** Error de un proveedor. `message` es apto para mostrarse a un admin; nunca incluye secretos. */

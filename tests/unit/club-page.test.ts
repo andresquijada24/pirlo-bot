@@ -317,6 +317,43 @@ describe('pestañas por tipo de partido', () => {
   });
 });
 
+describe('clubes por sesión (Marítimo): pestañas por su calendario', () => {
+  it('los partidos del calendario cuentan por tipo; las sesiones sin tipo solo en Todos', async () => {
+    const { app, env, clubId, run } = await setup();
+    const row = (sourcePlayerId: string, name: string, goals: number, matchType: string | null) => ({
+      clubId, matchType, seasonId: null, playerId: null, source: 'maritimo', sourcePlayerId, name,
+      sessions: 1, matchesPlayed: 2, goals, assists: null, shots: null, dribbles: null, passesMade: null,
+      passesAttempted: null, tacklesMade: null, tacklesAttempted: null, interceptions: null, blocks: null,
+      clearances: null, saves: null, cleanSheets: null, ratingPoints: null, ratedMatches: null,
+    });
+    env.state.sessionRows.push(row('m1', 'Amistoso Jugador', 4, 'friendlyMatch'), row('m2', 'Mezcla Jugador', 1, null));
+    const match = (externalId: string, competition: 'amistoso' | 'torneo', goalsFor: number | null, state = 'finalizado') => ({
+      clubId, source: 'maritimo' as const, externalId, competition, name: null, opponent: 'Rival Calendario',
+      startsAt: '2026-10-25T23:00:00Z', state, goalsFor, goalsAgainst: goalsFor === null ? null : 1,
+      updatedAt: '2026-10-26T00:00:00Z',
+    });
+    env.state.providerMatches.push(match('p1', 'amistoso', 3), match('p2', 'torneo', 0), match('p3', 'amistoso', null, 'abierto'));
+
+    const todos = await (await app.request('/club/club-prueba')).text();
+    // 1 de EA + 2 jugados del calendario (el que no tiene marcador no cuenta).
+    expect(todos).toMatch('aria-current="page" class="tab on">Todos <small>3</small>');
+    expect(todos).toMatch('Mezcla Jugador');
+    const amistosos = await (await app.request('/club/club-prueba?tipo=amistosos')).text();
+    expect(amistosos).toMatch('Rival Calendario');
+    expect(amistosos).toMatch('Amistoso Jugador');
+    expect(amistosos).not.toMatch('Mezcla Jugador');
+    const copa = await (await app.request('/club/club-prueba?tipo=copa')).text();
+    expect(copa).toMatch('class="tab on">Copa <small>1</small>');
+
+    // Y en Discord: /ranking y /stats con tipo.
+    const rk = await run(slash(OWNER, 'ranking', null, [str('estadistica', 'goles'), str('tipo', 'amistosos'), str('temporada', 'todas')]));
+    const desc = JSON.stringify(rk);
+    expect(desc).toMatch('Amistoso Jugador');
+    expect(desc).not.toMatch('Mezcla Jugador');
+    expect(desc).toMatch('Amistosos');
+  });
+});
+
 describe('tabla de la plantilla ordenable y con búsqueda', () => {
   it('ordenar por columna con un clic, invertir, buscar por nombre; sin abreviaturas', async () => {
     const { applyView, parseView } = await import('../../src/web/club-page.js');

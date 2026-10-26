@@ -36,6 +36,10 @@ export interface SyncResult {
   updated?: number;
   unchanged?: number;
   deleted?: number;
+  /** Partidos del calendario aplicados (insertados o actualizados). */
+  matches?: number;
+  /** Si el calendario no se pudo leer: el resto de la sincronización sigue siendo válida. */
+  matchesError?: string;
   cursor?: string | null;
 }
 
@@ -120,6 +124,22 @@ export async function runSync(deps: SyncDeps): Promise<SyncResult> {
       else unchanged++;
       lastApplied = s.updatedAt;
     }
+    // Calendario (competición de cada partido): su propio punto de partida, la versión más reciente
+    // guardada. Un fallo aquí no invalida las sesiones ya aplicadas.
+    let matches = 0;
+    let matchesError: string | undefined;
+    if (provider.matchesSince && !partial) {
+      try {
+        const pull = await provider.matchesSince(await repo.lastMatchVersion(clubId, provider.id));
+        for (const m of dedupe(pull.items)) {
+          if ((await repo.applyMatch(clubId, provider.id, m)) !== 'sin_cambios') matches++;
+        }
+      } catch (err) {
+        matchesError = safeMessage(err);
+        deps.log?.error({ err, clubId, provider: provider.id }, 'No se pudo leer el calendario');
+      }
+    }
+
     // Tiempo agotado: se continúa desde la última sesión aplicada (o desde donde se empezó).
     const next: string | null = partial ? (lastApplied ?? since) : cursor;
 
@@ -137,6 +157,8 @@ export async function runSync(deps: SyncDeps): Promise<SyncResult> {
       updated,
       unchanged,
       deleted,
+      matches,
+      ...(matchesError ? { matchesError } : {}),
       cursor: next,
     };
   } catch (err) {

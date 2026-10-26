@@ -41,8 +41,8 @@
       var g = canvas.getContext('2d');
       g.drawImage(img, 0, 0, cw, ch);
       found = window.detectarTarjeta(g.getImageData(0, 0, cw, ch).data, cw, ch);
-    } catch (e) {
-      found = null;
+    } catch {
+      found = null; // Sin acceso a los píxeles: marco centrado.
     }
   }
 

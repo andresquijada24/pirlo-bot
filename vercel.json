@@ -13,6 +13,10 @@
     {
       "source": "/clubes",
       "destination": "/api"
+    },
+    {
+      "source": "/widget/(.*)",
+      "destination": "/api"
     }
   ],
   "functions": {

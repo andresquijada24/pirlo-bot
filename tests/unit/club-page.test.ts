@@ -108,9 +108,27 @@ describe('directorio de clubes', () => {
     expect(await (await app.request('/club/no-existe')).text()).toMatch('class="navbtn home" href="/"');
   });
 
-  it('la página principal enlaza el directorio', async () => {
+  it('goleadores reales para la página principal: solo clubes públicos, sin rivales', async () => {
+    const { app, env, clubId } = await setup();
+    let res = await app.request('/widget/goleadores');
+    expect(await res.text()).toMatch('Todavía no hay goles');
+    await env.repos.clubs.setWebPublic(clubId, true, OWNER.userId);
+    res = await app.request('/widget/goleadores');
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(html).toMatch('JugadorFicticio');
+    expect(html).toMatch('href="/club/club-prueba" target="_top"');
+    expect(html).toMatch('<span class="g">2</span>');
+    expect(html).not.toMatch('GamertagRival');
+    expect(html).not.toMatch('<script');
+    expect(res.headers.get('content-security-policy')).toMatch("frame-ancestors 'self'");
+  });
+
+  it('la página principal enlaza el directorio y muestra el ranking real', async () => {
     const { readFileSync } = await import('node:fs');
     const landing = readFileSync(new URL('../../public/index.html', import.meta.url), 'utf8');
     expect(landing).toMatch('href="/clubes"');
+    expect(landing).toMatch('src="/widget/goleadores"');
+    expect(landing).not.toMatch('Vista ilustrativa');
   });
 });

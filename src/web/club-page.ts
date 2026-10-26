@@ -309,3 +309,71 @@ ${navBar({ href: '/', label: 'Volver' })}
 export function notFoundPage(): string {
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Club no encontrado · PIRLO BOT</title><style>${CSS}</style></head><body><main class="wrap">${navBar({ href: '/clubes', label: 'Ver clubes' })}<div style="text-align:center;padding-top:60px"><h1>Club no encontrado</h1><p class="sub">Esta página no existe o el club no la ha publicado.</p><p><a href="/">Volver a PIRLO BOT</a></p></div></main></body></html>`;
 }
+
+// ---------------------------------------------------------------------------
+// Goleadores reales para la página principal (se incrusta en un iframe; sin JavaScript)
+// ---------------------------------------------------------------------------
+
+export interface TopScorer {
+  name: string;
+  clubName: string;
+  slug: string;
+  goals: number;
+  matches: number | null;
+}
+
+/** Máximo de clubes públicos consultados por petición (la respuesta se cachea 5 minutos). */
+const MAX_CLUBS = 20;
+
+/** Máximos goleadores de la temporada actual entre los clubes con la página publicada. */
+export async function loadTopScorers(repos: Repositories, limit = 5): Promise<TopScorer[]> {
+  const clubs = (await repos.clubs.listPublic()).slice(0, MAX_CLUBS);
+  const pages = await Promise.all(clubs.map((c) => loadClubPage(repos, c.slug)));
+  const all: (TopScorer & { assists: number })[] = [];
+  for (const page of pages) {
+    if (!page) continue;
+    for (const p of page.players) {
+      if (p.goals === null || p.goals <= 0) continue;
+      all.push({
+        name: p.name,
+        clubName: page.club.name,
+        slug: page.club.slug,
+        goals: p.goals,
+        matches: p.matchesPlayed,
+        assists: p.assists ?? 0,
+      });
+    }
+  }
+  return all
+    .sort((a, b) => b.goals - a.goals || b.assists - a.assists || a.name.localeCompare(b.name, 'es'))
+    .slice(0, limit)
+    .map(({ assists: _assists, ...s }) => s);
+}
+
+export function renderScorersWidget(scorers: TopScorer[]): string {
+  const rows = scorers.length
+    ? scorers
+        .map(
+          (s, i) =>
+            `<a class="row" href="/club/${encodeURIComponent(s.slug)}" target="_top"><b>${i + 1}</b>` +
+            `<span class="who"><span class="n">${esc(s.name)}</span><span class="c">${esc(s.clubName)}` +
+            `${s.matches ? ` · ${s.matches} PJ` : ''}</span></span><span class="g">${s.goals}</span></a>`,
+        )
+        .join('')
+    : `<p class="empty">Todavía no hay goles registrados esta temporada. <a href="/clubes" target="_top">Ver clubes</a></p>`;
+  return `<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Goleadores · PIRLO BOT</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}html,body{margin:0;background:transparent;color:#e8eef7;font-family:Rajdhani,system-ui,sans-serif;color-scheme:dark}
+h3{font-size:17px;margin:0 0 6px;font-weight:700}
+.row{display:grid;grid-template-columns:26px 1fr auto;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid #ffffff0f;color:inherit;text-decoration:none;font-size:16px}
+.row:last-child{border-bottom:0}.row:hover .n{color:#5fb0ff}
+.row b{color:#5fb0ff}.who{min-width:0;display:flex;flex-direction:column;line-height:1.15}
+.n{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c{font-size:13px;color:#8a99b0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.g{font-weight:700;font-size:20px}
+.empty{color:#8a99b0;font-size:15px;margin:8px 0}.empty a{color:#5fb0ff}
+</style></head><body><h3>Ranking de goleadores</h3>${rows}</body></html>`;
+}

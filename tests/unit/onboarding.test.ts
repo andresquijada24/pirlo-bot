@@ -221,3 +221,24 @@ describe('aprobación final del dueño', () => {
     expect(club.status).toBe('rechazado');
   });
 });
+
+describe('club pedido desde otro servidor', () => {
+  it('explica qué club hay aquí, sin decir dónde está el otro; acepta mayúsculas y el nombre', async () => {
+    const { createMemoryRepos } = await import('../fakes/memory-repos.js');
+    const { resolveClub } = await import('../../src/core/context.js');
+    const env = createMemoryRepos();
+    await env.repos.clubs.register({
+      guildId: '900000000000000071', guildName: null, slug: 'club-prueba', name: 'Club Prueba',
+      adminDiscordId: '800000000000000001', adminDisplayName: 'Admin',
+    });
+    await env.repos.clubs.register({
+      guildId: '900000000000000072', guildName: null, slug: 'lacritas-fc', name: 'LACRITAS FC',
+      adminDiscordId: '800000000000000001', adminDisplayName: 'Admin',
+    });
+    const err = await resolveClub(env.repos, '900000000000000071', 'lacritas-fc').catch((e: Error) => e);
+    expect(String((err as Error).message)).toMatch('aquí solo está **Club Prueba** (`club-prueba`)');
+    expect(String((err as Error).message)).not.toMatch('900000000000000072');
+    expect((await resolveClub(env.repos, '900000000000000072', 'LACRITAS FC')).slug).toBe('lacritas-fc');
+    expect((await resolveClub(env.repos, '900000000000000072', 'LACRITAS-FC')).slug).toBe('lacritas-fc');
+  });
+});

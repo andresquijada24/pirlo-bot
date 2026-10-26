@@ -37,9 +37,16 @@ export async function resolveClub(
   }
 
   if (slug !== undefined) {
-    const match = clubs.find((c) => c.slug === slug);
+    const wanted = slug.trim().toLowerCase();
+    const match = clubs.find((c) => c.slug === wanted || c.name.trim().toLowerCase() === wanted);
     if (!match) {
-      throw new DomainError('NOT_FOUND', `No hay ningún club "${slug}" en este servidor.`);
+      // Solo se nombran los clubes de ESTE servidor (nunca dónde está otro club).
+      const here = clubs.map((c) => `**${c.name}** (\`${c.slug}\`)`).join(', ');
+      throw new DomainError(
+        'NOT_FOUND',
+        `El club "${slug}" no está en este servidor; aquí ${clubs.length === 1 ? 'solo está' : 'están'} ${here}. ` +
+          'Cada club se configura desde su propio servidor de Discord: entra en el servidor de ese club y usa el comando allí.',
+      );
     }
     return match;
   }

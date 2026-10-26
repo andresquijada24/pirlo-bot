@@ -115,7 +115,7 @@ describe('/club', () => {
   it('desde otro servidor no se ve el club', async () => {
     await registerClub();
     const res = await run(slash({ ...STRANGER, guildId: OTHER_GUILD }, 'club', 'info', [str('club', 'club-prueba')]));
-    expect(textOf(res)).toMatch(/no tiene ningún club|No hay ningún club/);
+    expect(textOf(res)).toMatch(/no tiene ningún club|no está en este servidor/);
     expect(textOf(res)).not.toMatch('Club Prueba');
   });
 });
@@ -160,7 +160,7 @@ describe('/vincular y /solicitudes', () => {
     const requestId = env.state.linkRequests[0]!.id;
     const outsider = { userId: '800000000000000009', permissions: MANAGE_GUILD, guildId: OTHER_GUILD };
     const res = await run(button(outsider, `link:approve:club-prueba:${requestId}`));
-    expect(textOf(res)).toMatch(/no encontrado|No hay ningún club|no tiene ningún club/);
+    expect(textOf(res)).toMatch(/no encontrado|no está en este servidor|no tiene ningún club/);
     expect(env.state.linkRequests[0]!.status).toBe('pendiente');
   });
 

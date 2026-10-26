@@ -23,7 +23,7 @@ export async function resolveClub(
   if (clubs.length === 0 && all.some((c) => c.status === 'pendiente')) {
     throw new DomainError(
       'CLUB_NOT_REGISTERED',
-      '⏳ El club de este servidor está pendiente de aprobación por PIRLO BOT. Te avisaremos por mensaje privado.',
+      'El club de este servidor está pendiente de aprobación por PIRLO BOT. Te avisaremos por mensaje privado.',
     );
   }
   if (clubs.length === 0 && all.some((c) => c.status === 'rechazado')) {

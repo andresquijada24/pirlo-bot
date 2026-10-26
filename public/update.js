@@ -1,3 +1,4 @@
+/* global document, window, fetch, setInterval */
 /*
  * PIRLO BOT · aviso de actualización.
  *

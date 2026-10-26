@@ -241,7 +241,7 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
         await db
           .from('clubs')
           .select(
-            'id,slug,name,status,created_at,web_public,club_guilds(guild_id,guilds(name)),club_memberships(left_at),club_ea_links(club_id)',
+            'id,slug,name,status,created_at,web_public,website_url,club_guilds(guild_id,guilds(name)),club_memberships(left_at),club_ea_links(club_id)',
           )
           .order('created_at', { ascending: false })
           .limit(500),
@@ -253,6 +253,7 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
         status: clubRow.shape.status,
         created_at: z.string(),
         web_public: z.boolean(),
+        website_url: z.string().nullable(),
         club_guilds: z.array(
           z.object({ guild_id: z.string(), guilds: z.object({ name: z.string().nullable() }).nullable() }),
         ),
@@ -269,6 +270,7 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
           status: r.status,
           createdAt: r.created_at,
           webPublic: r.web_public,
+          websiteUrl: r.website_url,
           guilds: r.club_guilds.map((g) => ({ id: g.guild_id, name: g.guilds?.name ?? null })),
           members: r.club_memberships.filter((m) => m.left_at === null).length,
           eaLinked: Array.isArray(r.club_ea_links) ? r.club_ea_links.length > 0 : r.club_ea_links !== null,
@@ -342,6 +344,18 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
     async webPublic(clubId) {
       const row = check(await db.from('clubs').select('web_public').eq('id', clubId).maybeSingle());
       return row ? z.object({ web_public: z.boolean() }).parse(row).web_public : false;
+    },
+    async website(clubId) {
+      const row = check(await db.from('clubs').select('website_url').eq('id', clubId).maybeSingle());
+      return row ? z.object({ website_url: z.string().nullable() }).parse(row).website_url : null;
+    },
+    async setWebsite(clubId, url, actorDiscordId) {
+      check(
+        await db.rpc('set_club_website', { p_club_id: clubId, p_url: url, p_actor_discord_id: actorDiscordId }),
+      );
+    },
+    async setGuildName(guildId, name) {
+      check(await db.from('guilds').update({ name }).eq('id', guildId).is('name', null));
     },
     async crest(clubId) {
       const row = check(await db.from('clubs').select('crest_png').eq('id', clubId).maybeSingle());

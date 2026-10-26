@@ -65,6 +65,16 @@ export const calendarDateSchema = z
     return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
   });
 
+/** Sitio web oficial del club: solo https, sin espacios ni comillas. */
+export const websiteSchema = z
+  .string()
+  .trim()
+  .max(200, 'La dirección admite hasta 200 caracteres.')
+  .regex(
+    /^https:\/\/[A-Za-z0-9.-]+\.[A-Za-z]{2,}(\/[^\s<>"]*)?$/,
+    'Escribe la dirección completa con https://, p. ej. https://www.maritimo.app',
+  );
+
 export const snowflakeSchema = z.string().regex(/^\d{17,20}$/, 'Identificador de Discord inválido.');
 
 /** Valida con zod y convierte el primer error en un DomainError legible. */

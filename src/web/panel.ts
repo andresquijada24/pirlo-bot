@@ -122,6 +122,7 @@ export function registerPanelRoutes(app: Hono, deps: PanelDeps): void {
       return c.html(page('Panel', notice('Base de datos no configurada.')), 503, HEADERS);
     try {
       const clubs = await deps.repos.clubs.listAdmin();
+      await fillGuildNames(deps, clubs);
       const msg = c.req.query('ok') ?? null;
       return c.html(renderPanel(clubs, csrfFor(deps.clientSecret, s.token), msg), 200, HEADERS);
     } catch (err) {
@@ -232,6 +233,29 @@ export function registerPanelRoutes(app: Hono, deps: PanelDeps): void {
     if (prev === 'pendiente' && deps.api) await notifyAdmins(deps, clubId, club.name, estado);
     return c.redirect(`/panel?ok=${estado}`, 303);
   });
+}
+
+/**
+ * Servidores sin nombre guardado (clubes registrados a mano): se piden a Discord con plazo corto
+ * y se guardan para la próxima vez. Si Discord no responde, se muestra el ID.
+ */
+async function fillGuildNames(deps: PanelDeps, clubs: AdminClubRow[]): Promise<void> {
+  const api = deps.api;
+  if (!api?.guildName || !deps.repos) return;
+  const missing = [
+    ...new Set(clubs.flatMap((c) => c.guilds.filter((g) => !g.name).map((g) => g.id))),
+  ].slice(0, 10);
+  const names = new Map<string, string>();
+  await Promise.all(
+    missing.map(async (id) => {
+      const name = await api.guildName!(id).catch(() => null);
+      if (!name) return;
+      names.set(id, name);
+      await deps.repos!.clubs.setGuildName(id, name).catch(() => undefined);
+    }),
+  );
+  for (const c of clubs)
+    for (const g of c.guilds) if (!g.name && names.has(g.id)) g.name = names.get(g.id)!;
 }
 
 async function notifyAdmins(
@@ -359,6 +383,9 @@ export function renderPanel(clubs: AdminClubRow[], csrf: string, ok: string | nu
     const extras = [
       `${c.members} miembro${c.members === 1 ? '' : 's'}`,
       c.eaLinked ? 'EA vinculado' : 'sin EA',
+      c.websiteUrl && /^https:\/\//.test(c.websiteUrl)
+        ? `<a href="${esc(c.websiteUrl)}" rel="noopener noreferrer" target="_blank">${esc(c.websiteUrl.replace(/^https:\/\//, '').replace(/\/$/, ''))} ↗</a>`
+        : 'sin sitio web',
       c.webPublic ? `<a href="/club/${encodeURIComponent(c.slug)}">web pública</a>` : 'web privada',
       `alta ${when(c.createdAt)}`,
     ].join(' · ');

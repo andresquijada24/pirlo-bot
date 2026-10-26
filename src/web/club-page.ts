@@ -13,6 +13,8 @@ import { initials } from '../render/match-card.js';
 export interface ClubPageData {
   club: Club;
   hasCrest: boolean;
+  /** Sitio oficial del club (https) o null. */
+  website: string | null;
   season: Season | null;
   record: { played: number; wins: number; draws: number; losses: number; goalsFor: number; goalsAgainst: number };
   matches: EaMatchSummary[];
@@ -45,11 +47,12 @@ export async function loadClubPage(
   const club = await repos.clubs.findPublic(slug);
   if (!club) return null;
 
-  const [seasons, allMatches, crest, roster] = await Promise.all([
+  const [seasons, allMatches, crest, roster, website] = await Promise.all([
     repos.seasons.list(club.id),
     repos.ea.recent(club.id, 200),
     repos.clubs.crest(club.id),
     repos.memberships.listActive(club.id),
+    repos.clubs.website(club.id).catch(() => null),
   ]);
   const season = seasons.find((s) => s.isCurrent) ?? null;
   const matches = allMatches.filter((m) => inSeason(m, season, club.timezone));
@@ -79,6 +82,7 @@ export async function loadClubPage(
   return {
     club,
     hasCrest: crest !== null,
+    website: website && /^https:\/\//.test(website) ? website : null,
     season,
     record,
     matches: matches.slice(0, 10),
@@ -183,6 +187,8 @@ footer img{width:22px;height:22px;vertical-align:middle;border-radius:6px;margin
 .navbtn{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:12px;background:var(--card);border:1px solid var(--line);color:var(--text);text-decoration:none;font-weight:600;font-size:15px}
 .navbtn:hover,.navbtn:focus-visible{border-color:var(--accent);color:var(--accent)}
 .navbtn.home{padding:9px 11px}
+.site{display:inline-block;margin-top:12px;font-weight:600;text-decoration:none}
+.site:hover{text-decoration:underline}
 @media (max-width:560px){header.hero{flex-direction:column;text-align:center}.chips{justify-content:center}.crest,.crest img{width:88px;height:88px}}
 `;
 
@@ -259,7 +265,11 @@ export function renderClubPage(d: ClubPageData): string {
 ${navBar({ href: '/clubes', label: 'Volver a clubes' })}
 <header class="hero">${crest}<div><h1>${esc(club.name)}</h1>
 <div class="sub">${esc(d.season?.name ?? 'Historial')} · EA SPORTS FC Pro Clubs</div>
-<div class="chips"><span class="chip">${r.played} PJ</span><span class="chip w">${r.wins} V</span><span class="chip d">${r.draws} E</span><span class="chip l">${r.losses} D</span><span class="chip">${r.goalsFor}:${r.goalsAgainst} goles</span></div></div></header>
+<div class="chips"><span class="chip">${r.played} PJ</span><span class="chip w">${r.wins} V</span><span class="chip d">${r.draws} E</span><span class="chip l">${r.losses} D</span><span class="chip">${r.goalsFor}:${r.goalsAgainst} goles</span></div>${
+    d.website
+      ? `<a class="site" href="${esc(d.website)}" rel="noopener noreferrer nofollow" target="_blank">🔗 ${esc(d.website.replace(/^https:\/\//, '').replace(/\/$/, ''))} ↗</a>`
+      : ''
+  }</div></header>
 <h2>Últimos partidos</h2><div class="card">${matches}</div>
 <h2>Líderes</h2><div class="leaders">${leaders}</div>
 <h2>Plantilla</h2>${players}

@@ -150,7 +150,7 @@ describe('sitio web del club', () => {
     expect(okMsg).toMatch('https://www.maritimo.app');
     const html = await (await app.request('/club/club-prueba')).text();
     expect(html).toMatch('href="https://www.maritimo.app" rel="noopener noreferrer nofollow" target="_blank"');
-    expect(html).toMatch('www.maritimo.app ↗');
+    expect(html).toMatch('www.maritimo.app<svg');
     await run(slash(OWNER, 'club', 'sitio', [{ name: 'quitar', type: 5, value: true }]));
     expect(await (await app.request('/club/club-prueba')).text()).not.toMatch('maritimo.app');
   });
@@ -231,7 +231,7 @@ describe('estadísticas detalladas de la plantilla', () => {
   it('la página muestra las columnas nuevas y la fila de totales', async () => {
     const { app } = await setup();
     const html = await (await app.request('/club/club-prueba')).text();
-    expect(html).toMatch('<th title="Goles por cada 100 tiros">Efect.</th>');
+    expect(html).toMatch('<th title="Acierto de tiro: goles ÷ tiros">Acierto tiro</th>');
     expect(html).toMatch('<th>Errados</th>');
     expect(html).toMatch('<td>Total equipo</td>');
     expect(html).toMatch('<th>Paradas</th>');

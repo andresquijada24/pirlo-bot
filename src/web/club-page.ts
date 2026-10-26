@@ -3,6 +3,7 @@ import type { Club, Season } from '../core/types.js';
 import type { EaMatchSummary, EaPlayerMatch, Repositories } from '../db/repositories/types.js';
 import { initials } from '../render/match-card.js';
 import { currentVersion, updateTags } from './version.js';
+import { icon, type IconName } from './icons.js';
 
 /**
  * Página web pública de un club (/club/<identificador>). Solo existe si un admin la activó.
@@ -44,7 +45,7 @@ export interface ClubPageData {
   };
   matches: EaMatchSummary[];
   players: PlayerTotals[];
-  leaders: { label: string; note?: string; entries: RankingEntry[]; format?: (n: number) => string }[];
+  leaders: { label: string; icon?: IconName; note?: string; entries: RankingEntry[]; format?: (n: number) => string }[];
 }
 
 /** Fecha local (AAAA-MM-DD) de un instante en la zona del club. */
@@ -125,11 +126,11 @@ export async function loadClubPage(
     matches: matches.slice(0, 10),
     players,
     leaders: [
-      { label: '⚽ Top goleador', entries: rank(players, 'goles', 3) },
-      { label: '🎯 Top asistidor', entries: rank(players, 'asistencias', 3) },
-      { label: '🛡️ Top defensa', note: 'acciones defensivas', entries: rank(players, 'defensa', 3) },
-      { label: '🧤 Top portero', note: 'porterías a cero', entries: rank(players, 'porterias', 3) },
-      { label: '⭐ Mejor calificación', entries: rank(players, 'nota', 3), format: (n) => n.toFixed(2) },
+      { label: 'Top goleador', icon: 'goal', entries: rank(players, 'goles', 3) },
+      { label: 'Top asistidor', icon: 'assist', entries: rank(players, 'asistencias', 3) },
+      { label: 'Top defensa', icon: 'shield', note: 'acciones defensivas', entries: rank(players, 'defensa', 3) },
+      { label: 'Top portero', icon: 'keeper', note: 'porterías a cero', entries: rank(players, 'porterias', 3) },
+      { label: 'Mejor calificación', icon: 'rating', entries: rank(players, 'nota', 3), format: (n) => n.toFixed(2) },
     ],
   };
 }
@@ -308,6 +309,11 @@ a.pl{color:var(--text);text-decoration:none;font-weight:600}a.pl:hover{color:var
 .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
 .stat b{display:block;font-size:22px}.stat span{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:1px}
 .mvp{color:#facc15}
+.ic{display:inline-block;vertical-align:-3px;margin-right:6px;flex:none}
+.leaders h3 .ic{color:var(--accent)}
+.site .ic:last-child{margin:0 0 0 4px;opacity:.7}
+.chip.mvp,.guide summary,.site{display:inline-flex;align-items:center}
+.mvp .ic{margin-right:4px}
 .photo{width:150px;height:188px;flex:none;border-radius:18px;overflow:hidden;border:3px solid var(--accent);background:#0f172a}
 .photo img{width:100%;height:100%;object-fit:cover;display:block}
 .photo.none{display:grid;place-items:center;align-content:center;gap:6px;font-weight:800;font-size:40px;color:var(--muted)}
@@ -386,7 +392,7 @@ export function renderClubPage(d: ClubPageData): string {
   const leaders = d.leaders
     .map(
       (l) =>
-        `<div class="card"><h3>${esc(l.label)}${l.note ? ` <small>· ${esc(l.note)}</small>` : ''}</h3>` +
+        `<div class="card"><h3>${l.icon ? icon(l.icon, 17) : ''}${esc(l.label)}${l.note ? ` <small>· ${esc(l.note)}</small>` : ''}</h3>` +
         (l.entries.length
           ? `<ol>${l.entries
               .map(
@@ -401,13 +407,13 @@ export function renderClubPage(d: ClubPageData): string {
 
   const players = d.players.length
     ? `<div class="card table"><table class="stats"><thead><tr><th>Jugador</th><th>PJ</th><th>G</th><th>A</th>` +
-      `<th>Tiros</th><th title="Goles por cada 100 tiros">Efect.</th>` +
-      `<th>Pases</th><th>Acierto</th><th>Errados</th>` +
-      `<th>Entradas</th><th>Acierto</th><th title="Entradas ganadas + intercepciones + bloqueos + despejes">Def.</th>` +
+      `<th>Tiros</th><th title="Acierto de tiro: goles ÷ tiros">Acierto tiro</th>` +
+      `<th>Pases</th><th>Acierto pase</th><th>Errados</th>` +
+      `<th>Entradas</th><th>Acierto entrada</th><th title="Entradas ganadas + intercepciones + bloqueos + despejes">Def.</th>` +
       `<th>Paradas</th><th title="Porterías a cero">P. a 0</th><th>Calif.</th></tr></thead><tbody>${d.players
         .map((p) => `<tr><td><a class="pl" href="${playerHref(club.slug, p.key, d.filter)}">${esc(p.name)}</a></td>${statCells(p)}</tr>`)
         .join('')}</tbody><tfoot><tr><td>Total equipo</td>${statCells(teamTotals(d.players))}</tr></tfoot></table></div>` +
-      '<p class="legend">Efect. = goles ÷ tiros · Pases y Entradas = completados/intentados · Def. = entradas ganadas + intercepciones + bloqueos + despejes (los que dé la fuente) · — = sin dato</p>'
+      '<p class="legend">Acierto tiro = goles ÷ tiros (EA no informa tiros a puerta) · Pases y Entradas = completados/intentados · Def. = entradas ganadas + intercepciones + bloqueos + despejes (los que dé la fuente) · — = sin dato</p>'
     : '<div class="card empty">Todavía no hay estadísticas de jugadores.</div>';
 
   const title = `${club.name} · PIRLO BOT`;
@@ -423,7 +429,7 @@ ${navBar({ href: '/clubes', label: 'Volver a clubes' })}
 <div class="sub">${esc(d.season?.name ?? 'Historial')} · EA SPORTS FC Pro Clubs</div>
 <div class="chips"><span class="chip">${r.played} PJ</span><span class="chip w">${r.wins} V</span><span class="chip d">${r.draws} E</span><span class="chip l">${r.losses} D</span><span class="chip">${r.goalsFor}:${r.goalsAgainst} goles</span><span class="chip">${r.cleanSheets} P. a 0</span></div>${
     d.website
-      ? `<a class="site" href="${esc(d.website)}" rel="noopener noreferrer nofollow" target="_blank">🔗 ${esc(d.website.replace(/^https:\/\//, '').replace(/\/$/, ''))} ↗</a>`
+      ? `<a class="site" href="${esc(d.website)}" rel="noopener noreferrer nofollow" target="_blank">${icon('link', 17)}${esc(d.website.replace(/^https:\/\//, '').replace(/\/$/, ''))}${icon('external', 14)}</a>`
       : ''
   }</div></header>
 ${filterTabs(base, d)}
@@ -611,7 +617,7 @@ function statGrid(t: PlayerTotals): string {
     ['Asistencias', show(t.assists)],
     ['G + A', show(t.goalContributions)],
     ['Tiros', show(t.shots)],
-    ['Efectividad', pctText(ratio(t.goals, t.shots))],
+    ['Acierto tiro', pctText(ratio(t.goals, t.shots))],
     ['Pases', t.passesMade === null || t.passesAttempted === null ? '—' : `${t.passesMade}/${t.passesAttempted}`],
     ['Acierto pase', pctText(ratio(t.passesMade, t.passesAttempted))],
     ['Pases errados', show(missed(t.passesMade, t.passesAttempted))],
@@ -639,7 +645,7 @@ export function renderPlayerPage(d: PlayerPageData): string {
   const mvps = d.matches.filter((m) => m.manOfTheMatch).length;
   const chips = [
     main ? `<span class="chip">${esc(POSITION[main] ?? main)}</span>` : '',
-    mvps ? `<span class="chip mvp">⭐ ${mvps} MVP</span>` : '',
+    mvps ? `<span class="chip mvp">${icon('rating', 15, true)}${mvps} MVP</span>` : '',
   ].join('');
 
   const log = d.matches.length
@@ -652,7 +658,7 @@ export function renderPlayerPage(d: PlayerPageData): string {
             `<td><span class="res ${res?.cls ?? ''}" style="display:inline-grid;width:auto;height:auto;padding:2px 8px">${res?.label ?? '·'} ${score}</span> <small class="meta">${TYPE[m.matchType]}</small></td>` +
             `<td>${esc(m.position ? (POSITION[m.position] ?? m.position) : '—')}</td>` +
             `${num(m.goals)}${num(m.assists)}${num(m.shots)}${ofCell(m.passesMade, m.passesAttempted)}${ofCell(m.tacklesMade, m.tacklesAttempted)}` +
-            `<td>${m.rating === null ? '—' : m.rating.toFixed(1)}${m.manOfTheMatch ? ' <span class="mvp" title="MVP">⭐</span>' : ''}</td></tr>`
+            `<td>${m.rating === null ? '—' : m.rating.toFixed(1)}${m.manOfTheMatch ? ` <span class="mvp" title="MVP">${icon('rating', 14, true)}</span>` : ''}</td></tr>`
           );
         })
         .join('')}</tbody></table></div>`
@@ -665,8 +671,8 @@ export function renderPlayerPage(d: PlayerPageData): string {
       : `<div class="photo none" title="Sin foto todavía"><span>${esc(initials(d.name))}</span><small>Sin foto</small></div>`;
   const clubBadge = `<a class="clubbadge" href="${base}" title="${esc(club.name)}">${crest}</a>`;
   const guide = d.hasPhoto
-    ? ''
-    : `<details class="guide"><summary>📸 ¿Eres ${esc(d.name)}? Pon tu foto de The Grounds</summary><ol>` +
+    ? `<p class="meta" style="margin-top:10px"><a href="${base}/jugador/${d.playerId}/foto">${icon('camera', 16)}Cambiar foto</a></p>`
+    : `<details class="guide"><summary>${icon('camera', 18)}¿Eres ${esc(d.name)}? Pon tu foto de The Grounds</summary><ol>` +
       '<li>En EA SPORTS FC 27 entra en <b>Clubes → The Grounds</b> con tu Pro.</li>' +
       '<li>Ponte de frente a la cámara y quita los menús de la pantalla.</li>' +
       '<li>Haz una captura: <b>PS5</b> botón Crear → Captura · <b>Xbox</b> botón Compartir · <b>PC</b> tecla de captura.</li>' +
@@ -674,7 +680,7 @@ export function renderPlayerPage(d: PlayerPageData): string {
       `<li>En el Discord de ${esc(club.name)} escribe <code>/plantilla foto</code> y adjunta la captura en <b>imagen</b>.</li>` +
       `</ol><p class="meta">${
         d.playerId
-          ? 'PIRLO la recorta centrada en tu jugador. Un DT o admin también puede subirla por ti.'
+          ? `PIRLO la recorta centrada en tu jugador. Un DT o admin también puede subirla por ti. <a href="${base}/jugador/${d.playerId}/foto">O súbela aquí desde la web →</a>`
           : 'Primero únete a la plantilla con <code>/vincular</code> y vincula tu gamertag de EA; después podrás subir la foto.'
       }</p></details>`;
 

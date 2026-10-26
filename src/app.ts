@@ -21,6 +21,7 @@ import { routeInteraction } from './discord/router.js';
 import { verifyDiscordRequest } from './discord/verify.js';
 import { onboardGuild, type GuildApi } from './discord/onboarding.js';
 import { registerPanelRoutes, type PanelDeps } from './web/panel.js';
+import { registerPhotoUploadRoutes } from './web/photo-upload.js';
 import { currentVersion } from './web/version.js';
 import type { SyncResult } from './sync/engine.js';
 import type { ReminderResult } from './jobs/reminders.js';
@@ -159,7 +160,7 @@ export function createApp(deps: AppDeps) {
     if (!photo) return c.body(null, 404);
     return c.body(Buffer.from(photo, 'base64'), 200, {
       'content-type': 'image/jpeg',
-      'cache-control': 'public, max-age=600',
+      'cache-control': 'public, max-age=60',
       'x-content-type-options': 'nosniff',
     });
   });
@@ -177,6 +178,14 @@ export function createApp(deps: AppDeps) {
 
   if (deps.panel) {
     registerPanelRoutes(app, { ...deps.panel, repos: deps.repos ?? null, ...(deps.log ? { log: deps.log } : {}) });
+    registerPhotoUploadRoutes(app, {
+      repos: deps.repos ?? null,
+      clientId: deps.panel.clientId,
+      clientSecret: deps.panel.clientSecret,
+      origin: deps.panel.origin,
+      ...(deps.panel.now ? { now: deps.panel.now } : {}),
+      ...(deps.log ? { log: deps.log } : {}),
+    });
   }
 
   app.post('/api/interactions', async (c) => {

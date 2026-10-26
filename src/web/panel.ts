@@ -32,7 +32,13 @@ export interface PanelDeps {
 }
 
 const SESSION = 'pirlo_panel';
-const STATE = 'pirlo_oauth_state';
+export const STATE = 'pirlo_oauth_state';
+/** Adónde volver tras iniciar sesión desde una página pública (p. ej. subir la foto). */
+export const RETURN_TO = 'pirlo_volver';
+/** Sesión de cualquier usuario de Discord en las páginas de clubes (no da acceso al panel). */
+export const USER_SESSION = 'pirlo_sesion';
+/** Solo se vuelve a la página de subir foto de una ficha. */
+export const SAFE_RETURN = /^\/club\/[a-z0-9-]{3,40}\/jugador\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/foto$/;
 const SESSION_HOURS = 12;
 const SNOWFLAKE = /^\d{17,20}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -55,7 +61,7 @@ function key(secret: string): Buffer {
 function mac(secret: string, data: string): string {
   return createHmac('sha256', key(secret)).update(data).digest('base64url');
 }
-function same(a: string, b: string): boolean {
+export function same(a: string, b: string): boolean {
   const x = Buffer.from(a);
   const y = Buffer.from(b);
   return x.length === y.length && timingSafeEqual(x, y);
@@ -77,12 +83,15 @@ export function readSession(secret: string, token: string | undefined, now: numb
   return Number(exp) > now ? userId : null;
 }
 
+/** Clave distinta para las sesiones de usuario: una sesión de usuario nunca vale para el panel. */
+export const userSessionKey = (secret: string) => `${secret}:sesion-de-usuario`;
+
 /** Token anti-CSRF ligado a la sesión. */
 export function csrfFor(secret: string, session: string): string {
   return mac(secret, `csrf.${session}`);
 }
 
-function cookies(header: string | undefined): Record<string, string> {
+export function cookies(header: string | undefined): Record<string, string> {
   const out: Record<string, string> = {};
   for (const part of (header ?? '').split(';')) {
     const i = part.indexOf('=');
@@ -91,7 +100,7 @@ function cookies(header: string | undefined): Record<string, string> {
   return out;
 }
 
-const cookie = (name: string, value: string, maxAge: number, path = '/panel') =>
+export const cookie = (name: string, value: string, maxAge: number, path = '/panel') =>
   `${name}=${value}; Path=${path}; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`;
 
 // ---------------------------------------------------------------------------
@@ -167,7 +176,9 @@ export function registerPanelRoutes(app: Hono, deps: PanelDeps): void {
     const expected = cookies(c.req.header('cookie'))[STATE] ?? '';
     const state = c.req.query('state') ?? '';
     const code = c.req.query('code') ?? '';
+    const back = decodeURIComponent(cookies(c.req.header('cookie'))[RETURN_TO] ?? '');
     c.header('set-cookie', cookie(STATE, '', 0));
+    c.header('set-cookie', cookie(RETURN_TO, '', 0), { append: true });
     if (!expected || !same(state, expected) || !/^[\w-]{10,100}$/.test(code)) {
       return c.redirect('/panel?error=sesion', 303);
     }
@@ -198,6 +209,13 @@ export function registerPanelRoutes(app: Hono, deps: PanelDeps): void {
       deps.log?.error({ err }, 'Fallo en el inicio de sesión del panel');
     }
     if (!userId) return c.redirect('/panel?error=discord', 303);
+    // Inicio de sesión desde una ficha (subir foto): sesión de usuario, sin acceso al panel.
+    if (SAFE_RETURN.test(back)) {
+      c.header('set-cookie', cookie(USER_SESSION, signSession(userSessionKey(secret), userId, now() + 2 * 3600_000), 2 * 3600, '/club'), {
+        append: true,
+      });
+      return c.redirect(back, 303);
+    }
     if (!deps.ownerIds.has(userId)) {
       return c.html(
         page('Sin acceso', notice('Esta cuenta de Discord no tiene acceso al panel de PIRLO BOT.')),
@@ -393,7 +411,7 @@ export function renderPanel(clubs: AdminClubRow[], csrf: string, ok: string | nu
       `${c.members} miembro${c.members === 1 ? '' : 's'}`,
       c.eaLinked ? 'EA vinculado' : 'sin EA',
       c.websiteUrl && /^https:\/\//.test(c.websiteUrl)
-        ? `<a href="${esc(c.websiteUrl)}" rel="noopener noreferrer" target="_blank">${esc(c.websiteUrl.replace(/^https:\/\//, '').replace(/\/$/, ''))} ↗</a>`
+        ? `<a href="${esc(c.websiteUrl)}" rel="noopener noreferrer" target="_blank">${esc(c.websiteUrl.replace(/^https:\/\//, '').replace(/\/$/, ''))}</a>`
         : 'sin sitio web',
       c.webPublic ? `<a href="/club/${encodeURIComponent(c.slug)}">web pública</a>` : 'web privada',
       `alta ${when(c.createdAt)}`,

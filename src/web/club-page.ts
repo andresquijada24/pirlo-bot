@@ -785,7 +785,7 @@ export function renderPlayerPage(d: PlayerPageData): string {
       `</ol><p class="meta">${
         d.playerId
           ? `PIRLO la recorta centrada en tu jugador. Un DT o admin también puede subirla por ti. <a href="${base}/jugador/${d.playerId}/foto">O súbela aquí desde la web →</a>`
-          : 'Primero únete a la plantilla con <code>/vincular</code> y vincula tu gamertag de EA; después podrás subir la foto.'
+          : '¿Eres tú? Únete a la plantilla con <code>/vincular</code> y entra en <a href="/mi-cuenta">Mi cuenta</a> con Discord: PIRLO vincula tu gamertag solo. Después podrás subir la foto.'
       }</p></details>`;
 
   const title = `${d.name} · ${club.name} · PIRLO BOT`;

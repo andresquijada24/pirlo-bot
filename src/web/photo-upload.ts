@@ -4,6 +4,7 @@ import type { Repositories } from '../db/repositories/types.js';
 import { isDomainError } from '../core/errors.js';
 import { normalizePhoto, parseCrop } from '../render/photo.js';
 import {
+  ACCOUNT_PATH,
   cookie,
   cookies,
   csrfFor,
@@ -76,13 +77,15 @@ export function registerPhotoUploadRoutes(app: Hono, deps: PhotoUploadDeps): voi
   app.get('/entrar', (c) => {
     const back = c.req.query('volver') ?? '';
     if (!deps.clientSecret || !SAFE_RETURN.test(back)) return c.redirect('/', 303);
+    // «Mi cuenta» pide también las cuentas conectadas (PlayStation, Xbox…) para el gamertag.
+    const scope = back === ACCOUNT_PATH ? 'identify connections' : 'identify';
     const state = randomBytes(24).toString('base64url');
     const url = new URL('https://discord.com/oauth2/authorize');
     url.search = new URLSearchParams({
       client_id: deps.clientId,
       response_type: 'code',
       redirect_uri: `${deps.origin}/panel/callback`,
-      scope: 'identify',
+      scope,
       state,
       prompt: 'none',
     }).toString();

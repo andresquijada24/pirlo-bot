@@ -23,6 +23,7 @@ import { verifyDiscordRequest } from './discord/verify.js';
 import { onboardGuild, type GuildApi } from './discord/onboarding.js';
 import { registerPanelRoutes, type PanelDeps } from './web/panel.js';
 import { registerPhotoUploadRoutes } from './web/photo-upload.js';
+import { registerAccountRoutes } from './web/account.js';
 import { currentVersion } from './web/version.js';
 import type { SyncResult } from './sync/engine.js';
 import type { ReminderResult } from './jobs/reminders.js';
@@ -195,6 +196,12 @@ export function createApp(deps: AppDeps) {
       clientId: deps.panel.clientId,
       clientSecret: deps.panel.clientSecret,
       origin: deps.panel.origin,
+      ...(deps.panel.now ? { now: deps.panel.now } : {}),
+      ...(deps.log ? { log: deps.log } : {}),
+    });
+    registerAccountRoutes(app, {
+      repos: deps.repos ?? null,
+      clientSecret: deps.panel.clientSecret,
       ...(deps.panel.now ? { now: deps.panel.now } : {}),
       ...(deps.log ? { log: deps.log } : {}),
     });

@@ -1,5 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { Hono } from 'hono';
+import { autoLinkAccounts, gamingAccounts, type GamingAccount } from '../core/account-link.js';
 import type { Club } from '../core/types.js';
 import type { AdminClubRow, Repositories } from '../db/repositories/types.js';
 import type { GuildApi } from '../discord/onboarding.js';
@@ -37,8 +38,13 @@ export const STATE = 'pirlo_oauth_state';
 export const RETURN_TO = 'pirlo_volver';
 /** Sesión de cualquier usuario de Discord en las páginas de clubes (no da acceso al panel). */
 export const USER_SESSION = 'pirlo_sesion';
-/** Solo se vuelve a la página de subir foto de una ficha. */
-export const SAFE_RETURN = /^\/club\/[a-z0-9-]{3,40}\/jugador\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/foto$/;
+/** «Mi cuenta»: vinculación automática del gamertag con las cuentas conectadas en Discord. */
+export const ACCOUNT_PATH = '/mi-cuenta';
+/** Cuentas de juego detectadas en el último inicio de sesión (solo para mostrarlas). */
+export const ACCOUNTS_SEEN = 'pirlo_cuentas';
+/** Solo se vuelve a la página de subir foto de una ficha o a «Mi cuenta». */
+export const SAFE_RETURN =
+  /^(\/club\/[a-z0-9-]{3,40}\/jugador\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/foto|\/mi-cuenta)$/;
 const SESSION_HOURS = 12;
 const SNOWFLAKE = /^\d{17,20}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -103,6 +109,16 @@ export function cookies(header: string | undefined): Record<string, string> {
 
 export const cookie = (name: string, value: string, maxAge: number, path = '/panel') =>
   `${name}=${value}; Path=${path}; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`;
+
+/** Cuentas de juego verificadas del usuario (scope "connections"); null si Discord no las da. */
+async function readConnections(doFetch: typeof fetch, accessToken: string): Promise<GamingAccount[] | null> {
+  const res = await doFetch('https://discord.com/api/v10/users/@me/connections', {
+    headers: { authorization: `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(5_000),
+  });
+  if (!res.ok) return null;
+  return gamingAccounts(await res.json().catch(() => null));
+}
 
 // ---------------------------------------------------------------------------
 // Rutas
@@ -184,6 +200,7 @@ export function registerPanelRoutes(app: Hono, deps: PanelDeps): void {
       return c.redirect('/panel?error=sesion', 303);
     }
     let userId: string | null = null;
+    let accessToken: string | null = null;
     try {
       const tokenRes = await doFetch('https://discord.com/api/v10/oauth2/token', {
         method: 'POST',
@@ -199,6 +216,7 @@ export function registerPanelRoutes(app: Hono, deps: PanelDeps): void {
       });
       const tok = (await tokenRes.json().catch(() => ({}))) as { access_token?: unknown };
       if (tokenRes.ok && typeof tok.access_token === 'string') {
+        accessToken = tok.access_token;
         const me = await doFetch('https://discord.com/api/v10/users/@me', {
           headers: { authorization: `Bearer ${tok.access_token}` },
           signal: AbortSignal.timeout(5_000),
@@ -210,11 +228,23 @@ export function registerPanelRoutes(app: Hono, deps: PanelDeps): void {
       deps.log?.error({ err }, 'Fallo en el inicio de sesión del panel');
     }
     if (!userId) return c.redirect('/panel?error=discord', 303);
-    // Inicio de sesión desde una ficha (subir foto): sesión de usuario, sin acceso al panel.
+    // Inicio de sesión desde una página pública (ficha o «Mi cuenta»): sesión de usuario, sin
+    // acceso al panel.
     if (SAFE_RETURN.test(back)) {
-      c.header('set-cookie', cookie(USER_SESSION, signSession(userSessionKey(secret), userId, now() + 2 * 3600_000), 2 * 3600, '/club'), {
+      c.header('set-cookie', cookie(USER_SESSION, signSession(userSessionKey(secret), userId, now() + 2 * 3600_000), 2 * 3600, '/'), {
         append: true,
       });
+      if (back === ACCOUNT_PATH && accessToken && deps.repos) {
+        // Cuentas de juego conectadas en Discord → gamertag vinculado en sus clubes.
+        const accounts = await readConnections(doFetch, accessToken).catch(() => null);
+        if (accounts) {
+          await autoLinkAccounts(deps.repos, userId, accounts, deps.log).catch((err: unknown) =>
+            deps.log?.error({ err }, 'Fallo en la vinculación automática'),
+          );
+        }
+        const seen = accounts ? Buffer.from(JSON.stringify(accounts)).toString('base64url') : 'x';
+        c.header('set-cookie', cookie(ACCOUNTS_SEEN, seen, 600, ACCOUNT_PATH), { append: true });
+      }
       return c.redirect(back, 303);
     }
     if (!deps.ownerIds.has(userId)) {

@@ -717,6 +717,57 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
       );
       return z.number().int().parse(n);
     },
+    async knowsGamertag(clubId, gamertag) {
+      // ilike sin comodines: se escapan % y _ (habituales en los gamertags).
+      const exact = gamertag.trim().replace(/[\\%_]/g, (ch) => `\\${ch}`);
+      if (!exact) return false;
+      const [fichas, ea, sesiones] = await Promise.all([
+        db.from('external_players').select('id', { count: 'exact', head: true }).eq('club_id', clubId).ilike('gamertag', exact),
+        db
+          .from('ea_match_players')
+          .select('match_id', { count: 'exact', head: true })
+          .eq('club_id', clubId)
+          .eq('side', 'propio')
+          .ilike('gamertag', exact),
+        db
+          .from('player_session_stats')
+          .select('id', { count: 'exact', head: true })
+          .eq('club_id', clubId)
+          .ilike('source_player_name', exact),
+      ]);
+      // Cada consulta se comprueba por separado (tipos distintos); cualquier error se propaga.
+      check(fichas);
+      check(ea);
+      check(sesiones);
+      return [fichas, ea, sesiones].some((r) => (r.count ?? 0) > 0);
+    },
+    async accountsOf(discordUserId) {
+      const rows = check(
+        await db
+          .from('club_memberships')
+          .select('club_id, player_id, gamertag, players!inner(discord_user_id), clubs!inner(slug, name, status, web_public)')
+          .eq('players.discord_user_id', discordUserId)
+          .is('left_at', null),
+      );
+      return z
+        .array(
+          z.object({
+            club_id: z.string().uuid(),
+            player_id: z.string().uuid(),
+            gamertag: z.string().nullable(),
+            clubs: z.object({ slug: z.string(), name: z.string(), status: z.string(), web_public: z.boolean() }),
+          }),
+        )
+        .parse(rows)
+        .map((r) => ({
+          clubId: r.club_id,
+          clubSlug: r.clubs.slug,
+          clubName: r.clubs.name,
+          clubPublic: r.clubs.web_public && r.clubs.status === 'activo',
+          playerId: r.player_id,
+          gamertag: r.gamertag,
+        }));
+    },
   };
 
   const sync: SyncRepository = {

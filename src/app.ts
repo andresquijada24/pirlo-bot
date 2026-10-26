@@ -2,7 +2,14 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { Hono } from 'hono';
 import { isDomainError } from './core/errors.js';
 import { parseIngest } from './providers/ea/ingest.js';
-import { loadClubPage, notFoundPage, renderClubPage, renderClubsDirectory } from './web/club-page.js';
+import {
+  loadClubPage,
+  loadTopScorers,
+  notFoundPage,
+  renderClubPage,
+  renderClubsDirectory,
+  renderScorersWidget,
+} from './web/club-page.js';
 import type { APIInteraction } from 'discord-api-types/v10';
 import type { Repositories } from './db/repositories/types.js';
 import { commandsByName, componentHandlers } from './discord/commands/index.js';
@@ -81,6 +88,22 @@ export function createApp(deps: AppDeps) {
     } catch (err) {
       deps.log?.error({ err }, 'No se pudo generar el directorio de clubes');
       return c.html(notFoundPage(), 500, PAGE_HEADERS);
+    }
+  });
+  // Goleadores reales para la página principal, que lo incrusta en un iframe del mismo origen.
+  const WIDGET_HEADERS = {
+    ...PAGE_HEADERS,
+    'content-security-policy':
+      "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; base-uri 'none'; form-action 'none'; frame-ancestors 'self'",
+  };
+  app.get('/widget/goleadores', async (c) => {
+    if (!deps.repos) return c.html(renderScorersWidget([]), 200, WIDGET_HEADERS);
+    try {
+      const scorers = await loadTopScorers(deps.repos, 5);
+      return c.html(renderScorersWidget(scorers), 200, { ...WIDGET_HEADERS, 'cache-control': 'public, max-age=300' });
+    } catch (err) {
+      deps.log?.error({ err }, 'No se pudo generar el ranking de goleadores');
+      return c.html(renderScorersWidget([]), 500, WIDGET_HEADERS);
     }
   });
   app.get('/club/:slug', async (c) => {

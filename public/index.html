@@ -297,6 +297,16 @@
         background: rgba(201, 211, 224, 0.18);
         align-self: center;
       }
+      .live {
+        display: block;
+        width: 100%;
+        height: 300px;
+        border: 0;
+        background: transparent;
+      }
+      .note a {
+        color: var(--blue-glow);
+      }
       .note {
         font-size: 13px;
         color: var(--muted);
@@ -515,13 +525,17 @@
             </div>
             <div class="cmd">/ranking goles temporada:actual</div>
             <div class="embed">
-              <h3>Ranking de goleadores</h3>
-              <div class="rank"><b>1</b><div class="ph"></div><span>—</span></div>
-              <div class="rank"><b>2</b><div class="ph"></div><span>—</span></div>
-              <div class="rank"><b>3</b><div class="ph"></div><span>—</span></div>
-              <div class="rank"><b>4</b><div class="ph"></div><span>—</span></div>
+              <iframe
+                class="live"
+                src="/widget/goleadores"
+                title="Ranking de goleadores de los clubes en PIRLO BOT"
+                loading="lazy"
+              ></iframe>
             </div>
-            <p class="note">Vista ilustrativa. Los datos reales vienen de la fuente de tu club.</p>
+            <p class="note">
+              Datos reales de la temporada actual de los clubes con página pública.
+              <a href="/clubes">Ver clubes</a>
+            </p>
           </div>
         </div>
 

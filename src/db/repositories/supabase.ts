@@ -452,6 +452,39 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
       const rows = check(await activeMemberships(clubId).order('joined_at'));
       return z.array(membershipRow).parse(rows).map(toMembership);
     },
+    async photo(clubId, playerId) {
+      const row = check(
+        await db
+          .from('club_memberships')
+          .select('photo_jpg')
+          .eq('club_id', clubId)
+          .eq('player_id', playerId)
+          .is('left_at', null)
+          .maybeSingle(),
+      );
+      return row ? z.object({ photo_jpg: z.string().nullable() }).parse(row).photo_jpg : null;
+    },
+    async withPhoto(clubId) {
+      const rows = check(
+        await db
+          .from('club_memberships')
+          .select('player_id')
+          .eq('club_id', clubId)
+          .is('left_at', null)
+          .not('photo_jpg', 'is', null),
+      );
+      return new Set(z.array(z.object({ player_id: z.string() })).parse(rows).map((r) => r.player_id));
+    },
+    async setPhoto(clubId, membershipId, jpgBase64, actorDiscordId) {
+      check(
+        await db.rpc('set_member_photo', {
+          p_club_id: clubId,
+          p_membership_id: membershipId,
+          p_jpg_base64: jpgBase64,
+          p_actor_discord_id: actorDiscordId,
+        }),
+      );
+    },
     async countActiveAdmins(clubId) {
       const res = await db
         .from('club_memberships')

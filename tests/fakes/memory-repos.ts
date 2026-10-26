@@ -49,6 +49,7 @@ export function createMemoryRepos() {
     /** Gamertag de cada ficha por club ("clubId:playerId"), como club_memberships.gamertag. */
     memberGamertags: new Map<string, string>(),
     crests: new Map<string, string>(),
+    photos: new Map<string, string>(),
     webPublic: new Set<string>(),
   };
 
@@ -215,6 +216,22 @@ export function createMemoryRepos() {
     },
 
     memberships: {
+      async photo(clubId, playerId) {
+        const m = activeIn(clubId).find((x) => x.playerId === playerId);
+        return m ? (state.photos.get(m.id) ?? null) : null;
+      },
+      async withPhoto(clubId) {
+        return new Set(activeIn(clubId).filter((m) => state.photos.has(m.id)).map((m) => m.playerId));
+      },
+      async setPhoto(clubId, membershipId, jpgBase64, actorDiscordId) {
+        const target = activeIn(clubId).find((m) => m.id === membershipId);
+        if (!target) throw conflict('Ese jugador no forma parte de la plantilla.');
+        const actor = activeIn(clubId).find((m) => m.discordUserId === actorDiscordId);
+        const allowed = target.discordUserId === actorDiscordId || actor?.role === 'admin' || actor?.role === 'dt';
+        if (!allowed) throw conflict('Solo el propio jugador o un admin/DT del club puede cambiar su foto.');
+        if (jpgBase64 === null) state.photos.delete(membershipId);
+        else state.photos.set(membershipId, jpgBase64);
+      },
       async findActiveByDiscordUser(clubId, discordUserId) {
         const m = activeIn(clubId).find((x) => x.discordUserId === discordUserId);
         return m ? strip(m) : null;

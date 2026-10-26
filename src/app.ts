@@ -169,11 +169,12 @@ export function createApp(deps: AppDeps) {
     const club = await deps.repos.clubs.findPublic(c.req.param('slug').toLowerCase()).catch(() => null);
     const photo = club ? await deps.repos.memberships.photo(club.id, id).catch(() => null) : null;
     if (!photo) return c.body(null, 404);
-    return c.body(Buffer.from(photo, 'base64'), 200, {
-      'content-type': 'image/jpeg',
-      'cache-control': 'public, max-age=60',
-      'x-content-type-options': 'nosniff',
-    });
+    // Misma dirección aunque cambie la foto: el navegador vuelve a preguntar siempre (no-cache) y,
+    // si la foto no cambió, recibe un 304 sin descargarla de nuevo.
+    const etag = `"${createHash('sha256').update(photo).digest('base64url').slice(0, 22)}"`;
+    const headers = { etag, 'cache-control': 'no-cache', 'x-content-type-options': 'nosniff' };
+    if (c.req.header('if-none-match') === etag) return c.body(null, 304, headers);
+    return c.body(Buffer.from(photo, 'base64'), 200, { 'content-type': 'image/jpeg', ...headers });
   });
   app.get('/club/:slug/escudo.png', async (c) => {
     if (!deps.repos) return c.body(null, 404);

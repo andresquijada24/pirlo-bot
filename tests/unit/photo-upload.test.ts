@@ -48,7 +48,13 @@ describe('subir la foto desde la web', () => {
     const own = await app.request(`/club/club-foto/jugador/${player.playerId}/foto`, {
       headers: { cookie: `pirlo_sesion=${sessionFor(PLAYER)}` },
     });
-    expect(await own.text()).toMatch('enctype="multipart/form-data"');
+    const ownHtml = await own.text();
+    expect(ownHtml).toMatch('enctype="multipart/form-data"');
+    // Marco para encuadrar la tarjeta: script propio (mismo origen) y vista previa local (blob:).
+    expect(ownHtml).toMatch('<script src="/foto.js" defer></script>');
+    expect(ownHtml).toMatch('name="recorte_w"');
+    expect(own.headers.get('content-security-policy')).toMatch("script-src 'self'");
+    expect(own.headers.get('content-security-policy')).toMatch('blob:');
     const other = await app.request(`/club/club-foto/jugador/${player.playerId}/foto`, {
       headers: { cookie: `pirlo_sesion=${sessionFor(OTHER)}` },
     });

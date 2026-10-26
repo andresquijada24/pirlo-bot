@@ -147,6 +147,15 @@ export const MIN_PASSES = 50;
 export const MIN_TACKLES = 20;
 export const MIN_RATED_MATCHES = 5;
 
+/**
+ * Acciones defensivas: entradas ganadas + intercepciones + bloqueos + despejes, sumando solo los
+ * datos que la fuente ofrece (EA solo da entradas). null si no hay ninguno.
+ */
+export function defensiveActions(t: PlayerTotals): number | null {
+  const parts = [t.tacklesMade, t.interceptions, t.blocks, t.clearances].filter((n): n is number => n !== null);
+  return parts.length ? parts.reduce((a, b) => a + b, 0) : null;
+}
+
 export const RANKING_METRICS = {
   goles: { label: 'Goles', value: (t) => t.goals },
   asistencias: { label: 'Asistencias', value: (t) => t.assists },
@@ -175,6 +184,7 @@ export const RANKING_METRICS = {
   tiros: { label: 'Tiros', value: (t) => t.shots },
   regates: { label: 'Regates', value: (t) => t.dribbles },
   paradas: { label: 'Paradas', value: (t) => t.saves },
+  defensa: { label: 'Acciones defensivas', value: defensiveActions },
 } satisfies Record<string, RankingMetric>;
 export type RankingMetricId = keyof typeof RANKING_METRICS;
 

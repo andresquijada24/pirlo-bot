@@ -217,6 +217,10 @@ describe('estadísticas detalladas de la plantilla', () => {
       passesAttempted: 75,
       tacklesMade: 3,
       tacklesAttempted: 6,
+      interceptions: null,
+      blocks: null,
+      clearances: null,
+      saves: null,
       avgRating: 7.25,
     });
   });
@@ -227,5 +231,14 @@ describe('estadísticas detalladas de la plantilla', () => {
     expect(html).toMatch('<th title="Goles por cada 100 tiros">Efect.</th>');
     expect(html).toMatch('<th>Errados</th>');
     expect(html).toMatch('<td>Total equipo</td>');
+    expect(html).toMatch('<th>Paradas</th>');
+    for (const top of ['Top goleador', 'Top asistidor', 'Top defensa', 'Top portero']) expect(html).toMatch(top);
+  });
+
+  it('acciones defensivas: suma solo lo que da la fuente', async () => {
+    const { defensiveActions } = await import('../../src/core/stats/service.js');
+    const t = { tacklesMade: 5, interceptions: null, blocks: 2, clearances: null } as never;
+    expect(defensiveActions(t)).toBe(7);
+    expect(defensiveActions({ tacklesMade: null, interceptions: null, blocks: null, clearances: null } as never)).toBeNull();
   });
 });

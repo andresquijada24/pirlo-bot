@@ -14,6 +14,7 @@ import { runEaRecaps } from '../src/jobs/ea-recaps.js';
 import { renderMatchCardSvg, svgToPng } from '../src/render/match-card.js';
 import { createGuildApi } from '../src/discord/onboarding.js';
 import { ownerIdsFrom } from '../src/core/platform.js';
+import { runAutoCrests } from '../src/jobs/auto-crests.js';
 
 /** Punto de entrada en Vercel. vercel.json reescribe /api/* hacia esta función. */
 const env = loadEnv();
@@ -67,6 +68,10 @@ const app = createApp({
     tick: repos
       ? async () => {
           const blockedGuilds = new Set(env.POSTING_BLOCKED_GUILDS?.split(',') ?? []);
+          // Escudos automáticos (ícono del servidor) para clubes sin escudo; nunca bloquea lo demás.
+          await runAutoCrests({ repos, api: createGuildApi(env.DISCORD_BOT_TOKEN, fetch, 5_000), log: logger }).catch(
+            (err: unknown) => logger.error({ err }, 'Fallo en los escudos automáticos'),
+          );
           const reminders = await runReminders({ repos, poster, blockedGuilds, log: logger });
           // Un fallo de EA no debe afectar a los recordatorios ya enviados.
           const ea = await runEaProcessing({ repos, log: logger }).catch((err: unknown) => {

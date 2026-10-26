@@ -361,6 +361,38 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
       const row = check(await db.from('clubs').select('crest_png').eq('id', clubId).maybeSingle());
       return row ? z.object({ crest_png: z.string().nullable() }).parse(row).crest_png : null;
     },
+    async withoutCrest(limit) {
+      const rows = z
+        .array(z.object({ id: z.string().uuid(), club_guilds: z.array(z.object({ guild_id: z.string() })) }))
+        .parse(
+          check(
+            await db
+              .from('clubs')
+              .select('id,club_guilds(guild_id)')
+              .is('crest_png', null)
+              .eq('status', 'activo')
+              .order('created_at', { ascending: true })
+              .limit(limit),
+          ),
+        );
+      const guildIds = [...new Set(rows.flatMap((r) => r.club_guilds.map((g) => g.guild_id)))];
+      if (guildIds.length === 0) return [];
+      const links = z
+        .array(z.object({ guild_id: z.string(), club_id: z.string() }))
+        .parse(check(await db.from('club_guilds').select('guild_id,club_id').in('guild_id', guildIds)));
+      const owners = new Map<string, Set<string>>();
+      for (const l of links) owners.set(l.guild_id, (owners.get(l.guild_id) ?? new Set()).add(l.club_id));
+      return rows.map((r) => ({
+        clubId: r.id,
+        guildIds: r.club_guilds.map((g) => g.guild_id).filter((g) => owners.get(g)?.size === 1),
+      }));
+    },
+    async setAutoCrest(clubId, pngBase64) {
+      const rows = check(
+        await db.from('clubs').update({ crest_png: pngBase64 }).eq('id', clubId).is('crest_png', null).select('id'),
+      );
+      return Array.isArray(rows) && rows.length > 0;
+    },
     async setCrest(clubId, pngBase64, actorDiscordId) {
       check(
         await db.rpc('set_club_crest', {

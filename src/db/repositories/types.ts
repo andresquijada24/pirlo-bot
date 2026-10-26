@@ -75,6 +75,13 @@ export interface ClubRepository {
   setWebsite(clubId: string, url: string | null, actorDiscordId: string): Promise<void>;
   /** Guarda el nombre de un servidor de Discord si aún no lo tenía (panel interno). */
   setGuildName(guildId: string, name: string): Promise<void>;
+  /**
+   * Clubes activos sin escudo, con los servidores de Discord que son solo suyos (los compartidos
+   * por varios clubes, p. ej. un servidor de pruebas multiclub, no representan a ninguno).
+   */
+  withoutCrest(limit: number): Promise<{ clubId: string; guildIds: string[] }[]>;
+  /** Guarda un escudo automático solo si el club sigue sin escudo. true si se guardó. */
+  setAutoCrest(clubId: string, pngBase64: string): Promise<boolean>;
   /** Escudo del club (PNG en base64) o null. Aparte de findById para no cargarlo siempre. */
   crest(clubId: string): Promise<string | null>;
   /** Guarda o quita (null) el escudo. Solo un admin del club (lo comprueba la base de datos). */

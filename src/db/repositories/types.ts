@@ -326,6 +326,23 @@ export interface ExternalPlayerRepository {
    * Lanza CONFLICT si el gamertag ya pertenece a otro jugador del club.
    */
   linkGamertag(clubId: string, playerId: string, gamertag: string, actorDiscordId: string): Promise<number>;
+  /**
+   * ¿Ha jugado alguien con ese gamertag en el club? (estadísticas de EA, fichas o sesiones del
+   * proveedor). Sin distinguir mayúsculas. Sirve para no vincular nombres que el club no conoce.
+   */
+  knowsGamertag(clubId: string, gamertag: string): Promise<boolean>;
+  /** Fichas activas de un usuario de Discord en todos los clubes (para «Mi cuenta»). */
+  accountsOf(discordUserId: string): Promise<DiscordAccountMembership[]>;
+}
+
+export interface DiscordAccountMembership {
+  clubId: string;
+  clubSlug: string;
+  clubName: string;
+  /** La página del club está publicada (la ficha se puede enlazar). */
+  clubPublic: boolean;
+  playerId: string;
+  gamertag: string | null;
 }
 
 export interface Repositories {

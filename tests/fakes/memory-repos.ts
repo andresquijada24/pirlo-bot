@@ -427,6 +427,31 @@ export function createMemoryRepos() {
         }
         return mine.length;
       },
+      async knowsGamertag(clubId, gamertag) {
+        const gt = gamertag.trim().toLowerCase();
+        return (
+          state.externalPlayers.some((e) => e.clubId === clubId && e.gamertag.toLowerCase() === gt) ||
+          state.sessionRows.some((r) => r.clubId === clubId && r.name.toLowerCase() === gt) ||
+          state.eaMatches.some(
+            (m) => m.clubId === clubId && m.players.some((p) => p.side === 'propio' && p.gamertag.toLowerCase() === gt),
+          )
+        );
+      },
+      async accountsOf(discordUserId) {
+        return state.memberships
+          .filter((m) => m.active && m.discordUserId === discordUserId)
+          .map((m) => {
+            const club = state.clubs.find((c) => c.id === m.clubId)!;
+            return {
+              clubId: m.clubId,
+              clubSlug: club.slug,
+              clubName: club.name,
+              clubPublic: state.webPublic.has(m.clubId) && club.status === 'activo',
+              playerId: m.playerId,
+              gamertag: state.memberGamertags.get(`${m.clubId}:${m.playerId}`) ?? null,
+            };
+          });
+      },
     },
 
     callups: {

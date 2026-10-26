@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { commandsByName, componentHandlers } from '../../src/discord/commands/index.js';
 import { routeInteraction, type RouterDeps } from '../../src/discord/router.js';
-import { CREST_SIZE, normalizeCrest } from '../../src/render/crest.js';
+import { clearDarkBackground, CREST_SIZE, normalizeCrest } from '../../src/render/crest.js';
 import { renderMatchCardSvg } from '../../src/render/match-card.js';
 import { createMemoryRepos } from '../fakes/memory-repos.js';
 import { MANAGE_GUILD, slash, str, textOf } from '../helpers/interactions.js';
@@ -27,6 +27,49 @@ describe('normalizeCrest', () => {
     let msg = '';
     await normalizeCrest(new TextEncoder().encode('<svg onload=alert(1)>')).catch((e: Error) => (msg = e.message));
     expect(msg).toMatch('no es una imagen válida');
+  });
+});
+
+describe('quitar el fondo oscuro', () => {
+  it('el negro unido al borde se vuelve transparente; lo oscuro del interior se conserva', () => {
+    // 5x5: fondo negro, anillo dorado y un punto negro dentro del anillo.
+    const w = 5;
+    const px = new Uint8Array(w * w * 4);
+    const set = (x: number, y: number, rgb: [number, number, number]) => {
+      px.set([...rgb, 255], (y * w + x) * 4);
+    };
+    for (let y = 0; y < w; y++) for (let x = 0; x < w; x++) set(x, y, [5, 5, 5]);
+    for (let y = 1; y <= 3; y++) for (let x = 1; x <= 3; x++) set(x, y, [230, 170, 20]);
+    set(2, 2, [0, 0, 0]);
+    set(0, 2, [60, 45, 5]); // resplandor tenue en el borde
+    clearDarkBackground(px, w, w);
+    const alpha = (x: number, y: number) => px[(y * w + x) * 4 + 3];
+    expect(alpha(0, 0)).toBe(0);
+    expect(alpha(2, 2)).toBe(255);
+    expect(alpha(1, 1)).toBe(255);
+    const glow = alpha(0, 2)!;
+    expect(glow > 0 && glow < 255).toBe(true);
+  });
+
+  it('con la opción, el PNG resultante tiene transparencia', async () => {
+    const { default: sharp } = await import('sharp');
+    const img = await sharp({ create: { width: 64, height: 64, channels: 3, background: { r: 0, g: 0, b: 0 } } })
+      .composite([
+        {
+          input: await sharp({ create: { width: 20, height: 20, channels: 3, background: { r: 240, g: 180, b: 0 } } })
+            .png()
+            .toBuffer(),
+          top: 22,
+          left: 22,
+        },
+      ])
+      .jpeg()
+      .toBuffer();
+    const b64 = await normalizeCrest(new Uint8Array(img), { removeDarkBackground: true });
+    const { data } = await sharp(Buffer.from(b64, 'base64')).raw().ensureAlpha().toBuffer({ resolveWithObject: true });
+    expect(data[3]).toBe(0); // esquina transparente
+    const center = ((CREST_SIZE / 2) * CREST_SIZE + CREST_SIZE / 2) * 4;
+    expect(data[center + 3]).toBe(255);
   });
 });
 

@@ -162,6 +162,12 @@ export const clubCommand: SlashCommand = {
             description: 'PNG o JPG del escudo, mejor cuadrado y con fondo transparente',
             required: false,
           },
+          {
+            type: OT.Boolean,
+            name: 'quitar_fondo',
+            description: 'Vuelve transparente el fondo oscuro de la imagen (p. ej. fondo negro)',
+            required: false,
+          },
           { type: OT.Boolean, name: 'quitar', description: 'Quita el escudo actual', required: false },
           clubOption,
         ],
@@ -356,7 +362,11 @@ export const clubCommand: SlashCommand = {
         const bytes = await ctx.downloadBytes(file.url).catch((err: unknown) => {
           throw validation(err instanceof DownloadError ? err.message : 'No se pudo leer la imagen.');
         });
-        await setClubCrest(ctx.repos, c, await normalizeCrest(bytes));
+        await setClubCrest(
+          ctx.repos,
+          c,
+          await normalizeCrest(bytes, { removeDarkBackground: optBoolean(ctx.command, 'quitar_fondo') === true }),
+        );
         return ok(
           `Escudo de **${escapeMd(c.club.name)}** guardado ✅. Aparecerá en las próximas imágenes de partido.`,
         );

@@ -156,7 +156,7 @@ export function welcomeMessage(name: string, slug: string, channels: ChannelPurp
     '',
     '**Cuando esté aprobado (opcional):**',
     '• `/club ea vincular` para conectar tu club de EA SPORTS FC.',
-    '• `/club escudo` para subir el escudo y `/club web activar:true` para publicar la página del club.',
+    '• `/club escudo` para subir el escudo y `/club sitio` para enlazar vuestra web. La página del club en PIRLO se publica sola (`/club web activar:No` la retira).',
     '• Los jugadores se unen con `/vincular`; tú apruebas con `/solicitudes`.',
     '',
     `Identificador del club: \`${slug}\`.`,

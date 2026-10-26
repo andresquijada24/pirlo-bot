@@ -53,6 +53,11 @@ export interface AppDeps {
   onboarding?: { api: GuildApi; blockedGuilds: ReadonlySet<string>; ownerIds: ReadonlySet<string>; deadlineMs?: number };
   cron?: {
     secret: string | undefined;
+    /**
+     * Huella SHA-256 (hex) de la clave del programador de Supabase, guardada en la base de datos.
+     * La clave en sí solo existe cifrada en Supabase Vault.
+     */
+    schedulerKeyHash?: (() => Promise<string | null>) | null;
     sync: (() => Promise<SyncResult>) | null;
     /** Recordatorios y procesamiento de partidos de EA; null si no hay base de datos. */
     tick?:
@@ -290,19 +295,33 @@ export function createApp(deps: AppDeps) {
    * Protegida con `Authorization: Bearer <CRON_SECRET>`. Nunca devuelve secretos ni datos de
    * jugadores: solo conteos y el estado.
    */
-  /** null si la petición está autorizada; si no, la respuesta de error. */
-  const cronAuth = (header: string | undefined) => {
+  /**
+   * null si la petición está autorizada; si no, la respuesta de error. Vale CRON_SECRET (workflow
+   * de GitHub) o la clave del programador de Supabase, comparada por su huella guardada.
+   */
+  let keyCache: { hash: string | null; until: number } | null = null;
+  const cronAuth = async (header: string | undefined) => {
     const secret = deps.cron?.secret;
-    if (!secret) return { body: { error: 'CRON_SECRET no configurado' }, status: 503 as const };
     const auth = header ?? '';
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-    if (!token || !sameSecret(token, secret)) return { body: { error: 'No autorizado' }, status: 401 as const };
-    return null;
+    if (token && secret && sameSecret(token, secret)) return null;
+    if (token && deps.cron?.schedulerKeyHash) {
+      if (!keyCache || keyCache.until < Date.now()) {
+        const hash = await deps.cron.schedulerKeyHash().catch(() => null);
+        keyCache = { hash, until: Date.now() + 5 * 60_000 };
+      }
+      const given = createHash('sha256').update(token).digest('hex');
+      if (keyCache.hash && /^[0-9a-f]{64}$/.test(keyCache.hash) && sameSecret(given, keyCache.hash)) return null;
+    }
+    if (!secret && !deps.cron?.schedulerKeyHash) {
+      return { body: { error: 'CRON_SECRET no configurado' }, status: 503 as const };
+    }
+    return { body: { error: 'No autorizado' }, status: 401 as const };
   };
 
   // Recordatorios de convocatorias (lo llama el mismo workflow programado).
   app.post('/api/cron/tick', async (c) => {
-    const denied = cronAuth(c.req.header('authorization'));
+    const denied = await cronAuth(c.req.header('authorization'));
     if (denied) return c.json(denied.body, denied.status);
     const tick = deps.cron?.tick;
     if (!tick) return c.json({ status: 'omitida', message: 'Base de datos no configurada' });
@@ -348,7 +367,7 @@ export function createApp(deps: AppDeps) {
   });
 
   app.post('/api/cron/sync', async (c) => {
-    const denied = cronAuth(c.req.header('authorization'));
+    const denied = await cronAuth(c.req.header('authorization'));
     if (denied) return c.json(denied.body, denied.status);
 
     const sync = deps.cron?.sync;

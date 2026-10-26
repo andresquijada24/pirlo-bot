@@ -854,6 +854,12 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
       );
       return z.enum(['insertada', 'actualizada', 'sin_cambios']).parse(r);
     },
+    async schedulerKeyHash() {
+      const row = check(
+        await db.from('scheduler_keys').select('token_hash').eq('name', 'supabase').maybeSingle(),
+      );
+      return row ? z.object({ token_hash: z.string() }).parse(row).token_hash : null;
+    },
     async lastMatchVersion(clubId, provider) {
       const row = check(
         await db

@@ -115,6 +115,34 @@ describe('POST /api/cron/sync', () => {
   });
 });
 
+describe('programador de Supabase', () => {
+  it('acepta su clave (comparada por la huella guardada) en sync y tick; rechaza otras', async () => {
+    const { createHash } = await import('node:crypto');
+    const KEY = 'clave-del-programador-de-prueba-0123456789';
+    const hash = createHash('sha256').update(KEY).digest('hex');
+    let syncs = 0;
+    const app = createApp({
+      discordPublicKey: '0'.repeat(64),
+      repos: null,
+      cron: {
+        secret: undefined,
+        schedulerKeyHash: async () => hash,
+        sync: async () => (syncs++, { status: 'ok' }),
+        tick: async () => ({ sent: 0, skipped: 0, failed: 0 }),
+      },
+    });
+    const call = (path: string, token?: string) =>
+      app.request(path, { method: 'POST', headers: token ? { authorization: `Bearer ${token}` } : {} });
+    expect((await call('/api/cron/sync', KEY)).status).toBe(200);
+    expect((await call('/api/cron/tick', KEY)).status).toBe(200);
+    expect((await call('/api/cron/sync', 'otra-clave')).status).toBe(401);
+    // La huella en sí no sirve como clave.
+    expect((await call('/api/cron/sync', hash)).status).toBe(401);
+    expect((await call('/api/cron/sync')).status).toBe(401);
+    expect(syncs).toBe(1);
+  });
+});
+
 describe('POST /api/cron/tick', () => {
   const SECRET = 'secreto-de-prueba-largo';
   const make = (tick: (() => Promise<{ sent: number; skipped: number; failed: number }>) | null) =>

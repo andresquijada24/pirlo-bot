@@ -61,6 +61,7 @@ const app = createApp({
   },
   cron: {
     secret: env.CRON_SECRET,
+    schedulerKeyHash: repos ? () => repos.sync.schedulerKeyHash() : null,
     sync:
       repos && maritimo
         ? () => runSync({ repo: repos.sync, provider: maritimo.provider, clubId: maritimo.clubId, log: logger })

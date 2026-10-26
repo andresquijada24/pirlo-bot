@@ -322,3 +322,33 @@ describe('/club ea importar', () => {
     expect(textOf(await importar(OWNER))).toMatch('El archivo no es el de EA');
   });
 });
+
+describe('estadísticas de EA en /ranking y /stats', () => {
+  const OWNER = { userId: '800000000000000001', name: 'Dueño', permissions: MANAGE_GUILD };
+  const PLAYER = { userId: '800000000000000003', name: 'Jugador' };
+
+  it('cuentan los propios vinculados por gamertag; nunca los rivales', async () => {
+    const env = createMemoryRepos();
+    const deps: RouterDeps = { commands: commandsByName, components: componentHandlers, repos: env.repos };
+    const run = (i: Parameters<typeof routeInteraction>[0]) => routeInteraction(i, deps);
+    await run(slash(OWNER, 'club', 'registrar', [str('nombre', 'Club Prueba'), str('identificador', 'club-prueba')]));
+    const clubId = env.state.clubs[0]!.id;
+    const member = env.addMember(clubId, PLAYER.userId, 'jugador');
+    await env.repos.ea.link(clubId, 'common-gen5', OURS, OWNER.userId);
+    await env.repos.eaCapture.store([cached()]);
+    await runEaProcessing({ repos: env.repos });
+
+    const ranking = () => run(slash(PLAYER, 'ranking', null, [str('estadistica', 'goles'), str('temporada', 'todas')]));
+    // Sin vincular: aparece con su gamertag de EA.
+    expect(textOf(await ranking())).toMatch('JugadorFicticio');
+    expect(textOf(await ranking())).not.toMatch('RivalFicticio');
+
+    await env.repos.externalPlayers.linkGamertag(clubId, member.playerId, 'JugadorFicticio', OWNER.userId);
+    const linked = textOf(await ranking());
+    expect(linked).toMatch(member.displayName);
+    expect(linked).not.toMatch('RivalFicticio');
+    const stats = textOf(await run(slash(PLAYER, 'stats', null, [str('temporada', 'todas')])));
+    expect(stats).toMatch('Goles');
+    expect(stats).toMatch('2');
+  });
+});

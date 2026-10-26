@@ -83,6 +83,10 @@ Todos implementan el contrato `StatsProvider` de `src/providers/types.ts`.
   (403 en otro caso) en `ea_match_cache`.
 - **Procesamiento**: la tarea programada (`/api/cron/tick`) convierte la caché en `ea_matches` y
   `ea_match_players` de cada club (`src/providers/ea/matches.ts`). Datos ausentes = `NULL`.
+- **Estadísticas**: `v_ea_player_season_stats` convierte los partidos procesados (solo el lado
+  propio) en filas como las de las sesiones, así que `/stats` y `/ranking` suman EA y los demás
+  proveedores. El jugador se reconoce por el gamertag de su ficha en ese club (`/plantilla
+  gamertag`); sin coincidencia aparece con su gamertag de EA. Temporada = fecha local del partido.
 - **Rivales**: nombre, marcador, gamertags y estadísticas se guardan solo dentro del club que jugó
   el partido; nunca entran en rankings ni estadísticas de la plantilla, y sus gamertags no se
   muestran en páginas públicas.

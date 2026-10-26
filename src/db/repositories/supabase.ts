@@ -498,23 +498,32 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
   const stats: StatsRepository = {
     async sessionRows(clubId, seasonId) {
       const out: SessionStatRow[] = [];
-      // Se pagina: PostgREST limita el número de filas por respuesta.
-      for (let from = 0; ; from += PAGE) {
-        let q = db
-          .from('v_player_session_season_stats')
-          .select(SESSION_STAT_COLUMNS)
-          .eq('club_id', clubId)
-          .order('source_player_id')
-          .order('season_id', { nullsFirst: true })
-          .order('player_id', { nullsFirst: true })
-          .range(from, from + PAGE - 1);
-        if (seasonId) q = q.eq('season_id', seasonId);
-        const rows = z.array(sessionStatRow).parse(check(await q));
-        out.push(...rows.map(toSessionStatRow));
-        if (rows.length < PAGE) return out;
+      // Proveedores por sesión (Marítimo…) y partidos de EA procesados (solo el lado propio).
+      for (const view of ['v_player_session_season_stats', 'v_ea_player_season_stats']) {
+        out.push(...(await statRowsFrom(view, clubId, seasonId)));
       }
+      return out;
     },
   };
+
+  async function statRowsFrom(view: string, clubId: string, seasonId: string | null): Promise<SessionStatRow[]> {
+    const out: SessionStatRow[] = [];
+    // Se pagina: PostgREST limita el número de filas por respuesta.
+    for (let from = 0; ; from += PAGE) {
+      let q = db
+        .from(view)
+        .select(SESSION_STAT_COLUMNS)
+        .eq('club_id', clubId)
+        .order('source_player_id')
+        .order('season_id', { nullsFirst: true })
+        .order('player_id', { nullsFirst: true })
+        .range(from, from + PAGE - 1);
+      if (seasonId) q = q.eq('season_id', seasonId);
+      const rows = z.array(sessionStatRow).parse(check(await q));
+      out.push(...rows.map(toSessionStatRow));
+      if (rows.length < PAGE) return out;
+    }
+  }
 
   const externalPlayers: ExternalPlayerRepository = {
     async linkGamertag(clubId, playerId, gamertag, actorDiscordId) {

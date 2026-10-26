@@ -66,7 +66,7 @@ describe('página web del club', () => {
     expect(html).toMatch('JugadorFicticio');
     expect(html).toMatch('background:#db1012;border-color:#f2f2f2;color:#ffffff');
     expect(html).not.toMatch('GamertagRival');
-    expect(html).not.toMatch('<script');
+    expect(html).not.toMatch('<script>'); // solo el aviso de actualización (/update.js)
     expect(res.headers.get('content-security-policy')).toMatch("default-src 'none'");
     // Navegación: volver al directorio y casita al menú principal.
     expect(html).toMatch('href="/clubes"');

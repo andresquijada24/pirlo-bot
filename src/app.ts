@@ -18,6 +18,7 @@ import { routeInteraction } from './discord/router.js';
 import { verifyDiscordRequest } from './discord/verify.js';
 import { onboardGuild, type GuildApi } from './discord/onboarding.js';
 import { registerPanelRoutes, type PanelDeps } from './web/panel.js';
+import { currentVersion } from './web/version.js';
 import type { SyncResult } from './sync/engine.js';
 import type { ReminderResult } from './jobs/reminders.js';
 import type { EaProcessingResult } from './jobs/ea-processing.js';
@@ -77,13 +78,18 @@ export function createApp(deps: AppDeps) {
 
   app.get('/api/health', (c) => c.json({ ok: true, service: 'pirlo-bot' }));
 
+  // Versión publicada: la consulta el aviso «Hay una actualización» de las páginas.
+  app.get('/api/version', (c) =>
+    c.json({ version: currentVersion() }, 200, { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' }),
+  );
+
   /*
-   * Página pública de un club (solo si un admin la activó con /club web). HTML sin JavaScript;
-   * la política de seguridad solo permite estilos en línea e imágenes propias.
+   * Página pública de un club (solo si un admin la activó con /club web). HTML sin JavaScript
+   * propio salvo /update.js (aviso de actualización, mismo origen); estilos en línea e imágenes propias.
    */
   const PAGE_HEADERS = {
     'content-security-policy':
-      "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+      "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
     'x-content-type-options': 'nosniff',
     'referrer-policy': 'no-referrer',
   };

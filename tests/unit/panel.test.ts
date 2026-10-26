@@ -75,7 +75,7 @@ describe('panel interno', () => {
     expect(res.status).toBe(200);
     expect(html).toMatch('Iniciar sesión con Discord');
     expect(html).not.toMatch(SECRET);
-    expect(html).not.toMatch('<script');
+    expect(html).not.toMatch('<script>'); // solo el aviso de actualización (/update.js)
     expect(res.headers.get('cache-control')).toBe('no-store');
     expect(res.headers.get('content-security-policy')).toMatch("frame-ancestors 'none'");
   });

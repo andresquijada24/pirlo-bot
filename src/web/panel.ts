@@ -3,6 +3,7 @@ import type { Hono } from 'hono';
 import type { Club } from '../core/types.js';
 import type { AdminClubRow, Repositories } from '../db/repositories/types.js';
 import type { GuildApi } from '../discord/onboarding.js';
+import { currentVersion, updateTags } from './version.js';
 
 /**
  * Panel interno de PIRLO BOT (/panel): solo para los dueños del proyecto.
@@ -37,7 +38,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 const HEADERS = {
   'content-security-policy':
-    "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+    "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
   'x-content-type-options': 'nosniff',
   'referrer-policy': 'no-referrer',
   'cache-control': 'no-store',
@@ -324,8 +325,8 @@ function page(title: string, body: string): string {
   return `<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>${esc(title)} · PIRLO BOT</title>
-<meta name="theme-color" content="#020617"><link rel="icon" href="/favicon.png"><style>${CSS}</style></head>
-<body><main class="wrap">${body}</main></body></html>`;
+<meta name="theme-color" content="#020617"><link rel="icon" href="/favicon.png"><style>${CSS}</style>${updateTags(currentVersion()).meta}</head>
+<body><main class="wrap">${body}</main>${updateTags(currentVersion()).script}</body></html>`;
 }
 
 const notice = (text: string) =>

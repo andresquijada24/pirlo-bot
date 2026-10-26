@@ -2,6 +2,7 @@ import { aggregate, rank, type PlayerTotals, type RankingEntry } from '../core/s
 import type { Club, Season } from '../core/types.js';
 import type { EaMatchSummary, Repositories } from '../db/repositories/types.js';
 import { initials } from '../render/match-card.js';
+import { currentVersion, updateTags } from './version.js';
 
 /**
  * Página web pública de un club (/club/<identificador>). Solo existe si un admin la activó.
@@ -260,7 +261,7 @@ export function renderClubPage(d: ClubPageData): string {
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(`Resultados y estadísticas de ${club.name} en EA SPORTS FC Pro Clubs.`)}">
 <meta property="og:title" content="${esc(title)}"><meta name="theme-color" content="#020617">
-<link rel="icon" href="/favicon.png"><style>${CSS}</style></head>
+<link rel="icon" href="/favicon.png"><style>${CSS}</style>${updateTags(currentVersion()).meta}</head>
 <body><main class="wrap">
 ${navBar({ href: '/clubes', label: 'Volver a clubes' })}
 <header class="hero">${crest}<div><h1>${esc(club.name)}</h1>
@@ -274,7 +275,7 @@ ${navBar({ href: '/clubes', label: 'Volver a clubes' })}
 <h2>Líderes</h2><div class="leaders">${leaders}</div>
 <h2>Plantilla</h2>${players}
 <footer><img src="/logo.png" alt="">Página de ${esc(club.name)} en <a href="/">PIRLO BOT</a> · datos de EA SPORTS FC Pro Clubs importados por el club · — = sin dato</footer>
-</main></body></html>`;
+</main>${updateTags(currentVersion()).script}</body></html>`;
 }
 
 /** Directorio de clubes con la página publicada. */
@@ -313,11 +314,11 @@ ${navBar({ href: '/', label: 'Volver' })}
 <div class="sub">Clubes de EA SPORTS FC Pro Clubs que publicaron su página en PIRLO BOT.</div>
 <h2>Páginas publicadas</h2><div class="clubs">${items}</div>
 <footer>Cada club decide si publica su página. <a href="/">Volver a PIRLO BOT</a></footer>
-</main></body></html>`;
+</main>${updateTags(currentVersion()).script}</body></html>`;
 }
 
 export function notFoundPage(): string {
-  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Club no encontrado · PIRLO BOT</title><style>${CSS}</style></head><body><main class="wrap">${navBar({ href: '/clubes', label: 'Ver clubes' })}<div style="text-align:center;padding-top:60px"><h1>Club no encontrado</h1><p class="sub">Esta página no existe o el club no la ha publicado.</p><p><a href="/">Volver a PIRLO BOT</a></p></div></main></body></html>`;
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Club no encontrado · PIRLO BOT</title><style>${CSS}</style></head><body><main class="wrap">${navBar({ href: '/clubes', label: 'Ver clubes' })}<div style="text-align:center;padding-top:60px"><h1>Club no encontrado</h1><p class="sub">Esta página no existe o el club no la ha publicado.</p><p><a href="/">Volver a PIRLO BOT</a></p></div></main>${updateTags(currentVersion()).script}</body></html>`;
 }
 
 // ---------------------------------------------------------------------------

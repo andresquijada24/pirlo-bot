@@ -36,7 +36,22 @@ export interface RegisterClubInput {
   adminDisplayName: string;
 }
 
+/** Fila del panel interno de PIRLO BOT (todos los clubes; solo el dueño la ve). */
+export interface AdminClubRow {
+  id: string;
+  slug: string;
+  name: string;
+  status: Club['status'];
+  createdAt: string;
+  webPublic: boolean;
+  guilds: { id: string; name: string | null }[];
+  members: number;
+  eaLinked: boolean;
+}
+
 export interface ClubRepository {
+  /** Todos los clubes con su resumen, para el panel interno (más recientes primero). */
+  listAdmin(): Promise<AdminClubRow[]>;
   listByGuild(guildId: string): Promise<Club[]>;
   register(input: RegisterClubInput): Promise<{ clubId: string; membershipId: string }>;
   setTimezone(clubId: string, timezone: string): Promise<void>;

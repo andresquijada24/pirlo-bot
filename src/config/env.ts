@@ -13,6 +13,8 @@ const EnvSchema = z.object({
   DISCORD_BOT_TOKEN: z.string().min(1),
   /** Dueños de PIRLO BOT (IDs de Discord separados por comas): aprueban los clubes nuevos. */
   PIRLO_OWNER_DISCORD_IDS: z.string().optional(),
+  /** Client Secret de OAuth2 (inicio de sesión del panel interno). Solo en el servidor. */
+  DISCORD_CLIENT_SECRET: z.string().min(16).optional(),
   DISCORD_DEV_GUILD_ID: z.string().regex(/^\d+$/).optional(),
 
   SUPABASE_URL: z.string().url().optional(),

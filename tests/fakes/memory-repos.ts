@@ -77,6 +77,19 @@ export function createMemoryRepos() {
         const c = state.clubs.find((x) => x.slug === slug && state.webPublic.has(x.id) && x.status === 'activo');
         return c ? { ...c } : null;
       },
+      async listAdmin() {
+        return [...state.clubs].reverse().map((c) => ({
+          id: c.id,
+          slug: c.slug,
+          name: c.name,
+          status: c.status,
+          createdAt: '2026-10-26T00:00:00.000Z',
+          webPublic: state.webPublic.has(c.id),
+          guilds: state.clubGuilds.filter((g) => g.clubId === c.id).map((g) => ({ id: g.guildId, name: null })),
+          members: activeIn(c.id).length,
+          eaLinked: state.eaLinks.some((l) => l.clubId === c.id),
+        }));
+      },
       async setStatus(clubId, status) {
         const c = state.clubs.find((x) => x.id === clubId);
         if (!c) throw conflict('Club no encontrado.');

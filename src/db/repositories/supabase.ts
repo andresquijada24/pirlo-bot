@@ -236,6 +236,44 @@ const CALLUP_GRACE_MS = 3 * 60 * 60 * 1000;
 
 export function createSupabaseRepositories(db: SupabaseClient): Repositories {
   const clubs: ClubRepository = {
+    async listAdmin() {
+      const rows = check(
+        await db
+          .from('clubs')
+          .select(
+            'id,slug,name,status,created_at,web_public,club_guilds(guild_id,guilds(name)),club_memberships(left_at),club_ea_links(club_id)',
+          )
+          .order('created_at', { ascending: false })
+          .limit(500),
+      );
+      const row = z.object({
+        id: z.string().uuid(),
+        slug: z.string(),
+        name: z.string(),
+        status: clubRow.shape.status,
+        created_at: z.string(),
+        web_public: z.boolean(),
+        club_guilds: z.array(
+          z.object({ guild_id: z.string(), guilds: z.object({ name: z.string().nullable() }).nullable() }),
+        ),
+        club_memberships: z.array(z.object({ left_at: z.string().nullable() })),
+        club_ea_links: z.union([z.array(z.object({ club_id: z.string() })), z.object({ club_id: z.string() }), z.null()]),
+      });
+      return z
+        .array(row)
+        .parse(rows)
+        .map((r) => ({
+          id: r.id,
+          slug: r.slug,
+          name: r.name,
+          status: r.status,
+          createdAt: r.created_at,
+          webPublic: r.web_public,
+          guilds: r.club_guilds.map((g) => ({ id: g.guild_id, name: g.guilds?.name ?? null })),
+          members: r.club_memberships.filter((m) => m.left_at === null).length,
+          eaLinked: Array.isArray(r.club_ea_links) ? r.club_ea_links.length > 0 : r.club_ea_links !== null,
+        }));
+    },
     async listByGuild(guildId) {
       const rows = check(
         await db.from('club_guilds').select(`clubs(${CLUB_COLUMNS})`).eq('guild_id', guildId),

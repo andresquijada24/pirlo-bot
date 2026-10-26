@@ -17,6 +17,7 @@ import type { ComponentHandler, SlashCommand } from './discord/commands/types.js
 import { routeInteraction } from './discord/router.js';
 import { verifyDiscordRequest } from './discord/verify.js';
 import { onboardGuild, type GuildApi } from './discord/onboarding.js';
+import { registerPanelRoutes, type PanelDeps } from './web/panel.js';
 import type { SyncResult } from './sync/engine.js';
 import type { ReminderResult } from './jobs/reminders.js';
 import type { EaProcessingResult } from './jobs/ea-processing.js';
@@ -40,6 +41,8 @@ export interface AppDeps {
   download?: Downloader;
   downloadBytes?: BinaryDownloader;
   /** Alta automática al instalar el bot (eventos webhook de Discord). */
+  /** Panel interno (/panel). Sin él, la ruta no existe. */
+  panel?: Omit<PanelDeps, 'repos' | 'log'>;
   onboarding?: { api: GuildApi; blockedGuilds: ReadonlySet<string>; ownerIds: ReadonlySet<string>; deadlineMs?: number };
   cron?: {
     secret: string | undefined;
@@ -133,6 +136,10 @@ export function createApp(deps: AppDeps) {
       'x-content-type-options': 'nosniff',
     });
   });
+
+  if (deps.panel) {
+    registerPanelRoutes(app, { ...deps.panel, repos: deps.repos ?? null, ...(deps.log ? { log: deps.log } : {}) });
+  }
 
   app.post('/api/interactions', async (c) => {
     const body = await c.req.text();

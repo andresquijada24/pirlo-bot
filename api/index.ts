@@ -46,6 +46,13 @@ const app = createApp({
   download: createDiscordDownloader(),
   downloadBytes: createDiscordBinaryDownloader(),
   eaBridgeToken: env.EA_BRIDGE_TOKEN,
+  panel: {
+    ownerIds: ownerIdsFrom(env.PIRLO_OWNER_DISCORD_IDS),
+    clientId: env.DISCORD_APPLICATION_ID,
+    clientSecret: env.DISCORD_CLIENT_SECRET,
+    origin: 'https://pirlo-bot.vercel.app',
+    api: createGuildApi(env.DISCORD_BOT_TOKEN),
+  },
   onboarding: {
     api: createGuildApi(env.DISCORD_BOT_TOKEN),
     blockedGuilds: new Set(env.POSTING_BLOCKED_GUILDS?.split(',') ?? []),

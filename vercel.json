@@ -17,6 +17,14 @@
     {
       "source": "/widget/(.*)",
       "destination": "/api"
+    },
+    {
+      "source": "/panel",
+      "destination": "/api"
+    },
+    {
+      "source": "/panel/(.*)",
+      "destination": "/api"
     }
   ],
   "functions": {

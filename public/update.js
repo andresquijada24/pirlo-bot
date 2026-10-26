@@ -33,52 +33,87 @@
 
   function show() {
     shown = true;
-    var bar = document.createElement('div');
-    bar.setAttribute('role', 'status');
-    bar.setAttribute('aria-live', 'polite');
-    var s = bar.style;
-    s.position = 'fixed';
-    s.left = '50%';
-    s.bottom = '20px';
-    s.transform = 'translateX(-50%)';
-    s.zIndex = '2147483647';
+    // Capa que oscurece la página y, en el centro, la tarjeta con el botón.
+    var overlay = document.createElement('div');
+    var o = overlay.style;
+    o.position = 'fixed';
+    o.inset = '0';
+    o.zIndex = '2147483647';
+    o.display = 'flex';
+    o.alignItems = 'center';
+    o.justifyContent = 'center';
+    o.padding = '16px';
+    o.background = 'rgba(2,6,23,.72)';
+
+    var card = document.createElement('div');
+    card.setAttribute('role', 'alertdialog');
+    card.setAttribute('aria-live', 'assertive');
+    card.setAttribute('aria-label', 'Actualizaci\u00F3n disponible');
+    var s = card.style;
     s.display = 'flex';
+    s.flexDirection = 'column';
     s.alignItems = 'center';
-    s.gap = '14px';
-    s.maxWidth = 'calc(100% - 32px)';
-    s.padding = '12px 14px 12px 18px';
-    s.borderRadius = '14px';
+    s.gap = '16px';
+    s.width = '100%';
+    s.maxWidth = '360px';
+    s.padding = '26px 22px';
+    s.borderRadius = '18px';
     s.background = '#0f172a';
     s.border = '1px solid #38bdf8';
-    s.boxShadow = '0 10px 30px rgba(0,0,0,.45)';
+    s.boxShadow = '0 20px 60px rgba(0,0,0,.55)';
     s.color = '#f8fafc';
-    s.font = '600 15px/1.3 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
+    s.textAlign = 'center';
+    s.font = '600 17px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
 
-    var text = document.createElement('span');
-    text.textContent = '\uD83D\uDD04 Hay una actualizaci\u00F3n de PIRLO BOT';
+    var icon = document.createElement('div');
+    icon.textContent = '\uD83D\uDD04';
+    icon.style.fontSize = '34px';
+
+    var text = document.createElement('div');
+    text.textContent = 'Hay una actualizaci\u00F3n de PIRLO BOT';
 
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.textContent = 'Actualizar';
     var b = btn.style;
     b.font = 'inherit';
-    b.fontWeight = '700';
-    b.padding = '8px 14px';
+    b.fontWeight = '800';
+    b.fontSize = '17px';
+    b.width = '100%';
+    b.padding = '13px 18px';
     b.border = '0';
-    b.borderRadius = '10px';
+    b.borderRadius = '12px';
     b.background = '#38bdf8';
     b.color = '#020617';
     b.cursor = 'pointer';
-    b.flex = 'none';
     btn.addEventListener('click', function () {
       btn.disabled = true;
       btn.textContent = 'Actualizando\u2026';
       window.location.reload();
     });
 
-    bar.appendChild(text);
-    bar.appendChild(btn);
-    document.body.appendChild(bar);
+    var later = document.createElement('button');
+    later.type = 'button';
+    later.textContent = 'M\u00E1s tarde';
+    var l = later.style;
+    l.font = 'inherit';
+    l.fontSize = '14px';
+    l.fontWeight = '600';
+    l.border = '0';
+    l.background = 'transparent';
+    l.color = '#94a3b8';
+    l.cursor = 'pointer';
+    later.addEventListener('click', function () {
+      overlay.remove();
+    });
+
+    card.appendChild(icon);
+    card.appendChild(text);
+    card.appendChild(btn);
+    card.appendChild(later);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+    btn.focus();
   }
 
   check();

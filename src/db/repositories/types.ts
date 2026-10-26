@@ -129,6 +129,18 @@ export interface ChannelRepository {
   list(clubId: string): Promise<{ purpose: ChannelPurpose; channelId: string; guildId: string }[]>;
 }
 
+/** Mensajes de Our Pro Club ya procesados (espejo desde el Discord de cada club). */
+export interface OurProClubRepository {
+  /** Clubes con canal de Our Pro Club configurado. */
+  channels(): Promise<{ clubId: string; guildId: string; channelId: string }[]>;
+  /** Id del mensaje más reciente procesado (null: nunca se leyó el canal). */
+  latest(clubId: string): Promise<string | null>;
+  record(
+    clubId: string,
+    rows: { messageId: string; kind: 'partido' | 'resumen' | 'otro'; postedAt: string }[],
+  ): Promise<void>;
+}
+
 export interface SeasonRepository {
   create(clubId: string, name: string, makeCurrent: boolean, actorDiscordId: string): Promise<Season>;
   list(clubId: string): Promise<Season[]>;
@@ -408,4 +420,5 @@ export interface Repositories {
   reminders: ReminderRepository;
   eaCapture: EaCaptureRepository;
   ea: EaRepository;
+  ourproclub: OurProClubRepository;
 }

@@ -10,7 +10,7 @@ import type { AuditEntry, EaLink, Repositories, SessionRecap } from '../../src/d
 import type { CachedMatch } from '../../src/providers/ea/ingest.js';
 import type { ProcessedEaMatch } from '../../src/providers/ea/matches.js';
 import type { SessionStatRow } from '../../src/core/stats/service.js';
-import type { ExternalMatch, ProviderId } from '../../src/providers/types.js';
+import type { ExternalMatch, ExternalSession, ProviderId } from '../../src/providers/types.js';
 import type { SyncRunSummary } from '../../src/sync/types.js';
 import type { Callup, CallupResponse, Lineup } from '../../src/core/types.js';
 
@@ -46,6 +46,8 @@ export function createMemoryRepos() {
     eaCache: new Map<string, CachedMatch>(),
     eaLinks: [] as EaLink[],
     schedulerKeyHash: null as string | null,
+    appliedSessions: [] as { clubId: string; provider: ProviderId; session: ExternalSession }[],
+    opcMessages: [] as { clubId: string; messageId: string; kind: string; postedAt: string }[],
     sessionRecaps: [] as { clubId: string; posted: boolean; recap: SessionRecap }[],
     providerMatches: [] as (ExternalMatch & { clubId: string; source: ProviderId })[],
     eaMatches: [] as (ProcessedEaMatch & { clubId: string; recapPosted?: boolean })[],
@@ -306,6 +308,25 @@ export function createMemoryRepos() {
       async reject(clubId, requestId) {
         const r = state.linkRequests.find((x) => x.clubId === clubId && x.id === requestId);
         if (r && r.status === 'pendiente') r.status = 'rechazada';
+      },
+    },
+
+    ourproclub: {
+      async channels() {
+        return state.channels
+          .filter((c) => c.purpose === 'ourproclub')
+          .map((c) => ({ clubId: c.clubId, guildId: c.guildId, channelId: c.channelId }));
+      },
+      async latest(clubId) {
+        const ids = state.opcMessages.filter((m) => m.clubId === clubId).map((m) => m.messageId);
+        return ids.sort((a, b) => a.length - b.length || (a < b ? -1 : a > b ? 1 : 0)).at(-1) ?? null;
+      },
+      async record(clubId, rows) {
+        for (const r of rows) {
+          if (!state.opcMessages.some((m) => m.clubId === clubId && m.messageId === r.messageId)) {
+            state.opcMessages.push({ clubId, ...r });
+          }
+        }
       },
     },
 
@@ -840,7 +861,10 @@ export function createMemoryRepos() {
       async applyPlayers(_clubId, _provider, players) {
         return players.length;
       },
-      async applySession() {
+      async applySession(clubId, provider, session) {
+        const prev = state.appliedSessions.find((x) => x.clubId === clubId && x.session.externalId === session.externalId);
+        if (prev) return 'sin_cambios';
+        state.appliedSessions.push({ clubId, provider, session });
         return 'insertada';
       },
       async applyDeletion() {

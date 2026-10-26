@@ -19,7 +19,7 @@ export interface SessionRecapResult {
 const PER_RUN = 3;
 
 /** Nombre legible del origen de los datos para el pie de la tarjeta. */
-const SOURCE: Record<string, string> = { maritimo: 'maritimo.app' };
+const SOURCE: Record<string, string> = { maritimo: 'maritimo.app', ourproclub: 'Our Pro Club' };
 
 export function sessionMessage(
   recap: SessionRecap,

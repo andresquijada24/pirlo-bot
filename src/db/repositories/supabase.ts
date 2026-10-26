@@ -16,6 +16,7 @@ import type {
   MembershipRepository,
   Repositories,
   SeasonRepository,
+  OurProClubRepository,
   ExternalPlayerRepository,
   StatsRepository,
 } from './types.js';
@@ -607,6 +608,41 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
         .array(z.object({ purpose: z.enum(CHANNEL_PURPOSES), channel_id: z.string(), guild_id: z.string() }))
         .parse(rows)
         .map((r) => ({ purpose: r.purpose, channelId: r.channel_id, guildId: r.guild_id }));
+    },
+  };
+
+  const ourproclub: OurProClubRepository = {
+    async channels() {
+      const rows = check(
+        await db.from('club_channels').select('club_id, guild_id, channel_id').eq('purpose', 'ourproclub'),
+      );
+      return z
+        .array(z.object({ club_id: z.string().uuid(), guild_id: z.string(), channel_id: z.string() }))
+        .parse(rows)
+        .map((r) => ({ clubId: r.club_id, guildId: r.guild_id, channelId: r.channel_id }));
+    },
+    async latest(clubId) {
+      // Los ids de Discord crecen con el tiempo; el más reciente es el de fecha mayor.
+      const row = check(
+        await db
+          .from('ourproclub_messages')
+          .select('message_id')
+          .eq('club_id', clubId)
+          .order('posted_at', { ascending: false })
+          .order('message_id', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      );
+      return row ? z.object({ message_id: z.string() }).parse(row).message_id : null;
+    },
+    async record(clubId, rows) {
+      if (rows.length === 0) return;
+      check(
+        await db.from('ourproclub_messages').upsert(
+          rows.map((r) => ({ club_id: clubId, message_id: r.messageId, kind: r.kind, posted_at: r.postedAt })),
+          { onConflict: 'club_id,message_id', ignoreDuplicates: true },
+        ),
+      );
     },
   };
 
@@ -1499,6 +1535,7 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
   return {
     eaCapture,
     ea,
+    ourproclub,
     reminders,
     clubs,
     memberships,

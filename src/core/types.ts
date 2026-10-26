@@ -29,6 +29,7 @@ export const CHANNEL_PURPOSES = [
   'resultados',
   'rankings',
   'recordatorios',
+  'ourproclub',
 ] as const;
 export type ChannelPurpose = (typeof CHANNEL_PURPOSES)[number];
 

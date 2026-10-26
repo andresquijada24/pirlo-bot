@@ -4,6 +4,7 @@ import {
   disconnectFromGuild,
   registerClub,
   setClubCrest,
+  setClubWeb,
 } from '../../core/clubs/service.js';
 import { normalizeCrest } from '../../render/crest.js';
 import {
@@ -148,6 +149,15 @@ export const clubCommand: SlashCommand = {
             min_value: 0,
             max_value: 1440,
           },
+          clubOption,
+        ],
+      },
+      {
+        type: OT.Subcommand,
+        name: 'web',
+        description: 'Página web pública del club con resultados y estadísticas (solo admin)',
+        options: [
+          { type: OT.Boolean, name: 'activar', description: 'Sí = publicarla · No = retirarla', required: true },
           clubOption,
         ],
       },
@@ -342,6 +352,19 @@ export const clubCommand: SlashCommand = {
             (target
               ? ` Se publicarán en <#${target.channelId}>.`
               : '\n⚠️ Falta el canal: usa `/club canal` con uso **Recordatorios** o **Convocatorias**.'),
+        );
+      }
+
+      case 'web': {
+        const c = await contextFor(ctx);
+        const on = optBoolean(ctx.command, 'activar') === true;
+        const url = await setClubWeb(ctx.repos, c, on);
+        return ok(
+          on
+            ? `🌐 Página de **${escapeMd(c.club.name)}** publicada: ${url}\n` +
+                'Muestra resultados, líderes y estadísticas de la plantilla (nombres del club y gamertags de EA de tus jugadores). ' +
+                'De los rivales solo se ven nombre, colores y marcador. Retírala cuando quieras con `/club web activar: No`.'
+            : `Página de **${escapeMd(c.club.name)}** retirada. El enlace ya no muestra nada.`,
         );
       }
 

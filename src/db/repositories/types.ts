@@ -43,6 +43,12 @@ export interface ClubRepository {
   /** null desactiva los recordatorios. */
   setReminderMinutes(clubId: string, minutes: number | null): Promise<void>;
   findById(clubId: string): Promise<Club | null>;
+  /** Club con la página web pública activada (por su identificador) o null. */
+  findPublic(slug: string): Promise<Club | null>;
+  /** Activa o desactiva la página web pública. Solo un admin del club. */
+  setWebPublic(clubId: string, isPublic: boolean, actorDiscordId: string): Promise<void>;
+  /** ¿Tiene activada la página web? */
+  webPublic(clubId: string): Promise<boolean>;
   /** Escudo del club (PNG en base64) o null. Aparte de findById para no cargarlo siempre. */
   crest(clubId: string): Promise<string | null>;
   /** Guarda o quita (null) el escudo. Solo un admin del club (lo comprueba la base de datos). */
@@ -193,6 +199,8 @@ export interface EaMatchSummary {
   goalsAgainst: number | null;
   result: ProcessedEaMatch['result'];
   opponentName: string | null;
+  /** Colores de la equipación del rival (#rrggbb); null o ausente si no hay. */
+  opponentColors?: { primary: string; secondary: string } | null;
 }
 
 export interface EaRecapPlayer {
@@ -214,8 +222,6 @@ export interface EaRecapPlayer {
 
 /** Datos de un resumen de partido: solo jugadores propios; el rival solo por nombre y marcador. */
 export interface EaRecap extends EaMatchSummary {
-  /** Colores de la equipación del rival (#rrggbb) para su escudo de iniciales; null si no hay. */
-  opponentColors?: { primary: string; secondary: string } | null;
   players: EaRecapPlayer[];
 }
 

@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { Hono } from 'hono';
 import { isDomainError } from './core/errors.js';
 import { parseIngest } from './providers/ea/ingest.js';
+import { loadClubPage, notFoundPage, renderClubPage } from './web/club-page.js';
 import type { APIInteraction } from 'discord-api-types/v10';
 import type { Repositories } from './db/repositories/types.js';
 import { commandsByName, componentHandlers } from './discord/commands/index.js';
@@ -61,6 +62,40 @@ export function createApp(deps: AppDeps) {
   const app = new Hono();
 
   app.get('/api/health', (c) => c.json({ ok: true, service: 'pirlo-bot' }));
+
+  /*
+   * Página pública de un club (solo si un admin la activó con /club web). HTML sin JavaScript;
+   * la política de seguridad solo permite estilos en línea e imágenes propias.
+   */
+  const PAGE_HEADERS = {
+    'content-security-policy':
+      "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+    'x-content-type-options': 'nosniff',
+    'referrer-policy': 'no-referrer',
+  };
+  app.get('/club/:slug', async (c) => {
+    const notFound = () => c.html(notFoundPage(), 404, PAGE_HEADERS);
+    if (!deps.repos) return notFound();
+    try {
+      const data = await loadClubPage(deps.repos, c.req.param('slug').toLowerCase());
+      if (!data) return notFound();
+      return c.html(renderClubPage(data), 200, { ...PAGE_HEADERS, 'cache-control': 'public, max-age=300' });
+    } catch (err) {
+      deps.log?.error({ err }, 'No se pudo generar la página del club');
+      return c.html(notFoundPage(), 500, PAGE_HEADERS);
+    }
+  });
+  app.get('/club/:slug/escudo.png', async (c) => {
+    if (!deps.repos) return c.body(null, 404);
+    const club = await deps.repos.clubs.findPublic(c.req.param('slug').toLowerCase()).catch(() => null);
+    const crest = club ? await deps.repos.clubs.crest(club.id).catch(() => null) : null;
+    if (!crest) return c.body(null, 404);
+    return c.body(Buffer.from(crest, 'base64'), 200, {
+      'content-type': 'image/png',
+      'cache-control': 'public, max-age=3600',
+      'x-content-type-options': 'nosniff',
+    });
+  });
 
   app.post('/api/interactions', async (c) => {
     const body = await c.req.text();

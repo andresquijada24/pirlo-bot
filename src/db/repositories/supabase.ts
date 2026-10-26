@@ -264,6 +264,31 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
       const row = check(await db.from('clubs').select(CLUB_COLUMNS).eq('id', clubId).maybeSingle());
       return row ? toClub(clubRow.parse(row)) : null;
     },
+    async findPublic(slug) {
+      const row = check(
+        await db
+          .from('clubs')
+          .select(CLUB_COLUMNS)
+          .eq('slug', slug)
+          .eq('web_public', true)
+          .eq('status', 'activo')
+          .maybeSingle(),
+      );
+      return row ? toClub(clubRow.parse(row)) : null;
+    },
+    async setWebPublic(clubId, isPublic, actorDiscordId) {
+      check(
+        await db.rpc('set_club_web', {
+          p_club_id: clubId,
+          p_public: isPublic,
+          p_actor_discord_id: actorDiscordId,
+        }),
+      );
+    },
+    async webPublic(clubId) {
+      const row = check(await db.from('clubs').select('web_public').eq('id', clubId).maybeSingle());
+      return row ? z.object({ web_public: z.boolean() }).parse(row).web_public : false;
+    },
     async crest(clubId) {
       const row = check(await db.from('clubs').select('crest_png').eq('id', clubId).maybeSingle());
       return row ? z.object({ crest_png: z.string().nullable() }).parse(row).crest_png : null;
@@ -902,7 +927,9 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
       const rows = check(
         await db
           .from('ea_matches')
-          .select('match_id, match_type, played_at, goals_for, goals_against, result, opponent_name')
+          .select(
+            'match_id, match_type, played_at, goals_for, goals_against, result, opponent_name, opponent_color1, opponent_color2',
+          )
           .eq('club_id', clubId)
           .order('played_at', { ascending: false })
           .limit(limit),
@@ -917,6 +944,8 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
             goals_against: z.number().nullable(),
             result: z.enum(['victoria', 'empate', 'derrota']).nullable(),
             opponent_name: z.string().nullable(),
+            opponent_color1: z.string().nullable().default(null),
+            opponent_color2: z.string().nullable().default(null),
           }),
         )
         .parse(rows)
@@ -928,6 +957,9 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
           goalsAgainst: r.goals_against,
           result: r.result,
           opponentName: r.opponent_name,
+          opponentColors: r.opponent_color1
+            ? { primary: r.opponent_color1, secondary: r.opponent_color2 ?? r.opponent_color1 }
+            : null,
         }));
     },
     async claimRecaps(clubId, limit) {

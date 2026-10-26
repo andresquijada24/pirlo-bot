@@ -273,22 +273,34 @@ export function renderSessionCardSvg({
   tiles.forEach(([name, v, color], i) => {
     const x = infoX + i * (tileW + tileGap);
     const y = 222;
+    // Nombre largo (p. ej. «PORTERÍAS A CERO»): en dos líneas, sin abreviar.
+    const roomy = measure(name, 12, 'bold') + 2 * name.length <= tileW - 26;
+    const oneLine = roomy || !name.includes(' ');
+    const cut = name.lastIndexOf(' ', Math.ceil(name.length / 2) + 2);
+    const lines = oneLine || cut < 0 ? [name] : [name.slice(0, cut), name.slice(cut + 1)];
     out.push(
       `<rect x="${x}" y="${y}" width="${tileW}" height="96" rx="16" fill="${color}" fill-opacity="0.10" stroke="${color}" stroke-opacity="0.55" stroke-width="1.5"/>`,
       `<rect x="${x}" y="${y + 14}" width="4" height="68" rx="2" fill="${color}"/>`,
-      text(show(v), x + tileW / 2, y + 56, {
-        size: 40,
+      text(show(v), x + tileW / 2, lines.length > 1 ? y + 48 : y + 56, {
+        size: lines.length > 1 ? 34 : 40,
         weight: 'bold',
         anchor: 'middle',
         fill: '#ffffff',
       }),
-      text(fit(name, tileW - 12, 12, 'bold'), x + tileW / 2, y + 82, {
-        size: 12,
-        weight: 'bold',
-        anchor: 'middle',
-        fill: color,
-        tracking: 2,
-      }),
+      ...lines.map((line, k) =>
+        text(
+          fit(line, tileW - 12, 12, 'bold'),
+          x + tileW / 2,
+          (lines.length > 1 ? y + 70 : y + 82) + k * 15,
+          {
+            size: 12,
+            weight: 'bold',
+            anchor: 'middle',
+            fill: color,
+            tracking: roomy ? 2 : 0.5,
+          },
+        ),
+      ),
     );
   });
   // Anillo con el porcentaje de victorias.

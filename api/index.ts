@@ -11,7 +11,7 @@ import { createDiscordBinaryDownloader, createDiscordDownloader } from '../src/d
 import { runReminders } from '../src/jobs/reminders.js';
 import { runEaProcessing } from '../src/jobs/ea-processing.js';
 import { runEaRecaps } from '../src/jobs/ea-recaps.js';
-import { renderMatchCardSvg, svgToPng } from '../src/render/match-card.js';
+import { svgToPng } from '../src/render/match-card.js';
 import { runSessionRecaps } from '../src/jobs/session-recaps.js';
 import { renderSessionCardSvg } from '../src/render/session-card.js';
 import { createGuildApi } from '../src/discord/onboarding.js';
@@ -86,7 +86,7 @@ const app = createApp({
             repos,
             poster,
             blockedGuilds,
-            render: (input) => svgToPng(renderMatchCardSvg(input)),
+            render: (input) => svgToPng(renderSessionCardSvg(input)),
             log: logger,
           }).catch((err: unknown) => {
             logger.error({ err }, 'Fallo en los resúmenes de EA');

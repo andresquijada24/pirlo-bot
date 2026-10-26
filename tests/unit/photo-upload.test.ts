@@ -51,7 +51,7 @@ describe('subir la foto desde la web', () => {
     const ownHtml = await own.text();
     expect(ownHtml).toMatch('enctype="multipart/form-data"');
     // Marco para encuadrar la tarjeta: script propio (mismo origen) y vista previa local (blob:).
-    expect(ownHtml).toMatch('<script src="/foto.js" defer></script>');
+    expect(ownHtml).toMatch('<script src="/tarjeta.js" defer></script><script src="/foto.js" defer></script>');
     expect(ownHtml).toMatch('name="recorte_w"');
     expect(own.headers.get('content-security-policy')).toMatch("script-src 'self'");
     expect(own.headers.get('content-security-policy')).toMatch('blob:');

@@ -76,7 +76,17 @@ function star(cx: number, cy: number, r: number, fill: string): string {
   return `<polygon points="${pts.join(' ')}" fill="${fill}"/>`;
 }
 
-function crest(cx: number, cy: number, label: string, own: boolean): string {
+function crest(cx: number, cy: number, label: string, own: boolean, png?: string | null): string {
+  if (png && /^[A-Za-z0-9+/]+=*$/.test(png)) {
+    // Escudo subido por el club (PNG cuadrado de 256 px, normalizado al guardarlo).
+    const s = 120;
+    const x = cx - s / 2;
+    const y = cy - s / 2 + 4;
+    return (
+      `<clipPath id="crest-own"><rect x="${x}" y="${y}" width="${s}" height="${s}" rx="22"/></clipPath>` +
+      `<image href="data:image/png;base64,${png}" x="${x}" y="${y}" width="${s}" height="${s}" clip-path="url(#crest-own)"/>`
+    );
+  }
   const stroke = own ? C.accent : C.muted;
   const shield = `M${cx - 40} ${cy - 46} H${cx + 40} V${cy + 4} Q${cx + 40} ${cy + 38} ${cx} ${cy + 54} Q${cx - 40} ${cy + 38} ${cx - 40} ${cy + 4} Z`;
   return (
@@ -143,13 +153,15 @@ export interface MatchCardInput {
   recap: EaRecap;
   clubName: string;
   timeZone: string;
+  /** Escudo del club (PNG en base64), si lo subió con /club escudo. */
+  clubCrestPng?: string | null;
 }
 
 export function cardHeight(players: number): number {
   return HEADER + TABLE_HEAD + Math.max(players, 1) * ROW + FOOTER;
 }
 
-export function renderMatchCardSvg({ recap: r, clubName, timeZone }: MatchCardInput): string {
+export function renderMatchCardSvg({ recap: r, clubName, timeZone, clubCrestPng }: MatchCardInput): string {
   const players = r.players;
   const height = cardHeight(players.length);
   const res = r.result ? RESULT[r.result] : null;
@@ -209,7 +221,7 @@ export function renderMatchCardSvg({ recap: r, clubName, timeZone }: MatchCardIn
   const own = clubName.toUpperCase();
   const rival = (r.opponentName ?? 'Rival').toUpperCase();
   out.push(
-    crest(396, 150, initials(clubName), true),
+    crest(396, 150, initials(clubName), true, clubCrestPng),
     crest(804, 150, initials(r.opponentName ?? 'Rival'), false),
     text(fit(own, 280, 30, 'bold'), 330, 162, { size: 30, weight: 'bold', anchor: 'end', fill: C.silver }),
     text(fit(rival, 280, 30, 'bold'), 870, 162, { size: 30, weight: 'bold', anchor: 'start', fill: C.silver }),

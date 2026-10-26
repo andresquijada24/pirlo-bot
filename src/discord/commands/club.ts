@@ -1,4 +1,11 @@
-import { configureChannel, connectClubToGuild, disconnectFromGuild, registerClub } from '../../core/clubs/service.js';
+import {
+  configureChannel,
+  connectClubToGuild,
+  disconnectFromGuild,
+  registerClub,
+  setClubCrest,
+} from '../../core/clubs/service.js';
+import { normalizeCrest } from '../../render/crest.js';
 import {
   EA_PLATFORM_LABELS,
   eaStatus,
@@ -7,7 +14,7 @@ import {
   unlinkEaClub,
   type EaPlatform,
 } from '../../core/ea/service.js';
-import { validation } from '../../core/errors.js';
+import { permissionDenied, validation } from '../../core/errors.js';
 import { DownloadError, MAX_ATTACHMENT_BYTES } from '../download.js';
 import { EA_PLATFORMS } from '../../providers/ea/ingest.js';
 import { discordTime } from '../../core/time.js';
@@ -16,7 +23,7 @@ import { assertCan, can } from '../../core/permissions/index.js';
 import { listSeasons } from '../../core/seasons/service.js';
 import { CHANNEL_PURPOSES, type ChannelPurpose } from '../../core/types.js';
 import { CHANNEL_ANNOUNCEMENT, CHANNEL_TEXT, CONTEXT_GUILD, OT } from '../constants.js';
-import { optAttachment, optId, optInteger, optString } from '../interaction.js';
+import { optAttachment, optBoolean, optId, optInteger, optString } from '../interaction.js';
 import { embed, escapeMd, ok, reply } from '../responses.js';
 import { clubOption, contextFor, ROLE_LABELS } from './common.js';
 import type { SlashCommand } from './types.js';
@@ -141,6 +148,21 @@ export const clubCommand: SlashCommand = {
             min_value: 0,
             max_value: 1440,
           },
+          clubOption,
+        ],
+      },
+      {
+        type: OT.Subcommand,
+        name: 'escudo',
+        description: 'Sube el escudo del club para las imágenes de partido (solo admin)',
+        options: [
+          {
+            type: OT.Attachment,
+            name: 'imagen',
+            description: 'PNG o JPG del escudo, mejor cuadrado y con fondo transparente',
+            required: false,
+          },
+          { type: OT.Boolean, name: 'quitar', description: 'Quita el escudo actual', required: false },
           clubOption,
         ],
       },
@@ -314,6 +336,29 @@ export const clubCommand: SlashCommand = {
             (target
               ? ` Se publicarán en <#${target.channelId}>.`
               : '\n⚠️ Falta el canal: usa `/club canal` con uso **Recordatorios** o **Convocatorias**.'),
+        );
+      }
+
+      case 'escudo': {
+        const c = await contextFor(ctx);
+        if (optBoolean(ctx.command, 'quitar')) {
+          await setClubCrest(ctx.repos, c, null);
+          return ok(`Escudo de **${escapeMd(c.club.name)}** quitado. Las imágenes usarán sus iniciales.`);
+        }
+        const file = optAttachment(ctx.interaction, ctx.command, 'imagen');
+        if (!file) throw validation('Adjunta la imagen del escudo (PNG o JPG).');
+        if (file.size > MAX_ATTACHMENT_BYTES) throw validation('La imagen es demasiado grande (máx. 2 MB).');
+        // El permiso se comprueba antes de descargar nada (y otra vez al guardar).
+        if (c.membership?.role !== 'admin') {
+          throw permissionDenied('Solo un admin del club puede cambiar el escudo.');
+        }
+        if (!ctx.downloadBytes) throw validation('La subida de imágenes no está disponible ahora mismo.');
+        const bytes = await ctx.downloadBytes(file.url).catch((err: unknown) => {
+          throw validation(err instanceof DownloadError ? err.message : 'No se pudo leer la imagen.');
+        });
+        await setClubCrest(ctx.repos, c, await normalizeCrest(bytes));
+        return ok(
+          `Escudo de **${escapeMd(c.club.name)}** guardado ✅. Aparecerá en las próximas imágenes de partido.`,
         );
       }
 

@@ -6,7 +6,7 @@ import type {
 } from 'discord-api-types/v10';
 import { isDomainError } from '../core/errors.js';
 import type { Repositories } from '../db/repositories/types.js';
-import type { ComponentHandler, Downloader, SlashCommand } from './commands/types.js';
+import type { BinaryDownloader, ComponentHandler, Downloader, SlashCommand } from './commands/types.js';
 import { IT, RT } from './constants.js';
 import { actorFrom, parseCommand } from './interaction.js';
 import { fail } from './responses.js';
@@ -25,6 +25,7 @@ export interface RouterDeps {
   discord?: ChannelPoster;
   /** Descarga de adjuntos de Discord (importaciones); opcional. */
   download?: Downloader;
+  downloadBytes?: BinaryDownloader;
 }
 
 const NOT_IN_GUILD = 'PIRLO BOT solo funciona dentro de un servidor de Discord.';
@@ -79,6 +80,7 @@ async function runCommand(
     repos: deps.repos as Repositories,
     ...(deps.discord ? { discord: deps.discord } : {}),
     ...(deps.download ? { download: deps.download } : {}),
+    ...(deps.downloadBytes ? { downloadBytes: deps.downloadBytes } : {}),
   });
 }
 

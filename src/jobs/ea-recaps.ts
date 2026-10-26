@@ -42,7 +42,8 @@ export async function runEaRecaps(deps: {
       const recaps = await repos.ea.recaps(link.clubId, ids);
       if (recaps.length === 0) continue;
       const content = recapHeader(recaps, club.name);
-      const images = await renderAll(deps, recaps, club.name, club.timezone);
+      const crest = deps.render ? await repos.clubs.crest(link.clubId).catch(() => null) : null;
+      const images = await renderAll(deps, recaps, club.name, club.timezone, crest);
       if (images) {
         await poster.post(target.channelId, { content, allowed_mentions: { parse: [] } }, images);
       } else {
@@ -73,12 +74,13 @@ async function renderAll(
   recaps: Awaited<ReturnType<Repositories['ea']['recaps']>>,
   clubName: string,
   timeZone: string,
+  clubCrestPng: string | null,
 ): Promise<PosterFile[] | null> {
   if (!deps.render) return null;
   try {
     const files: PosterFile[] = [];
     for (const [i, recap] of recaps.entries()) {
-      const data = await deps.render({ recap, clubName, timeZone });
+      const data = await deps.render({ recap, clubName, timeZone, clubCrestPng });
       files.push({ name: `partido-${i + 1}.png`, data, contentType: 'image/png' });
     }
     return files;

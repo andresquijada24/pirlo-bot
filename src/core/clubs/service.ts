@@ -84,3 +84,15 @@ export async function disconnectFromGuild(repos: Pick<Repositories, 'clubs'>, ct
   }
   await repos.clubs.disconnectGuild(ctx.club.id, ctx.actor.guildId, ctx.actor.discordUserId);
 }
+
+/** Guarda (o quita, con null) el escudo del club. Solo un admin del club. */
+export async function setClubCrest(
+  repos: Pick<Repositories, 'clubs'>,
+  ctx: ClubContext,
+  pngBase64: string | null,
+): Promise<void> {
+  if (ctx.membership?.role !== 'admin') {
+    throw permissionDenied('Solo un admin del club puede cambiar el escudo.');
+  }
+  await repos.clubs.setCrest(ctx.club.id, pngBase64, ctx.actor.discordUserId);
+}

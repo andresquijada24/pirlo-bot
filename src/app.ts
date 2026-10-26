@@ -9,6 +9,7 @@ import {
   renderClubPage,
   loadPlayerPage,
   parseMatchFilter,
+  parseView,
   renderPlayerPage,
   renderClubsDirectory,
   renderScorersWidget,
@@ -98,7 +99,7 @@ export function createApp(deps: AppDeps) {
   const PAGE_CACHE = 'public, max-age=0, s-maxage=300, stale-while-revalidate=60';
   const PAGE_HEADERS = {
     'content-security-policy':
-      "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+      "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
     'x-content-type-options': 'nosniff',
     'referrer-policy': 'no-referrer',
   };
@@ -132,7 +133,12 @@ export function createApp(deps: AppDeps) {
     const notFound = () => c.html(notFoundPage(), 404, PAGE_HEADERS);
     if (!deps.repos) return notFound();
     try {
-      const data = await loadClubPage(deps.repos, c.req.param('slug').toLowerCase(), parseMatchFilter(c.req.query('tipo')));
+      const data = await loadClubPage(
+        deps.repos,
+        c.req.param('slug').toLowerCase(),
+        parseMatchFilter(c.req.query('tipo')),
+        parseView({ orden: c.req.query('orden'), dir: c.req.query('dir'), buscar: c.req.query('buscar') }),
+      );
       if (!data) return notFound();
       return c.html(renderClubPage(data), 200, { ...PAGE_HEADERS, 'cache-control': PAGE_CACHE });
     } catch (err) {

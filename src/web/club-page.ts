@@ -25,7 +25,65 @@ export function parseMatchFilter(v: string | undefined): MatchFilter {
   return v && Object.hasOwn(MATCH_FILTERS, v) ? (v as MatchFilter) : 'todos';
 }
 
+/** Columnas de la plantilla: nombre completo, descripción y valor por el que se ordena. */
+export const COLUMNS = {
+  jugador: { label: 'Jugador', value: null },
+  partidos: { label: 'Partidos jugados', value: (t: PlayerTotals) => t.matchesPlayed },
+  goles: { label: 'Goles', value: (t: PlayerTotals) => t.goals },
+  asistencias: { label: 'Asistencias', value: (t: PlayerTotals) => t.assists },
+  tiros: { label: 'Tiros', value: (t: PlayerTotals) => t.shots },
+  acierto_tiro: { label: 'Acierto de tiro', title: 'Goles ÷ tiros', value: (t: PlayerTotals) => ratio(t.goals, t.shots) },
+  pases: { label: 'Pases completados', title: 'Completados / intentados', value: (t: PlayerTotals) => t.passesMade },
+  acierto_pase: { label: 'Acierto de pase', value: (t: PlayerTotals) => ratio(t.passesMade, t.passesAttempted) },
+  pases_errados: { label: 'Pases errados', value: (t: PlayerTotals) => missed(t.passesMade, t.passesAttempted) },
+  entradas: { label: 'Entradas ganadas', title: 'Ganadas / intentadas', value: (t: PlayerTotals) => t.tacklesMade },
+  acierto_entrada: { label: 'Acierto de entrada', value: (t: PlayerTotals) => ratio(t.tacklesMade, t.tacklesAttempted) },
+  defensa: {
+    label: 'Acciones defensivas',
+    title: 'Entradas ganadas + intercepciones + bloqueos + despejes (los que dé la fuente)',
+    value: (t: PlayerTotals) => defensiveActions(t),
+  },
+  paradas: { label: 'Paradas', value: (t: PlayerTotals) => t.saves },
+  porterias: { label: 'Porterías a cero', value: (t: PlayerTotals) => t.cleanSheets },
+  calificacion: { label: 'Calificación', value: (t: PlayerTotals) => t.avgRating },
+} as const;
+export type ColumnKey = keyof typeof COLUMNS;
+export interface TableView {
+  sort: ColumnKey;
+  dir: 'asc' | 'desc';
+  /** Búsqueda por nombre (sin distinguir mayúsculas ni acentos). */
+  search: string;
+}
+export const DEFAULT_VIEW: TableView = { sort: 'goles', dir: 'desc', search: '' };
+
+export function parseView(q: { orden?: string | undefined; dir?: string | undefined; buscar?: string | undefined }): TableView {
+  const sort = q.orden && Object.hasOwn(COLUMNS, q.orden) ? (q.orden as ColumnKey) : DEFAULT_VIEW.sort;
+  const dir = q.dir === 'asc' || q.dir === 'desc' ? q.dir : sort === 'jugador' ? 'asc' : 'desc';
+  const search = (q.buscar ?? '').trim().slice(0, 40);
+  return { sort, dir, search };
+}
+
+const fold = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+/** Ordena (los «sin dato» siempre al final) y filtra por nombre. */
+export function applyView(players: PlayerTotals[], view: TableView): PlayerTotals[] {
+  const needle = fold(view.search);
+  const list = needle ? players.filter((p) => fold(p.name).includes(needle)) : [...players];
+  const col = COLUMNS[view.sort];
+  const sign = view.dir === 'asc' ? 1 : -1;
+  return list.sort((a, b) => {
+    if (!col.value) return sign * a.name.localeCompare(b.name, 'es');
+    const x = col.value(a);
+    const y = col.value(b);
+    if (x === null && y === null) return a.name.localeCompare(b.name, 'es');
+    if (x === null) return 1;
+    if (y === null) return -1;
+    return sign * (x - y) || a.name.localeCompare(b.name, 'es');
+  });
+}
+
 export interface ClubPageData {
+  view: TableView;
   filter: MatchFilter;
   /** Partidos de la temporada por pestaña (para mostrar los contadores). */
   counts: Record<MatchFilter, number>;
@@ -69,6 +127,7 @@ export async function loadClubPage(
   repos: Pick<Repositories, 'clubs' | 'seasons' | 'ea' | 'stats' | 'memberships'>,
   slug: string,
   filter: MatchFilter = 'todos',
+  view: TableView = DEFAULT_VIEW,
 ): Promise<ClubPageData | null> {
   if (!/^[a-z0-9-]{3,40}$/.test(slug)) return null;
   const club = await repos.clubs.findPublic(slug);
@@ -116,6 +175,7 @@ export async function loadClubPage(
     );
 
   return {
+    view,
     filter,
     counts,
     club,
@@ -270,7 +330,7 @@ const CSS = `
 *{box-sizing:border-box}html{color-scheme:dark;min-height:100%;background:linear-gradient(160deg,var(--bg),var(--bg2)) var(--bg)}
 body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--text)}
 a{color:var(--accent)}
-.wrap{max-width:1040px;margin:0 auto;padding:24px 16px 48px}
+.wrap{max-width:1240px;margin:0 auto;padding:24px 16px 48px}
 header.hero{display:flex;align-items:center;gap:20px;padding:24px;border-radius:20px;background:linear-gradient(120deg,#1d4ed833,#0f172acc 60%);border:1px solid var(--line)}
 .crest{width:104px;height:104px;flex:none;border-radius:22px;display:grid;place-items:center;font-weight:800;font-size:34px;background:#0f172a;border:3px solid var(--accent)}
 .crest img{width:104px;height:104px;object-fit:contain}
@@ -303,7 +363,15 @@ th,td{padding:10px 12px;text-align:center;border-top:1px solid var(--line)}
 th{color:var(--muted);font-size:12px;letter-spacing:1px;text-transform:uppercase;border-top:0;background:#0b1225}
 td:first-child,th:first-child{text-align:left}
 td.nd{color:#64748b}
-table.stats{min-width:1080px}
+table.stats{min-width:1500px}
+th a{color:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:4px}
+th a:hover{color:var(--accent)}th.on a{color:var(--accent)}
+table.stats td:first-child,table.stats th:first-child{white-space:nowrap;position:sticky;left:0;z-index:1;background:#0d1528}
+table.stats tfoot td:first-child{background:#0b1225}
+.arrow{font-size:9px}
+.search{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px}
+.search input[type=search]{flex:1;min-width:180px;padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--text);font:inherit}
+.search button{padding:10px 16px;border-radius:12px;border:0;background:var(--accent);color:#020617;font:inherit;font-weight:700;cursor:pointer}
 a.pl{color:var(--text);text-decoration:none;font-weight:600}a.pl:hover{color:var(--accent);text-decoration:underline}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
 .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
@@ -405,15 +473,45 @@ export function renderClubPage(d: ClubPageData): string {
     )
     .join('');
 
+  const qs = (extra: Record<string, string>) => {
+    const params = new URLSearchParams();
+    if (d.filter !== 'todos') params.set('tipo', d.filter);
+    if (d.view.search) params.set('buscar', d.view.search);
+    for (const [k, v] of Object.entries(extra)) params.set(k, v);
+    const s = params.toString();
+    return s ? `?${s}` : '';
+  };
+  const head = (Object.keys(COLUMNS) as ColumnKey[])
+    .map((k) => {
+      const col: { label: string; title?: string } = COLUMNS[k];
+      const on = d.view.sort === k;
+      const next = on ? (d.view.dir === 'desc' ? 'asc' : 'desc') : k === 'jugador' ? 'asc' : 'desc';
+      const arrow = on ? `<span class="arrow" aria-hidden="true">${d.view.dir === 'desc' ? '▼' : '▲'}</span>` : '';
+      return (
+        `<th${on ? ' class="on" aria-sort="' + (d.view.dir === 'desc' ? 'descending' : 'ascending') + '"' : ''}>` +
+        `<a href="${base}${qs({ orden: k, dir: next })}#plantilla"${col.title ? ` title="${esc(col.title)}"` : ''}>${esc(col.label)}${arrow}</a></th>`
+      );
+    })
+    .join('');
+  const shown = applyView(d.players, d.view);
+  const search =
+    `<form class="search" method="get" action="${base}#plantilla" role="search">` +
+    (d.filter !== 'todos' ? `<input type="hidden" name="tipo" value="${d.filter}">` : '') +
+    `<input type="hidden" name="orden" value="${d.view.sort}"><input type="hidden" name="dir" value="${d.view.dir}">` +
+    `<input type="search" name="buscar" value="${esc(d.view.search)}" placeholder="Buscar jugador" aria-label="Buscar jugador" maxlength="40">` +
+    `<button type="submit">Buscar</button>` +
+    (d.view.search ? `<a href="${base}${qs({ orden: d.view.sort, dir: d.view.dir }).replace(/([?&])buscar=[^&]*&?/, '$1').replace(/[?&]$/, '')}#plantilla">Quitar búsqueda</a>` : '') +
+    `</form>`;
   const players = d.players.length
-    ? `<div class="card table"><table class="stats"><thead><tr><th>Jugador</th><th>PJ</th><th>G</th><th>A</th>` +
-      `<th>Tiros</th><th title="Acierto de tiro: goles ÷ tiros">Acierto tiro</th>` +
-      `<th>Pases</th><th>Acierto pase</th><th>Errados</th>` +
-      `<th>Entradas</th><th>Acierto entrada</th><th title="Entradas ganadas + intercepciones + bloqueos + despejes">Def.</th>` +
-      `<th>Paradas</th><th title="Porterías a cero">P. a 0</th><th>Calif.</th></tr></thead><tbody>${d.players
-        .map((p) => `<tr><td><a class="pl" href="${playerHref(club.slug, p.key, d.filter)}">${esc(p.name)}</a></td>${statCells(p)}</tr>`)
-        .join('')}</tbody><tfoot><tr><td>Total equipo</td>${statCells(teamTotals(d.players))}</tr></tfoot></table></div>` +
-      '<p class="legend">Acierto tiro = goles ÷ tiros (EA no informa tiros a puerta) · Pases y Entradas = completados/intentados · Def. = entradas ganadas + intercepciones + bloqueos + despejes (los que dé la fuente) · — = sin dato</p>'
+    ? search +
+      `<div class="card table"><table class="stats"><thead><tr>${head}</tr></thead><tbody>${
+        shown.length
+          ? shown
+              .map((p) => `<tr><td><a class="pl" href="${playerHref(club.slug, p.key, d.filter)}">${esc(p.name)}</a></td>${statCells(p)}</tr>`)
+              .join('')
+          : `<tr><td colspan="15" class="nd">Ningún jugador coincide con «${esc(d.view.search)}».</td></tr>`
+      }</tbody><tfoot><tr><td>Total del equipo</td>${statCells(teamTotals(d.players))}</tr></tfoot></table></div>` +
+      '<p class="legend">Toca el nombre de una columna para ordenar la tabla (otra vez para invertir el orden). Acierto de tiro = goles ÷ tiros (EA no informa tiros a puerta). Pases y entradas: completados / intentados. — = sin dato.</p>'
     : '<div class="card empty">Todavía no hay estadísticas de jugadores.</div>';
 
   const title = `${club.name} · PIRLO BOT`;
@@ -427,7 +525,7 @@ export function renderClubPage(d: ClubPageData): string {
 ${navBar({ href: '/clubes', label: 'Volver a clubes' })}
 <header class="hero">${crest}<div><h1>${esc(club.name)}</h1>
 <div class="sub">${esc(d.season?.name ?? 'Historial')} · EA SPORTS FC Pro Clubs</div>
-<div class="chips"><span class="chip">${r.played} PJ</span><span class="chip w">${r.wins} V</span><span class="chip d">${r.draws} E</span><span class="chip l">${r.losses} D</span><span class="chip">${r.goalsFor}:${r.goalsAgainst} goles</span><span class="chip">${r.cleanSheets} P. a 0</span></div>${
+<div class="chips"><span class="chip">${r.played} partidos</span><span class="chip w">${r.wins} victorias</span><span class="chip d">${r.draws} empates</span><span class="chip l">${r.losses} derrotas</span><span class="chip">${r.goalsFor} goles a favor · ${r.goalsAgainst} en contra</span><span class="chip">${r.cleanSheets} porterías a cero</span></div>${
     d.website
       ? `<a class="site" href="${esc(d.website)}" rel="noopener noreferrer nofollow" target="_blank">${icon('link', 17)}${esc(d.website.replace(/^https:\/\//, '').replace(/\/$/, ''))}${icon('external', 14)}</a>`
       : ''
@@ -435,7 +533,7 @@ ${navBar({ href: '/clubes', label: 'Volver a clubes' })}
 ${filterTabs(base, d)}
 <h2>Últimos partidos</h2><div class="card">${matches}</div>
 <h2>Líderes</h2><div class="leaders">${leaders}</div>
-<h2>Plantilla</h2>${players}
+<h2 id="plantilla">Plantilla</h2>${players}
 <footer><img src="/logo.png" alt="">Página de ${esc(club.name)} en <a href="/">PIRLO BOT</a> · datos de EA SPORTS FC Pro Clubs importados por el club · — = sin dato</footer>
 </main>${updateTags(currentVersion()).script}</body></html>`;
 }
@@ -612,20 +710,20 @@ export async function loadPlayerPage(
 
 function statGrid(t: PlayerTotals): string {
   const cards: [string, string][] = [
-    ['PJ', show(t.matchesPlayed)],
+    ['Partidos jugados', show(t.matchesPlayed)],
     ['Goles', show(t.goals)],
     ['Asistencias', show(t.assists)],
-    ['G + A', show(t.goalContributions)],
+    ['Goles + asistencias', show(t.goalContributions)],
     ['Tiros', show(t.shots)],
-    ['Acierto tiro', pctText(ratio(t.goals, t.shots))],
-    ['Pases', t.passesMade === null || t.passesAttempted === null ? '—' : `${t.passesMade}/${t.passesAttempted}`],
-    ['Acierto pase', pctText(ratio(t.passesMade, t.passesAttempted))],
+    ['Acierto de tiro', pctText(ratio(t.goals, t.shots))],
+    ['Pases completados', t.passesMade === null || t.passesAttempted === null ? '—' : `${t.passesMade}/${t.passesAttempted}`],
+    ['Acierto de pase', pctText(ratio(t.passesMade, t.passesAttempted))],
     ['Pases errados', show(missed(t.passesMade, t.passesAttempted))],
-    ['Entradas', t.tacklesMade === null || t.tacklesAttempted === null ? '—' : `${t.tacklesMade}/${t.tacklesAttempted}`],
-    ['Acierto entrada', pctText(ratio(t.tacklesMade, t.tacklesAttempted))],
-    ['Acciones def.', show(defensiveActions(t))],
+    ['Entradas ganadas', t.tacklesMade === null || t.tacklesAttempted === null ? '—' : `${t.tacklesMade}/${t.tacklesAttempted}`],
+    ['Acierto de entrada', pctText(ratio(t.tacklesMade, t.tacklesAttempted))],
+    ['Acciones defensivas', show(defensiveActions(t))],
     ['Paradas', show(t.saves)],
-    ['Porterías a 0', show(t.cleanSheets)],
+    ['Porterías a cero', show(t.cleanSheets)],
     ['Calificación', t.avgRating === null ? '—' : t.avgRating.toFixed(2)],
   ];
   return `<div class="grid">${cards.map(([k, v]) => `<div class="stat"><b>${esc(v)}</b><span>${esc(k)}</span></div>`).join('')}</div>`;
@@ -649,7 +747,7 @@ export function renderPlayerPage(d: PlayerPageData): string {
   ].join('');
 
   const log = d.matches.length
-    ? `<div class="card table"><table><thead><tr><th>Fecha</th><th>Rival</th><th>Res.</th><th>Pos.</th><th>G</th><th>A</th><th>Tiros</th><th>Pases</th><th>Entradas</th><th>Calif.</th></tr></thead><tbody>${d.matches
+    ? `<div class="card table"><table><thead><tr><th>Fecha</th><th>Rival</th><th>Resultado</th><th>Posición</th><th>Goles</th><th>Asistencias</th><th>Tiros</th><th>Pases completados</th><th>Entradas ganadas</th><th>Calificación</th></tr></thead><tbody>${d.matches
         .map((m) => {
           const res = m.result ? RESULT[m.result] : null;
           const score = m.goalsFor !== null && m.goalsAgainst !== null ? `${m.goalsFor}–${m.goalsAgainst}` : '—';

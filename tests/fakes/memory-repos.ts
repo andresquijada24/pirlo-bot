@@ -45,6 +45,7 @@ export function createMemoryRepos() {
     callupMessages: [] as { clubId: string; callupId: string; channelId: string; messageId: string }[],
     eaCache: new Map<string, CachedMatch>(),
     eaLinks: [] as EaLink[],
+    schedulerKeyHash: null as string | null,
     providerMatches: [] as (ExternalMatch & { clubId: string; source: ProviderId })[],
     eaMatches: [] as (ProcessedEaMatch & { clubId: string; recapPosted?: boolean })[],
     /** Gamertag de cada ficha por club ("clubId:playerId"), como club_memberships.gamertag. */
@@ -823,6 +824,9 @@ export function createMemoryRepos() {
       },
       async applyDeletion() {
         return true;
+      },
+      async schedulerKeyHash() {
+        return state.schedulerKeyHash;
       },
       async lastMatchVersion(clubId, provider) {
         const v = state.providerMatches

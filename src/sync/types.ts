@@ -43,4 +43,6 @@ export interface SyncRepository {
   /** Versión en origen más reciente del calendario guardado (null: nunca se importó). */
   lastMatchVersion(clubId: string, provider: ProviderId): Promise<string | null>;
   applyMatch(clubId: string, provider: ProviderId, match: ExternalMatch): Promise<SessionApplyResult>;
+  /** Huella SHA-256 de la clave del programador de Supabase (null si no está configurado). */
+  schedulerKeyHash(): Promise<string | null>;
 }

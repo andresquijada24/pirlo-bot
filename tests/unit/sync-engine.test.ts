@@ -92,6 +92,7 @@ function fakeRepo(opts: { provider?: 'maritimo' | 'manual' | null; cursor?: stri
       return true;
     },
     lastMatchVersion: async () => null,
+    schedulerKeyHash: async () => null,
     applyMatch: async (clubId, _p, m) => {
       calls.push(`match:${clubId}:${m.externalId}`);
       return 'insertada';

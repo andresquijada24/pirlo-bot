@@ -179,8 +179,23 @@ td.nd{color:#64748b}
 .empty{padding:20px;color:var(--muted);text-align:center}
 footer{margin-top:40px;color:var(--muted);font-size:13px;text-align:center}
 footer img{width:22px;height:22px;vertical-align:middle;border-radius:6px;margin-right:6px}
+.nav{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.navbtn{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:12px;background:var(--card);border:1px solid var(--line);color:var(--text);text-decoration:none;font-weight:600;font-size:15px}
+.navbtn:hover,.navbtn:focus-visible{border-color:var(--accent);color:var(--accent)}
+.navbtn.home{padding:9px 11px}
 @media (max-width:560px){header.hero{flex-direction:column;text-align:center}.chips{justify-content:center}.crest,.crest img{width:88px;height:88px}}
 `;
+
+const HOME_ICON =
+  '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 3.2 2.5 11.1a1 1 0 0 0 1.3 1.5l.7-.6V20a1 1 0 0 0 1 1h4.5v-5.5h4V21h4.5a1 1 0 0 0 1-1v-8l.7.6a1 1 0 1 0 1.3-1.5L12 3.2Z"/></svg>';
+
+/** Barra superior: "Volver" al nivel anterior y la casita para el menú principal (sin JavaScript). */
+function navBar(back: { href: string; label: string }): string {
+  return (
+    `<nav class="nav"><a class="navbtn" href="${back.href}"><span aria-hidden="true">←</span> ${esc(back.label)}</a>` +
+    `<a class="navbtn home" href="/" aria-label="Menú principal de PIRLO BOT" title="Menú principal">${HOME_ICON}</a></nav>`
+  );
+}
 
 export function renderClubPage(d: ClubPageData): string {
   const { club, record: r } = d;
@@ -241,6 +256,7 @@ export function renderClubPage(d: ClubPageData): string {
 <meta property="og:title" content="${esc(title)}"><meta name="theme-color" content="#020617">
 <link rel="icon" href="/favicon.png"><style>${CSS}</style></head>
 <body><main class="wrap">
+${navBar({ href: '/clubes', label: 'Volver a clubes' })}
 <header class="hero">${crest}<div><h1>${esc(club.name)}</h1>
 <div class="sub">${esc(d.season?.name ?? 'Historial')} · EA SPORTS FC Pro Clubs</div>
 <div class="chips"><span class="chip">${r.played} PJ</span><span class="chip w">${r.wins} V</span><span class="chip d">${r.draws} E</span><span class="chip l">${r.losses} D</span><span class="chip">${r.goalsFor}:${r.goalsAgainst} goles</span></div></div></header>
@@ -281,6 +297,7 @@ export function renderClubsDirectory(clubs: { slug: string; name: string; hasCre
 code{background:#ffffff14;padding:2px 6px;border-radius:6px}
 </style></head>
 <body><main class="wrap">
+${navBar({ href: '/', label: 'Volver' })}
 <a class="top" href="/"><img src="/logo.png" alt="">PIRLO BOT</a>
 <h1 style="margin-top:28px">Clubes</h1>
 <div class="sub">Clubes de EA SPORTS FC Pro Clubs que publicaron su página en PIRLO BOT.</div>
@@ -290,5 +307,5 @@ code{background:#ffffff14;padding:2px 6px;border-radius:6px}
 }
 
 export function notFoundPage(): string {
-  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Club no encontrado · PIRLO BOT</title><style>${CSS}</style></head><body><main class="wrap" style="text-align:center;padding-top:80px"><h1>Club no encontrado</h1><p class="sub">Esta página no existe o el club no la ha publicado.</p><p><a href="/">Volver a PIRLO BOT</a></p></main></body></html>`;
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Club no encontrado · PIRLO BOT</title><style>${CSS}</style></head><body><main class="wrap">${navBar({ href: '/clubes', label: 'Ver clubes' })}<div style="text-align:center;padding-top:60px"><h1>Club no encontrado</h1><p class="sub">Esta página no existe o el club no la ha publicado.</p><p><a href="/">Volver a PIRLO BOT</a></p></div></main></body></html>`;
 }

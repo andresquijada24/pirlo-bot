@@ -133,6 +133,7 @@ const sessionStatRow = z.object({
   saves: numOrNull,
   rating_points: numOrNull,
   rated_matches: numOrNull,
+  clean_sheets: numOrNull,
 });
 const toSessionStatRow = (r: z.infer<typeof sessionStatRow>): SessionStatRow => ({
   seasonId: r.season_id,
@@ -156,6 +157,7 @@ const toSessionStatRow = (r: z.infer<typeof sessionStatRow>): SessionStatRow => 
   saves: r.saves,
   ratingPoints: r.rating_points,
   ratedMatches: r.rated_matches,
+  cleanSheets: r.clean_sheets,
 });
 const SESSION_STAT_COLUMNS = Object.keys(sessionStatRow.shape).join(', ');
 
@@ -1022,6 +1024,70 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
     async apply(clubId, match) {
       const r = check(await db.rpc('apply_ea_match', { p_club_id: clubId, p_match: match }));
       return z.boolean().parse(r);
+    },
+    async playerMatches(clubId, eaPlayerIds, limit) {
+      const ids = eaPlayerIds.filter((id) => /^\d{1,20}$/.test(id));
+      if (ids.length === 0) return [];
+      const rows = check(
+        await db
+          .from('ea_match_players')
+          .select(
+            'match_id, position, goals, assists, shots, passes_made, passes_attempted, tackles_made, tackles_attempted, saves, rating, man_of_the_match, ea_matches(match_type, played_at, opponent_name, goals_for, goals_against, result)',
+          )
+          .eq('club_id', clubId)
+          .eq('side', 'propio')
+          .in('ea_player_id', ids)
+          .limit(500),
+      );
+      const n = z.number().nullable();
+      return z
+        .array(
+          z.object({
+            match_id: z.string(),
+            position: z.string().nullable(),
+            goals: n,
+            assists: n,
+            shots: n,
+            passes_made: n,
+            passes_attempted: n,
+            tackles_made: n,
+            tackles_attempted: n,
+            saves: n,
+            rating: z.coerce.number().nullable(),
+            man_of_the_match: z.boolean().nullable(),
+            ea_matches: z.object({
+              match_type: z.enum(EA_MATCH_TYPES),
+              played_at: z.string(),
+              opponent_name: z.string().nullable(),
+              goals_for: n,
+              goals_against: n,
+              result: z.enum(['victoria', 'empate', 'derrota']).nullable(),
+            }),
+          }),
+        )
+        .parse(rows)
+        .map((r) => ({
+          matchId: r.match_id,
+          matchType: r.ea_matches.match_type,
+          playedAt: r.ea_matches.played_at,
+          opponentName: r.ea_matches.opponent_name,
+          goalsFor: r.ea_matches.goals_for,
+          goalsAgainst: r.ea_matches.goals_against,
+          result: r.ea_matches.result,
+          position: r.position,
+          goals: r.goals,
+          assists: r.assists,
+          shots: r.shots,
+          passesMade: r.passes_made,
+          passesAttempted: r.passes_attempted,
+          tacklesMade: r.tackles_made,
+          tacklesAttempted: r.tackles_attempted,
+          saves: r.saves,
+          rating: r.rating,
+          manOfTheMatch: r.man_of_the_match,
+        }))
+        .sort((a, b) => b.playedAt.localeCompare(a.playedAt))
+        .slice(0, limit);
     },
     async recent(clubId, limit) {
       const rows = check(

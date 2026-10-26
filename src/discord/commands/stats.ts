@@ -57,7 +57,7 @@ export function statsFields(t: PlayerTotals) {
     { name: 'Partidos', value: show(t.matchesPlayed), inline },
     { name: 'Sesiones', value: String(t.sessions), inline },
     {
-      name: 'Nota media',
+      name: 'Calificación',
       value:
         t.avgRating === null
           ? '—'

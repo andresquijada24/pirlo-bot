@@ -67,7 +67,7 @@ describe('mensaje de resumen', () => {
     );
     expect(t).toMatch('🔴');
     expect(t).toMatch('⚽ Goles: —');
-    expect(t).toMatch('Beto (6.5, mejor nota)');
+    expect(t).toMatch('Beto (6.5, mejor calificación)');
   });
 
   it('el encabezado resume el balance', () => {

@@ -42,6 +42,7 @@ const statRow = (over: Partial<SessionStatRow>): SessionStatRow & { clubId: stri
   saves: null,
   ratingPoints: null,
   ratedMatches: null,
+  cleanSheets: null,
   ...over,
 });
 

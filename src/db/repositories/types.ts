@@ -236,6 +236,28 @@ export interface EaMatchSummary {
   opponentColors?: { primary: string; secondary: string } | null;
 }
 
+/** Una línea del historial de partidos de un jugador (solo el lado propio). */
+export interface EaPlayerMatch {
+  matchId: string;
+  matchType: ProcessedEaMatch['matchType'];
+  playedAt: string;
+  opponentName: string | null;
+  goalsFor: number | null;
+  goalsAgainst: number | null;
+  result: ProcessedEaMatch['result'];
+  position: string | null;
+  goals: number | null;
+  assists: number | null;
+  shots: number | null;
+  passesMade: number | null;
+  passesAttempted: number | null;
+  tacklesMade: number | null;
+  tacklesAttempted: number | null;
+  saves: number | null;
+  rating: number | null;
+  manOfTheMatch: boolean | null;
+}
+
 export interface EaRecapPlayer {
   /** Nombre en el club si el gamertag está vinculado; si no, el gamertag de EA. */
   name: string;
@@ -272,6 +294,8 @@ export interface EaRepository {
   /** Guarda un partido procesado; false si ya existía. */
   apply(clubId: string, match: ProcessedEaMatch): Promise<boolean>;
   recent(clubId: string, limit: number): Promise<EaMatchSummary[]>;
+  /** Historial de partidos de unos jugadores de EA del club (más recientes primero). */
+  playerMatches(clubId: string, eaPlayerIds: string[], limit: number): Promise<EaPlayerMatch[]>;
   /** Reclama partidos recientes sin anunciar (cada uno solo una vez). Devuelve sus ids. */
   claimRecaps(clubId: string, limit: number): Promise<string[]>;
   /** Devuelve a la cola partidos cuyo anuncio falló por un error temporal. */

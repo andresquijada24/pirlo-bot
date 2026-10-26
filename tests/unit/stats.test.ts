@@ -24,6 +24,7 @@ const row = (over: Partial<SessionStatRow>): SessionStatRow => ({
   saves: null,
   ratingPoints: null,
   ratedMatches: null,
+  cleanSheets: null,
   ...over,
 });
 

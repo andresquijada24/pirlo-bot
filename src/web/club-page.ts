@@ -1,4 +1,4 @@
-import { aggregate, rank, type PlayerTotals, type RankingEntry } from '../core/stats/service.js';
+import { aggregate, defensiveActions, rank, type PlayerTotals, type RankingEntry } from '../core/stats/service.js';
 import type { Club, Season } from '../core/types.js';
 import type { EaMatchSummary, Repositories } from '../db/repositories/types.js';
 import { initials } from '../render/match-card.js';
@@ -20,7 +20,7 @@ export interface ClubPageData {
   record: { played: number; wins: number; draws: number; losses: number; goalsFor: number; goalsAgainst: number };
   matches: EaMatchSummary[];
   players: PlayerTotals[];
-  leaders: { label: string; entries: RankingEntry[]; format?: (n: number) => string }[];
+  leaders: { label: string; note?: string; entries: RankingEntry[]; format?: (n: number) => string }[];
 }
 
 /** Fecha local (AAAA-MM-DD) de un instante en la zona del club. */
@@ -89,9 +89,11 @@ export async function loadClubPage(
     matches: matches.slice(0, 10),
     players,
     leaders: [
-      { label: 'Goles', entries: rank(players, 'goles', 3) },
-      { label: 'Asistencias', entries: rank(players, 'asistencias', 3) },
-      { label: 'Nota media', entries: rank(players, 'nota', 3), format: (n) => n.toFixed(2) },
+      { label: '⚽ Top goleador', entries: rank(players, 'goles', 3) },
+      { label: '🎯 Top asistidor', entries: rank(players, 'asistencias', 3) },
+      { label: '🛡️ Top defensa', note: 'acciones defensivas', entries: rank(players, 'defensa', 3) },
+      { label: '🧤 Top portero', note: 'paradas', entries: rank(players, 'paradas', 3) },
+      { label: '⭐ Nota media', entries: rank(players, 'nota', 3), format: (n) => n.toFixed(2) },
     ],
   };
 }
@@ -121,6 +123,10 @@ type StatLine = Pick<
   | 'passesAttempted'
   | 'tacklesMade'
   | 'tacklesAttempted'
+  | 'interceptions'
+  | 'blocks'
+  | 'clearances'
+  | 'saves'
   | 'avgRating'
 >;
 
@@ -152,6 +158,8 @@ function statCells(p: StatLine): string {
     num(missed(p.passesMade, p.passesAttempted)) +
     ofCell(p.tacklesMade, p.tacklesAttempted) +
     pctCell(ratio(p.tacklesMade, p.tacklesAttempted)) +
+    num(defensiveActions(p as PlayerTotals)) +
+    num(p.saves) +
     num(p.avgRating, 2)
   );
 }
@@ -177,6 +185,10 @@ export function teamTotals(players: PlayerTotals[]): StatLine {
     passesAttempted: sum('passesAttempted'),
     tacklesMade: sum('tacklesMade'),
     tacklesAttempted: sum('tacklesAttempted'),
+    interceptions: sum('interceptions'),
+    blocks: sum('blocks'),
+    clearances: sum('clearances'),
+    saves: sum('saves'),
     avgRating: weight > 0 ? rated.reduce((n, p) => n + p.avgRating! * (p.ratedMatches ?? 0), 0) / weight : null,
   };
 }
@@ -251,7 +263,8 @@ th,td{padding:10px 12px;text-align:center;border-top:1px solid var(--line)}
 th{color:var(--muted);font-size:12px;letter-spacing:1px;text-transform:uppercase;border-top:0;background:#0b1225}
 td:first-child,th:first-child{text-align:left}
 td.nd{color:#64748b}
-table.stats{min-width:860px}
+table.stats{min-width:1000px}
+.leaders h3 small{font-weight:500;color:#64748b}
 tfoot td{font-weight:800;border-top:2px solid var(--accent);background:#0b1225}
 .legend{color:var(--muted);font-size:12px;margin:8px 4px 0}
 .empty{padding:20px;color:var(--muted);text-align:center}
@@ -302,7 +315,7 @@ export function renderClubPage(d: ClubPageData): string {
   const leaders = d.leaders
     .map(
       (l) =>
-        `<div class="card"><h3>${esc(l.label)}</h3>` +
+        `<div class="card"><h3>${esc(l.label)}${l.note ? ` <small>· ${esc(l.note)}</small>` : ''}</h3>` +
         (l.entries.length
           ? `<ol>${l.entries
               .map(
@@ -319,10 +332,11 @@ export function renderClubPage(d: ClubPageData): string {
     ? `<div class="card table"><table class="stats"><thead><tr><th>Jugador</th><th>PJ</th><th>G</th><th>A</th>` +
       `<th>Tiros</th><th title="Goles por cada 100 tiros">Efect.</th>` +
       `<th>Pases</th><th>Acierto</th><th>Errados</th>` +
-      `<th>Entradas</th><th>Acierto</th><th>Nota</th></tr></thead><tbody>${d.players
+      `<th>Entradas</th><th>Acierto</th><th title="Entradas ganadas + intercepciones + bloqueos + despejes">Def.</th>` +
+      `<th>Paradas</th><th>Nota</th></tr></thead><tbody>${d.players
         .map((p) => `<tr><td>${esc(p.name)}</td>${statCells(p)}</tr>`)
         .join('')}</tbody><tfoot><tr><td>Total equipo</td>${statCells(teamTotals(d.players))}</tr></tfoot></table></div>` +
-      '<p class="legend">Efect. = goles ÷ tiros · Pases y Entradas = completados/intentados · — = sin dato</p>'
+      '<p class="legend">Efect. = goles ÷ tiros · Pases y Entradas = completados/intentados · Def. = entradas ganadas + intercepciones + bloqueos + despejes (los que dé la fuente) · — = sin dato</p>'
     : '<div class="card empty">Todavía no hay estadísticas de jugadores.</div>';
 
   const title = `${club.name} · PIRLO BOT`;

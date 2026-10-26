@@ -345,6 +345,8 @@ export interface SessionRecap {
   wins: number | null;
   draws: number | null;
   losses: number | null;
+  /** Partidos sin goles recibidos; null si la fuente no informa goles en contra (Marítimo). */
+  cleanSheets?: number | null;
   players: SessionRecapPlayer[];
 }
 

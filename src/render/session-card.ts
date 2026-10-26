@@ -257,25 +257,33 @@ export function renderSessionCardSvg({
     ),
   );
   // Balance V / E / D.
+  const teamTotal = (f: (p: SessionRecapPlayer) => number | null) => sumOrNull(...r.players.map(f));
   const tiles: [string, number | null, string][] = [
     ['VICTORIAS', r.wins, C.win],
     ['EMPATES', r.draws, C.draw],
     ['DERROTAS', r.losses, C.loss],
+    ['GOLES', teamTotal((p) => p.goals), C.neon],
+    ['ASISTENCIAS', teamTotal((p) => p.assists), C.violet],
   ];
+  // Porterías a cero solo si la fuente informa los goles recibidos (si no, no se inventan).
+  if (r.cleanSheets !== undefined && r.cleanSheets !== null)
+    tiles.push(['PORTERÍAS A CERO', r.cleanSheets, C.gold]);
+  const tileGap = 12;
+  const tileW = Math.min(136, (W - PAD - 92 - 74 - 30 - infoX + tileGap) / tiles.length - tileGap);
   tiles.forEach(([name, v, color], i) => {
-    const x = infoX + i * 150;
+    const x = infoX + i * (tileW + tileGap);
     const y = 222;
     out.push(
-      `<rect x="${x}" y="${y}" width="136" height="96" rx="16" fill="${color}" fill-opacity="0.10" stroke="${color}" stroke-opacity="0.55" stroke-width="1.5"/>`,
+      `<rect x="${x}" y="${y}" width="${tileW}" height="96" rx="16" fill="${color}" fill-opacity="0.10" stroke="${color}" stroke-opacity="0.55" stroke-width="1.5"/>`,
       `<rect x="${x}" y="${y + 14}" width="4" height="68" rx="2" fill="${color}"/>`,
-      text(show(v), x + 68, y + 56, {
+      text(show(v), x + tileW / 2, y + 56, {
         size: 40,
         weight: 'bold',
         anchor: 'middle',
         fill: '#ffffff',
       }),
-      text(name, x + 68, y + 82, {
-        size: 13,
+      text(fit(name, tileW - 12, 12, 'bold'), x + tileW / 2, y + 82, {
+        size: 12,
         weight: 'bold',
         anchor: 'middle',
         fill: color,

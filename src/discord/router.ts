@@ -9,8 +9,9 @@ import type { Repositories } from '../db/repositories/types.js';
 import type { BinaryDownloader, ComponentHandler, Downloader, SlashCommand } from './commands/types.js';
 import { IT, RT } from './constants.js';
 import { actorFrom, parseCommand } from './interaction.js';
-import { fail } from './responses.js';
+import { fail, updateMessage } from './responses.js';
 import type { ChannelPoster } from './poster.js';
+import { decideClub, type Platform } from '../core/platform.js';
 
 /** ApplicationCommandType.ChatInput (comandos slash). */
 const CHAT_INPUT = 1;
@@ -26,6 +27,8 @@ export interface RouterDeps {
   /** Descarga de adjuntos de Discord (importaciones); opcional. */
   download?: Downloader;
   downloadBytes?: BinaryDownloader;
+  /** Operación interna (aprobación de clubes por el dueño); falta en pruebas sin configurar. */
+  platform?: Platform;
 }
 
 const NOT_IN_GUILD = 'PIRLO BOT solo funciona dentro de un servidor de Discord.';
@@ -81,6 +84,7 @@ async function runCommand(
     ...(deps.discord ? { discord: deps.discord } : {}),
     ...(deps.download ? { download: deps.download } : {}),
     ...(deps.downloadBytes ? { downloadBytes: deps.downloadBytes } : {}),
+    ...(deps.platform ? { platform: deps.platform } : {}),
   });
 }
 
@@ -90,6 +94,14 @@ async function runComponent(
 ): Promise<APIInteractionResponse> {
   const [prefix, ...args] = interaction.data.custom_id.split(':');
   const handler = prefix ? deps.components.get(prefix) : undefined;
+  // Botones del dueño de PIRLO BOT (llegan por mensaje privado, sin servidor).
+  if (prefix === 'owner') {
+    const userId = interaction.member?.user.id ?? interaction.user?.id ?? '';
+    if (!deps.platform || !deps.repos) return fail(NO_DATABASE);
+    const [action = '', clubId = '', requesterId = ''] = args;
+    const text = await decideClub({ repos: deps.repos, platform: deps.platform }, userId, action, clubId, requesterId);
+    return deps.platform.ownerIds.has(userId) ? updateMessage(text) : fail(text);
+  }
   if (!handler) return fail('Este botón ya no está disponible.');
   const actor = actorFrom(interaction);
   if (!actor) return fail(NOT_IN_GUILD);

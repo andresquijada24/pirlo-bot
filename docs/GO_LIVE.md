@@ -14,7 +14,12 @@ Se configura una sola vez (el dueño):
 
 Al instalar el bot: se crea el club con el nombre del servidor, quien lo instaló queda como admin,
 se asignan los canales cuyo nombre coincide (#resultados, #convocatorias, #anuncios…) y recibe
-una bienvenida por mensaje privado. No publica nada en el servidor. Nunca actúa en el servidor de
+una bienvenida por mensaje privado. No publica nada en el servidor.
+
+**Aprobación final:** todo club nuevo (alta automática o `/club registrar`) queda **pendiente**
+y no responde comandos hasta que el dueño lo aprueba con los botones *Aprobar / Rechazar* que
+recibe por mensaje privado. Los dueños se fijan con `PIRLO_OWNER_DISCORD_IDS` (por defecto, el
+ID del dueño del proyecto). Los clubes que ya existían siguen activos. Nunca actúa en el servidor de
 referencia ni en los de `POSTING_BLOCKED_GUILDS`, y si el servidor ya tiene club no hace nada.
 
 ## Alta manual (servidor por servidor)

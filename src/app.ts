@@ -40,7 +40,7 @@ export interface AppDeps {
   download?: Downloader;
   downloadBytes?: BinaryDownloader;
   /** Alta automática al instalar el bot (eventos webhook de Discord). */
-  onboarding?: { api: GuildApi; blockedGuilds: ReadonlySet<string>; deadlineMs?: number };
+  onboarding?: { api: GuildApi; blockedGuilds: ReadonlySet<string>; ownerIds: ReadonlySet<string>; deadlineMs?: number };
   cron?: {
     secret: string | undefined;
     sync: (() => Promise<SyncResult>) | null;
@@ -68,6 +68,7 @@ export function createApp(deps: AppDeps) {
     ...(deps.discord ? { discord: deps.discord } : {}),
     ...(deps.download ? { download: deps.download } : {}),
     ...(deps.downloadBytes ? { downloadBytes: deps.downloadBytes } : {}),
+    ...(deps.onboarding ? { platform: { ownerIds: deps.onboarding.ownerIds, api: deps.onboarding.api } } : {}),
   };
   const app = new Hono();
 
@@ -195,7 +196,13 @@ export function createApp(deps: AppDeps) {
       const userName =
         typeof user.global_name === 'string' ? user.global_name : typeof user.username === 'string' ? user.username : '';
       const work = onboardGuild(
-        { repos: deps.repos, api: deps.onboarding.api, blockedGuilds: deps.onboarding.blockedGuilds, ...(deps.log ? { log: deps.log } : {}) },
+        {
+          repos: deps.repos,
+          api: deps.onboarding.api,
+          blockedGuilds: deps.onboarding.blockedGuilds,
+          ownerIds: deps.onboarding.ownerIds,
+          ...(deps.log ? { log: deps.log } : {}),
+        },
         { guildId: guild.id, guildName: typeof guild.name === 'string' ? guild.name : '', userId: user.id, userName },
       ).catch((err: unknown) => {
         deps.log?.error({ err }, 'Fallo en el alta automática del club');

@@ -2,6 +2,7 @@ import { isDomainError } from '../core/errors.js';
 import { CHANNEL_PURPOSES, type ChannelPurpose } from '../core/types.js';
 import type { Repositories } from '../db/repositories/types.js';
 import { REFERENCE_GUILD_ID } from '../jobs/reminders.js';
+import { requestApproval } from '../core/platform.js';
 
 /**
  * Alta automática de un club cuando alguien añade PIRLO BOT a su servidor desde la web.
@@ -13,6 +14,7 @@ import { REFERENCE_GUILD_ID } from '../jobs/reminders.js';
  * - Nunca actúa en el servidor de referencia ni en los bloqueados.
  * - Si el servidor ya tiene un club, no hace nada (Discord reintenta eventos: debe ser idempotente).
  * - Asigna los canales cuyo nombre coincide con un propósito (#resultados, #convocatorias…).
+ * - El club queda PENDIENTE hasta que el dueño de PIRLO BOT lo aprueba (DM con botones).
  * - Envía un mensaje privado de bienvenida a quien lo instaló (no publica en el servidor).
  */
 
@@ -59,6 +61,8 @@ export async function onboardGuild(
     repos: Pick<Repositories, 'clubs' | 'channels' | 'audit'>;
     api: GuildApi;
     blockedGuilds: ReadonlySet<string>;
+    /** Dueños de PIRLO BOT: reciben la solicitud de aprobación. */
+    ownerIds: ReadonlySet<string>;
     log?: { error: (obj: object, msg: string) => void };
   },
   input: OnboardingInput,
@@ -95,6 +99,13 @@ export async function onboardGuild(
     }
   }
   if (!clubId) return { status: 'invalido' };
+
+  // Aprobación final del dueño: el club no funciona hasta que la aprueba.
+  await requestApproval(
+    { repos, platform: { ownerIds: deps.ownerIds, api }, ...(deps.log ? { log: deps.log } : {}) },
+    { id: clubId, slug, name },
+    { userId: input.userId, userName: input.userName, guildName: name },
+  );
 
   // Canales por nombre. Un fallo aquí no deshace el alta: se configuran luego con /club canal.
   const channels: ChannelPurpose[] = [];
@@ -135,12 +146,13 @@ export function welcomeMessage(name: string, slug: string, channels: ChannelPurp
   const missing = CHANNEL_PURPOSES.filter((p) => !channels.includes(p));
   return [
     `**¡PIRLO BOT ya está en ${name}!** El club quedó creado y eres su admin.`,
+    '⏳ Falta la aprobación final de PIRLO BOT: te avisaremos por aquí en cuanto esté activo.',
     channels.length
       ? `Canales detectados: ${channels.map((p) => `**${p}**`).join(', ')}.`
       : 'No encontré canales con nombres como #resultados o #convocatorias.',
     missing.length ? `Puedes asignar los demás con \`/club canal\` (${missing.join(', ')}).` : '',
     '',
-    '**Próximos pasos (opcionales):**',
+    '**Cuando esté aprobado (opcional):**',
     '• `/club ea vincular` para conectar tu club de EA SPORTS FC.',
     '• `/club escudo` para subir el escudo y `/club web activar:true` para publicar la página del club.',
     '• Los jugadores se unen con `/vincular`; tú apruebas con `/solicitudes`.',

@@ -43,6 +43,8 @@ export interface ClubRepository {
   /** null desactiva los recordatorios. */
   setReminderMinutes(clubId: string, minutes: number | null): Promise<void>;
   findById(clubId: string): Promise<Club | null>;
+  /** Cambia el estado (aprobación del dueño de PIRLO BOT). Lo controla la app; queda auditado. */
+  setStatus(clubId: string, status: Club['status'], actorDiscordId: string): Promise<void>;
   /** Clubes con la página web publicada (para el directorio /clubes). */
   listPublic(): Promise<{ slug: string; name: string; hasCrest: boolean }[]>;
   /** Club con la página web pública activada (por su identificador) o null. */

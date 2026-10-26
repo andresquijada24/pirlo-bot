@@ -11,6 +11,8 @@ import { createTestSigner } from '../helpers/keys.js';
 
 const GUILD = '900000000000000001';
 const USER = '800000000000000009';
+const OWNER = '800000000000000777';
+const OWNERS = new Set([OWNER]);
 
 function fakeApi(channels: { id: string; name: string }[] = []) {
   const dms: { userId: string; body: Record<string, unknown> }[] = [];
@@ -41,7 +43,10 @@ describe('alta automática al instalar el bot', () => {
       { id: '700000000000000002', name: 'resultados' },
       { id: '700000000000000003', name: 'general' },
     ]);
-    const res = await onboardGuild({ repos: env.repos, api, blockedGuilds: new Set() }, input);
+    const res = await onboardGuild(
+      { repos: env.repos, api, blockedGuilds: new Set(), ownerIds: OWNERS },
+      input,
+    );
     expect(res).toEqual({
       status: 'creado',
       slug: 'lacritas-fc',
@@ -56,22 +61,33 @@ describe('alta automática al instalar el bot', () => {
       'anuncios',
       'resultados',
     ]);
-    expect(dms).toHaveLength(1);
-    expect(dms[0]!.userId).toBe(USER);
-    expect(String(dms[0]!.body.content)).toMatch('lacritas-fc');
-    expect(dms[0]!.body.allowed_mentions).toEqual({ parse: [] });
+    // Queda pendiente: el dueño recibe los botones y quien instaló, la bienvenida.
+    expect(club.status).toBe('pendiente');
+    expect(dms.map((d) => d.userId)).toEqual([OWNER, USER]);
+    expect(JSON.stringify(dms[0]!.body.components)).toMatch(`owner:approve:${club.id}:${USER}`);
+    expect(String(dms[1]!.body.content)).toMatch('lacritas-fc');
+    expect(String(dms[1]!.body.content)).toMatch('aprobación');
+    for (const d of dms) expect(d.body.allowed_mentions).toEqual({ parse: [] });
   });
 
   it('es idempotente (Discord reintenta) y evita identificadores ocupados', async () => {
     const env = createMemoryRepos();
     const { api, dms } = fakeApi();
-    await onboardGuild({ repos: env.repos, api, blockedGuilds: new Set() }, input);
-    expect(await onboardGuild({ repos: env.repos, api, blockedGuilds: new Set() }, input)).toEqual({
+    await onboardGuild(
+      { repos: env.repos, api, blockedGuilds: new Set(), ownerIds: OWNERS },
+      input,
+    );
+    expect(
+      await onboardGuild(
+        { repos: env.repos, api, blockedGuilds: new Set(), ownerIds: OWNERS },
+        input,
+      ),
+    ).toEqual({
       status: 'existente',
     });
-    expect(dms).toHaveLength(1);
+    expect(dms).toHaveLength(2);
     const other = await onboardGuild(
-      { repos: env.repos, api, blockedGuilds: new Set() },
+      { repos: env.repos, api, blockedGuilds: new Set(), ownerIds: OWNERS },
       { ...input, guildId: '900000000000000002' },
     );
     expect(other).toMatchObject({ status: 'creado', slug: 'lacritas-fc-2' });
@@ -80,7 +96,7 @@ describe('alta automática al instalar el bot', () => {
   it('nunca actúa en el servidor de referencia ni en los bloqueados', async () => {
     const env = createMemoryRepos();
     const { api, dms } = fakeApi();
-    const deps = { repos: env.repos, api, blockedGuilds: new Set([GUILD]) };
+    const deps = { repos: env.repos, api, blockedGuilds: new Set([GUILD]), ownerIds: OWNERS };
     expect(await onboardGuild(deps, input)).toEqual({ status: 'bloqueado' });
     expect(await onboardGuild(deps, { ...input, guildId: '853894813169614848' })).toEqual({
       status: 'bloqueado',
@@ -98,7 +114,7 @@ describe('POST /api/discord/events', () => {
     const app = createApp({
       discordPublicKey: signer.publicKey,
       repos: env.repos,
-      onboarding: { api, blockedGuilds: new Set() },
+      onboarding: { api, blockedGuilds: new Set(), ownerIds: OWNERS },
     });
     const post = async (payload: unknown, tamper = false) => {
       const body = JSON.stringify(payload);
@@ -139,6 +155,69 @@ describe('POST /api/discord/events', () => {
     expect(env.state.clubs).toHaveLength(0);
     expect((await post(authorized(0))).status).toBe(204);
     expect(env.state.clubs.map((c) => c.slug)).toEqual(['club-nuevo']);
-    expect(dms).toHaveLength(1);
+    expect(dms).toHaveLength(2);
+  });
+});
+
+describe('aprobación final del dueño', () => {
+  async function pending() {
+    const signer = await createTestSigner();
+    const env = createMemoryRepos();
+    const { api, dms } = fakeApi();
+    await onboardGuild(
+      { repos: env.repos, api, blockedGuilds: new Set(), ownerIds: OWNERS },
+      input,
+    );
+    const app = createApp({
+      discordPublicKey: signer.publicKey,
+      repos: env.repos,
+      onboarding: { api, blockedGuilds: new Set(), ownerIds: OWNERS },
+    });
+    const club = env.state.clubs[0]!;
+    const click = async (userId: string, action: string) => {
+      const body = JSON.stringify({
+        type: 3,
+        id: '1',
+        application_id: '1562889315657195530',
+        token: 't',
+        version: 1,
+        user: { id: userId, username: 'x' },
+        message: { id: '2' },
+        data: { component_type: 2, custom_id: `owner:${action}:${club.id}:${USER}` },
+      });
+      const { signature, timestamp } = await signer.sign(body);
+      const res = await app.request('/api/interactions', {
+        method: 'POST',
+        body,
+        headers: { 'x-signature-ed25519': signature, 'x-signature-timestamp': timestamp },
+      });
+      return (await res.json()) as { type: number; data?: { content?: string; embeds?: { description?: string }[] } };
+    };
+    return { env, dms, club, click };
+  }
+
+  it('un club pendiente no responde comandos', async () => {
+    const { env } = await pending();
+    const { resolveClub } = await import('../../src/core/context.js');
+    await expect(resolveClub(env.repos, GUILD)).rejects.toThrow('pendiente de aprobación');
+  });
+
+  it('solo el dueño aprueba; el solicitante recibe el aviso', async () => {
+    const { club, click, dms } = await pending();
+    const denied = await click(USER, 'approve');
+    expect(denied.data?.embeds?.[0]?.description).toMatch('Solo el dueño');
+    expect(club.status).toBe('pendiente');
+    const ok = await click(OWNER, 'approve');
+    expect(ok.type).toBe(7);
+    expect(ok.data?.content).toMatch('aprobado');
+    expect(club.status).toBe('activo');
+    expect(dms.at(-1)!.userId).toBe(USER);
+    expect(String(dms.at(-1)!.body.content)).toMatch('fue aprobado');
+  });
+
+  it('rechazar deja el club rechazado', async () => {
+    const { club, click } = await pending();
+    await click(OWNER, 'reject');
+    expect(club.status).toBe('rechazado');
   });
 });

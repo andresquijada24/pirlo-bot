@@ -13,6 +13,7 @@ import { runEaProcessing } from '../src/jobs/ea-processing.js';
 import { runEaRecaps } from '../src/jobs/ea-recaps.js';
 import { renderMatchCardSvg, svgToPng } from '../src/render/match-card.js';
 import { createGuildApi } from '../src/discord/onboarding.js';
+import { ownerIdsFrom } from '../src/core/platform.js';
 
 /** Punto de entrada en Vercel. vercel.json reescribe /api/* hacia esta función. */
 const env = loadEnv();
@@ -48,6 +49,7 @@ const app = createApp({
   onboarding: {
     api: createGuildApi(env.DISCORD_BOT_TOKEN),
     blockedGuilds: new Set(env.POSTING_BLOCKED_GUILDS?.split(',') ?? []),
+    ownerIds: ownerIdsFrom(env.PIRLO_OWNER_DISCORD_IDS),
   },
   cron: {
     secret: env.CRON_SECRET,

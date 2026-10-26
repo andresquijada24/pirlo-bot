@@ -8,6 +8,7 @@ import type { Actor } from '../../core/types.js';
 import type { Repositories } from '../../db/repositories/types.js';
 import type { ParsedCommand } from '../interaction.js';
 import type { ChannelPoster } from '../poster.js';
+import type { Platform } from '../../core/platform.js';
 
 export interface CommandContext {
   interaction: APIChatInputApplicationCommandInteraction;
@@ -18,6 +19,8 @@ export interface CommandContext {
   discord?: ChannelPoster;
   /** Descarga un adjunto de Discord como texto (solo CDN de Discord); puede faltar. */
   download?: Downloader;
+  /** Operación interna de PIRLO BOT (aprobación de clubes nuevos); puede faltar en pruebas. */
+  platform?: Platform;
   /** Igual, en bytes (imágenes, p. ej. el escudo del club). */
   downloadBytes?: BinaryDownloader;
 }

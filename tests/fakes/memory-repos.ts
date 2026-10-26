@@ -556,9 +556,16 @@ export function createMemoryRepos() {
                 const member = owner && state.memberships.find((x) => x.clubId === clubId && x.playerId === owner[0].split(':')[1]);
                 return {
                   name: member?.displayName ?? p.gamertag,
+                  position: p.position,
                   goals: p.goals,
                   assists: p.assists,
                   rating: p.rating,
+                  shots: p.shots,
+                  passesMade: p.passesMade,
+                  passesAttempted: p.passesAttempted,
+                  tacklesMade: p.tacklesMade,
+                  tacklesAttempted: p.tacklesAttempted,
+                  saves: p.saves,
                   manOfTheMatch: p.manOfTheMatch,
                 };
               })

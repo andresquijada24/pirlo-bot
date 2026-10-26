@@ -4,7 +4,7 @@ import { DiscordPostError, type ChannelPoster } from '../../src/discord/poster.j
 import { runEaProcessing } from '../../src/jobs/ea-processing.js';
 import { runEaRecaps } from '../../src/jobs/ea-recaps.js';
 import { REFERENCE_GUILD_ID } from '../../src/jobs/reminders.js';
-import type { EaRecap } from '../../src/db/repositories/types.js';
+import type { EaRecap, EaRecapPlayer } from '../../src/db/repositories/types.js';
 import { createMemoryRepos } from '../fakes/memory-repos.js';
 
 // Datos ficticios, solo para pruebas.
@@ -12,6 +12,20 @@ const ADMIN = '800000000000000001';
 const GUILD = '900000000000000001';
 const CHANNEL = '930000000000000007';
 
+const player = (over: Partial<EaRecapPlayer> & { name: string }): EaRecapPlayer => ({
+  position: null,
+  goals: null,
+  assists: null,
+  rating: null,
+  shots: null,
+  passesMade: null,
+  passesAttempted: null,
+  tacklesMade: null,
+  tacklesAttempted: null,
+  saves: null,
+  manOfTheMatch: null,
+  ...over,
+});
 const recap = (over: Partial<EaRecap> = {}): EaRecap => ({
   matchId: '1',
   matchType: 'leagueMatch',
@@ -21,9 +35,9 @@ const recap = (over: Partial<EaRecap> = {}): EaRecap => ({
   result: 'victoria',
   opponentName: 'Rival Ficticio',
   players: [
-    { name: 'Ana', goals: 2, assists: 0, rating: 8.4, manOfTheMatch: true },
-    { name: 'Beto', goals: 1, assists: 2, rating: 7.1, manOfTheMatch: false },
-    { name: 'Caro', goals: null, assists: null, rating: null, manOfTheMatch: null },
+    player({ name: 'Ana', goals: 2, assists: 0, rating: 8.4, manOfTheMatch: true }),
+    player({ name: 'Beto', goals: 1, assists: 2, rating: 7.1, manOfTheMatch: false }),
+    player({ name: 'Caro' }),
   ],
   ...over,
 });
@@ -46,7 +60,7 @@ describe('mensaje de resumen', () => {
         recap({
           result: 'derrota',
           goalsFor: 0,
-          players: [{ name: 'Beto', goals: 0, assists: null, rating: 6.5, manOfTheMatch: false }],
+          players: [player({ name: 'Beto', goals: 0, rating: 6.5, manOfTheMatch: false })],
         }),
         'Club Prueba',
       ),
@@ -152,5 +166,58 @@ describe('publicación de resúmenes', () => {
     const after = recorder();
     await runEaRecaps({ repos: second.env.repos, poster: after.poster, blockedGuilds: new Set() });
     expect(after.sent.length).toBe(0);
+  });
+});
+
+describe('imágenes en el resumen', () => {
+  it('con renderizador publica una imagen por partido; si falla, vuelve al texto', async () => {
+    for (const fails of [false, true]) {
+      const env = createMemoryRepos();
+      const { clubId } = await env.repos.clubs.register({
+        guildId: GUILD,
+        guildName: null,
+        slug: 'club-ea',
+        name: 'Club EA',
+        adminDiscordId: ADMIN,
+        adminDisplayName: 'Admin',
+      });
+      await env.repos.ea.link(clubId, 'common-gen5', '111', ADMIN);
+      env.state.eaMatches.push({
+        clubId,
+        matchId: '900001',
+        platform: 'common-gen5',
+        eaClubId: '111',
+        matchType: 'leagueMatch',
+        playedAt: '2026-10-25T02:07:40.000Z',
+        goalsFor: 1,
+        goalsAgainst: 0,
+        result: 'victoria',
+        opponentEaClubId: '222',
+        opponentName: 'Rival Ficticio',
+        players: [],
+      });
+      env.state.channels.push({ clubId, guildId: GUILD, purpose: 'resultados', channelId: CHANNEL });
+      const calls: { body: Record<string, unknown>; files?: unknown[] }[] = [];
+      const poster: ChannelPoster = {
+        async post(_c, body, files) {
+          calls.push({ body, ...(files ? { files } : {}) });
+          return { id: '1' };
+        },
+        async edit() {},
+      };
+      const render = async () => {
+        if (fails) throw new Error('sin sharp');
+        return new Uint8Array([0x89, 0x50]);
+      };
+      const r = await runEaRecaps({ repos: env.repos, poster, blockedGuilds: new Set(), render });
+      expect(r.posted).toBe(1);
+      if (fails) {
+        expect(calls[0]!.files).toBeUndefined();
+        expect(Array.isArray(calls[0]!.body.embeds)).toBe(true);
+      } else {
+        expect(calls[0]!.files!.length).toBe(1);
+        expect(calls[0]!.body.embeds).toBeUndefined();
+      }
+    }
   });
 });

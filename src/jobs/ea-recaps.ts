@@ -1,6 +1,7 @@
 import type { Repositories } from '../db/repositories/types.js';
 import { recapEmbed, recapHeader } from '../discord/ea-recap.js';
-import { DiscordPostError, type ChannelPoster } from '../discord/poster.js';
+import { DiscordPostError, type ChannelPoster, type PosterFile } from '../discord/poster.js';
+import type { MatchCardInput } from '../render/match-card.js';
 import { REFERENCE_GUILD_ID } from './reminders.js';
 
 /**
@@ -22,6 +23,8 @@ export async function runEaRecaps(deps: {
   repos: Pick<Repositories, 'ea' | 'channels' | 'clubs'>;
   poster: ChannelPoster;
   blockedGuilds: ReadonlySet<string>;
+  /** Genera la imagen PNG de un partido. Si falta o falla, se publican tarjetas de texto. */
+  render?: (input: MatchCardInput) => Promise<Uint8Array>;
   log?: { error: (obj: object, msg: string) => void };
 }): Promise<EaRecapResult> {
   const { repos, poster } = deps;
@@ -38,11 +41,17 @@ export async function runEaRecaps(deps: {
     try {
       const recaps = await repos.ea.recaps(link.clubId, ids);
       if (recaps.length === 0) continue;
-      await poster.post(target.channelId, {
-        content: recapHeader(recaps, club.name),
-        embeds: recaps.map((r) => recapEmbed(r, club.name)),
-        allowed_mentions: { parse: [] },
-      });
+      const content = recapHeader(recaps, club.name);
+      const images = await renderAll(deps, recaps, club.name, club.timezone);
+      if (images) {
+        await poster.post(target.channelId, { content, allowed_mentions: { parse: [] } }, images);
+      } else {
+        await poster.post(target.channelId, {
+          content,
+          embeds: recaps.map((r) => recapEmbed(r, club.name)),
+          allowed_mentions: { parse: [] },
+        });
+      }
       result.posted += recaps.length;
     } catch (err) {
       result.failed += ids.length;
@@ -56,4 +65,25 @@ export async function runEaRecaps(deps: {
     }
   }
   return result;
+}
+
+/** Una imagen por partido; null si no hay renderizador o alguna falla (se usa el texto). */
+async function renderAll(
+  deps: Parameters<typeof runEaRecaps>[0],
+  recaps: Awaited<ReturnType<Repositories['ea']['recaps']>>,
+  clubName: string,
+  timeZone: string,
+): Promise<PosterFile[] | null> {
+  if (!deps.render) return null;
+  try {
+    const files: PosterFile[] = [];
+    for (const [i, recap] of recaps.entries()) {
+      const data = await deps.render({ recap, clubName, timeZone });
+      files.push({ name: `partido-${i + 1}.png`, data, contentType: 'image/png' });
+    }
+    return files;
+  } catch (err) {
+    deps.log?.error({ err }, 'No se pudo generar la imagen del partido; se publica en texto');
+    return null;
+  }
 }

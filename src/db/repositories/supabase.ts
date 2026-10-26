@@ -941,9 +941,16 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
             players: z.array(
               z.object({
                 name: z.string(),
+                position: z.string().nullable().default(null),
                 goals: z.number().nullable(),
                 assists: z.number().nullable(),
                 rating: numOrNull,
+                shots: z.number().nullable().default(null),
+                passesMade: z.number().nullable().default(null),
+                passesAttempted: z.number().nullable().default(null),
+                tacklesMade: z.number().nullable().default(null),
+                tacklesAttempted: z.number().nullable().default(null),
+                saves: z.number().nullable().default(null),
                 manOfTheMatch: z.boolean().nullable(),
               }),
             ),

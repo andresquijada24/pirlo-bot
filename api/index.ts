@@ -11,6 +11,7 @@ import { createDiscordDownloader } from '../src/discord/download.js';
 import { runReminders } from '../src/jobs/reminders.js';
 import { runEaProcessing } from '../src/jobs/ea-processing.js';
 import { runEaRecaps } from '../src/jobs/ea-recaps.js';
+import { renderMatchCardSvg, svgToPng } from '../src/render/match-card.js';
 
 /** Punto de entrada en Vercel. vercel.json reescribe /api/* hacia esta función. */
 const env = loadEnv();
@@ -58,7 +59,13 @@ const app = createApp({
             return undefined;
           });
           // Resumen en el canal de resultados de cada club (solo partidos recién procesados).
-          const eaRecaps = await runEaRecaps({ repos, poster, blockedGuilds, log: logger }).catch((err: unknown) => {
+          const eaRecaps = await runEaRecaps({
+            repos,
+            poster,
+            blockedGuilds,
+            render: (input) => svgToPng(renderMatchCardSvg(input)),
+            log: logger,
+          }).catch((err: unknown) => {
             logger.error({ err }, 'Fallo en los resúmenes de EA');
             return undefined;
           });

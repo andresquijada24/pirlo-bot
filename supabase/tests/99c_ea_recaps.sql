@@ -43,6 +43,8 @@ select pg_temp.expect(
       and jsonb_array_length(r -> 0 -> 'players') = 2
       and r -> 0 -> 'players' -> 0 -> 'assists' = 'null'::jsonb
       and r -> 0 ->> 'opponentName' = 'Rival Uno'
+      and r -> 0 -> 'players' -> 0 -> 'shots' = 'null'::jsonb
+      and r -> 0 -> 'players' -> 0 ? 'passesAttempted'
      from public.ea_recap('ac000000-0000-0000-0000-000000000001', array['1']) r),
   'el resumen trae solo jugadores propios; sin dato = null');
 select pg_temp.expect(

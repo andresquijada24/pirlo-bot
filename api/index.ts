@@ -12,6 +12,7 @@ import { runReminders } from '../src/jobs/reminders.js';
 import { runEaProcessing } from '../src/jobs/ea-processing.js';
 import { runEaRecaps } from '../src/jobs/ea-recaps.js';
 import { renderMatchCardSvg, svgToPng } from '../src/render/match-card.js';
+import { createGuildApi } from '../src/discord/onboarding.js';
 
 /** Punto de entrada en Vercel. vercel.json reescribe /api/* hacia esta función. */
 const env = loadEnv();
@@ -44,6 +45,10 @@ const app = createApp({
   download: createDiscordDownloader(),
   downloadBytes: createDiscordBinaryDownloader(),
   eaBridgeToken: env.EA_BRIDGE_TOKEN,
+  onboarding: {
+    api: createGuildApi(env.DISCORD_BOT_TOKEN),
+    blockedGuilds: new Set(env.POSTING_BLOCKED_GUILDS?.split(',') ?? []),
+  },
   cron: {
     secret: env.CRON_SECRET,
     sync:

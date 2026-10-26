@@ -1,5 +1,24 @@
 # Paso al servidor real del club
 
+## Alta automática (recomendada)
+
+Con esto, cualquier club pulsa «Añadir a Discord» en la web y queda listo sin registrar nada a mano.
+Se configura una sola vez (el dueño):
+
+1. **Developer Portal → Bot → Public Bot: activado** (si no, solo el dueño puede añadir el bot).
+2. **Developer Portal → Webhooks**: Endpoint `https://pirlo-bot.vercel.app/api/discord/events`,
+   *Events* activado y suscrito a **Application Authorized**.
+3. **GitHub → Settings → Secrets and variables → Actions → Variables**:
+   `DISCORD_COMMANDS_GLOBAL = true` (aprobación explícita del registro global, regla 8) y ejecutar
+   *Registrar comandos de Discord*. Desde entonces se vuelve a registrar solo al cambiar comandos.
+
+Al instalar el bot: se crea el club con el nombre del servidor, quien lo instaló queda como admin,
+se asignan los canales cuyo nombre coincide (#resultados, #convocatorias, #anuncios…) y recibe
+una bienvenida por mensaje privado. No publica nada en el servidor. Nunca actúa en el servidor de
+referencia ni en los de `POSTING_BLOCKED_GUILDS`, y si el servidor ya tiene club no hace nada.
+
+## Alta manual (servidor por servidor)
+
 Lista para llevar PIRLO BOT del servidor de pruebas al servidor real de un club. Cada paso que
 publica o registra algo en un servidor real necesita la aprobación explícita del dueño (regla 8 y
 9 de CLAUDE.md). El servidor de referencia (853894813169614848) nunca se usa sin autorización.

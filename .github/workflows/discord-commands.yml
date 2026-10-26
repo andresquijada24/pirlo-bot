@@ -1,10 +1,18 @@
 name: Registrar comandos de Discord
 
-# Solo se ejecuta a mano: Actions → "Registrar comandos de Discord" → Run workflow.
-# Registra los comandos en el servidor de pruebas (secreto DISCORD_DEV_GUILD_ID) y, si el dueño
-# lo autorizó, en los servidores reales de clubes (variable DISCORD_CLUB_GUILD_IDS).
+# Registra los comandos de Discord.
+# - Con la variable del repositorio DISCORD_COMMANDS_GLOBAL=true (la fija el dueño: es su
+#   aprobación explícita), de forma GLOBAL: cualquier servidor que añada el bot los tiene al
+#   instante, sin registrar nada a mano. Se ejecuta solo al cambiar los comandos en main.
+# - Sin ella, solo en el servidor de pruebas (secreto DISCORD_DEV_GUILD_ID) y en los servidores
+#   autorizados (variable DISCORD_CLUB_GUILD_IDS).
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'src/discord/commands/**'
+      - 'scripts/register-commands.ts'
 
 permissions:
   contents: read
@@ -24,7 +32,18 @@ jobs:
         run: |
           if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
+      - name: Registrar de forma global
+        if: vars.DISCORD_COMMANDS_GLOBAL == 'true'
+        env:
+          DISCORD_APPLICATION_ID: '1562889315657195530'
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_DEV_GUILD_ID: ${{ secrets.DISCORD_DEV_GUILD_ID }}
+          DISCORD_CLUB_GUILD_IDS: ${{ vars.DISCORD_CLUB_GUILD_IDS }}
+          CONFIRM_GLOBAL: 'yes'
+        run: npm run commands:register -- --global
+
       - name: Registrar en el servidor de pruebas
+        if: vars.DISCORD_COMMANDS_GLOBAL != 'true'
         env:
           DISCORD_APPLICATION_ID: '1562889315657195530'
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}

@@ -92,6 +92,12 @@ Todos implementan el contrato `StatsProvider` de `src/providers/types.ts`.
   asistencias, MVP y notas. Sin ese canal no se publica nada. Cada partido se anuncia una sola vez
   (`ea_matches.recap_posted_at`), solo si se procesó en las últimas 24 h, nunca en el servidor de
   referencia ni en los bloqueados, y sin menciones.
+- **Imagen del partido**: el resumen se publica como una imagen PNG por partido (diseño propio de
+  PIRLO BOT, `src/render/`): SVG con el texto como trazos de Inter (SIL OFL 1.1, licencia en
+  `src/render/assets/LICENSE-Inter.txt`) convertido a PNG con `sharp`. Solo jugadores propios; el
+  rival por nombre y marcador con un escudo genérico de iniciales (sin escudos ni fotos de EA).
+  Si la imagen no se puede generar, se publican las tarjetas de texto. Los recursos se regeneran
+  con `scripts/build-render-assets.py` (logo original de `docs/assets` escalado, sin modificarlo).
 - **Rivales**: nombre, marcador, gamertags y estadísticas se guardan solo dentro del club que jugó
   el partido; nunca entran en rankings ni estadísticas de la plantilla, y sus gamertags no se
   muestran en páginas públicas.

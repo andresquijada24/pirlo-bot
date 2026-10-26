@@ -194,9 +194,17 @@ export interface EaMatchSummary {
 export interface EaRecapPlayer {
   /** Nombre en el club si el gamertag está vinculado; si no, el gamertag de EA. */
   name: string;
+  /** Posición que da EA (forward, midfielder, defender, goalkeeper…). */
+  position: string | null;
   goals: number | null;
   assists: number | null;
   rating: number | null;
+  shots: number | null;
+  passesMade: number | null;
+  passesAttempted: number | null;
+  tacklesMade: number | null;
+  tacklesAttempted: number | null;
+  saves: number | null;
   manOfTheMatch: boolean | null;
 }
 

@@ -13,7 +13,7 @@ import type { ReminderResult } from './jobs/reminders.js';
 import type { EaProcessingResult } from './jobs/ea-processing.js';
 import type { EaRecapResult } from './jobs/ea-recaps.js';
 import type { ChannelPoster } from './discord/poster.js';
-import type { Downloader } from './discord/commands/types.js';
+import type { BinaryDownloader, Downloader } from './discord/commands/types.js';
 
 export interface AppDeps {
   discordPublicKey: string;
@@ -29,6 +29,7 @@ export interface AppDeps {
   discord?: ChannelPoster;
   /** Descarga de adjuntos de Discord (importación de partidos). */
   download?: Downloader;
+  downloadBytes?: BinaryDownloader;
   cron?: {
     secret: string | undefined;
     sync: (() => Promise<SyncResult>) | null;
@@ -55,6 +56,7 @@ export function createApp(deps: AppDeps) {
     ...(deps.log ? { log: deps.log } : {}),
     ...(deps.discord ? { discord: deps.discord } : {}),
     ...(deps.download ? { download: deps.download } : {}),
+    ...(deps.downloadBytes ? { downloadBytes: deps.downloadBytes } : {}),
   };
   const app = new Hono();
 

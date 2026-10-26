@@ -264,6 +264,19 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
       const row = check(await db.from('clubs').select(CLUB_COLUMNS).eq('id', clubId).maybeSingle());
       return row ? toClub(clubRow.parse(row)) : null;
     },
+    async crest(clubId) {
+      const row = check(await db.from('clubs').select('crest_png').eq('id', clubId).maybeSingle());
+      return row ? z.object({ crest_png: z.string().nullable() }).parse(row).crest_png : null;
+    },
+    async setCrest(clubId, pngBase64, actorDiscordId) {
+      check(
+        await db.rpc('set_club_crest', {
+          p_club_id: clubId,
+          p_png_base64: pngBase64,
+          p_actor_discord_id: actorDiscordId,
+        }),
+      );
+    },
     async register(input) {
       const rows = check(
         await db.rpc('register_club', {
@@ -938,6 +951,10 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
             goalsAgainst: z.number().nullable(),
             result: z.enum(['victoria', 'empate', 'derrota']).nullable(),
             opponentName: z.string().nullable(),
+            opponentColors: z
+              .object({ primary: z.string().regex(/^#[0-9a-f]{6}$/), secondary: z.string().regex(/^#[0-9a-f]{6}$/) })
+              .nullable()
+              .default(null),
             players: z.array(
               z.object({
                 name: z.string(),

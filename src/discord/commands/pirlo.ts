@@ -19,6 +19,7 @@ const HELP = [
   '`/club sincronizacion` — estado de la sincronización (DT/admin)',
   '`/club ea vincular` · `/club ea estado` — partidos de EA Pro Clubs del club (admin da el consentimiento)',
   '`/club ea importar` — sube el archivo de partidos que guardaste desde EA en tu navegador',
+  '`/club escudo` — sube el escudo del club para las imágenes de partido (admin)',
   '',
   '**Partidos**',
   '`/convocatoria crear` — convoca con botones Voy / Duda / No voy (capitán o superior)',

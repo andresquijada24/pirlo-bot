@@ -18,9 +18,12 @@ export interface CommandContext {
   discord?: ChannelPoster;
   /** Descarga un adjunto de Discord como texto (solo CDN de Discord); puede faltar. */
   download?: Downloader;
+  /** Igual, en bytes (imágenes, p. ej. el escudo del club). */
+  downloadBytes?: BinaryDownloader;
 }
 
 export type Downloader = (url: string) => Promise<string>;
+export type BinaryDownloader = (url: string) => Promise<Uint8Array>;
 
 export interface SlashCommand {
   /** Definición que se registra en Discord. */

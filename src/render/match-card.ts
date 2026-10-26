@@ -76,12 +76,41 @@ function star(cx: number, cy: number, r: number, fill: string): string {
   return `<polygon points="${pts.join(' ')}" fill="${fill}"/>`;
 }
 
-function crest(cx: number, cy: number, label: string, own: boolean): string {
-  const stroke = own ? C.accent : C.muted;
+/** Blanco o casi negro, según lo que se lea mejor sobre el color de fondo. */
+function readableOn(hex: string): string {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255) as [number, number, number];
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return lum > 0.6 ? '#0b1020' : '#ffffff';
+}
+
+const HEX = /^#[0-9a-f]{6}$/;
+
+function crest(
+  cx: number,
+  cy: number,
+  label: string,
+  own: boolean,
+  png?: string | null,
+  colors?: { primary: string; secondary: string } | null,
+): string {
+  if (png && /^[A-Za-z0-9+/]+=*$/.test(png)) {
+    // Escudo subido por el club (PNG cuadrado de 256 px, normalizado al guardarlo).
+    const s = 120;
+    const x = cx - s / 2;
+    const y = cy - s / 2 + 4;
+    return (
+      `<clipPath id="crest-own"><rect x="${x}" y="${y}" width="${s}" height="${s}" rx="22"/></clipPath>` +
+      `<image href="data:image/png;base64,${png}" x="${x}" y="${y}" width="${s}" height="${s}" clip-path="url(#crest-own)"/>`
+    );
+  }
   const shield = `M${cx - 40} ${cy - 46} H${cx + 40} V${cy + 4} Q${cx + 40} ${cy + 38} ${cx} ${cy + 54} Q${cx - 40} ${cy + 38} ${cx - 40} ${cy + 4} Z`;
+  // Con los colores de la equipación (datos del partido); si no hay, el estilo neutro de PIRLO.
+  const kit = colors && HEX.test(colors.primary) && HEX.test(colors.secondary) ? colors : null;
+  const fill = kit?.primary ?? '#0f172a';
+  const stroke = kit ? (kit.secondary === kit.primary ? C.silver : kit.secondary) : own ? C.accent : C.muted;
   return (
-    `<path d="${shield}" fill="#0f172a" stroke="${stroke}" stroke-width="4"/>` +
-    text(label, cx, cy + 14, { size: 34, weight: 'bold', anchor: 'middle', fill: C.silver })
+    `<path d="${shield}" fill="${fill}" stroke="${stroke}" stroke-width="5"/>` +
+    text(label, cx, cy + 14, { size: 34, weight: 'bold', anchor: 'middle', fill: kit ? readableOn(fill) : C.silver })
   );
 }
 
@@ -143,13 +172,15 @@ export interface MatchCardInput {
   recap: EaRecap;
   clubName: string;
   timeZone: string;
+  /** Escudo del club (PNG en base64), si lo subió con /club escudo. */
+  clubCrestPng?: string | null;
 }
 
 export function cardHeight(players: number): number {
   return HEADER + TABLE_HEAD + Math.max(players, 1) * ROW + FOOTER;
 }
 
-export function renderMatchCardSvg({ recap: r, clubName, timeZone }: MatchCardInput): string {
+export function renderMatchCardSvg({ recap: r, clubName, timeZone, clubCrestPng }: MatchCardInput): string {
   const players = r.players;
   const height = cardHeight(players.length);
   const res = r.result ? RESULT[r.result] : null;
@@ -209,8 +240,8 @@ export function renderMatchCardSvg({ recap: r, clubName, timeZone }: MatchCardIn
   const own = clubName.toUpperCase();
   const rival = (r.opponentName ?? 'Rival').toUpperCase();
   out.push(
-    crest(396, 150, initials(clubName), true),
-    crest(804, 150, initials(r.opponentName ?? 'Rival'), false),
+    crest(396, 150, initials(clubName), true, clubCrestPng),
+    crest(804, 150, initials(r.opponentName ?? 'Rival'), false, null, r.opponentColors),
     text(fit(own, 280, 30, 'bold'), 330, 162, { size: 30, weight: 'bold', anchor: 'end', fill: C.silver }),
     text(fit(rival, 280, 30, 'bold'), 870, 162, { size: 30, weight: 'bold', anchor: 'start', fill: C.silver }),
   );

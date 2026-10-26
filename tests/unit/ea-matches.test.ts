@@ -3,7 +3,7 @@ import { commandsByName, componentHandlers } from '../../src/discord/commands/in
 import { routeInteraction, type RouterDeps } from '../../src/discord/router.js';
 import { createDiscordDownloader } from '../../src/discord/download.js';
 import { runEaProcessing } from '../../src/jobs/ea-processing.js';
-import { eaInt, eaRating, processEaMatch } from '../../src/providers/ea/matches.js';
+import { eaColor, eaInt, eaRating, processEaMatch } from '../../src/providers/ea/matches.js';
 import { createMemoryRepos } from '../fakes/memory-repos.js';
 import { MANAGE_GUILD, slash, str, textOf } from '../helpers/interactions.js';
 
@@ -109,6 +109,21 @@ describe('processEaMatch', () => {
     expect(score('1', '1')).toBe('empate');
     expect(score('0', '2')).toBe('derrota');
     expect(score('1', undefined)).toBeNull();
+  });
+
+  it('colores de la equipación local del rival', () => {
+    expect(eaColor('15921906')).toBe('#f2f2f2');
+    expect(eaColor('99999999')).toBeNull();
+    expect(processEaMatch(cached())!.opponentColors).toBeNull();
+    const withKit = processEaMatch(
+      cached({
+        clubs: {
+          [OURS]: { goals: '1' },
+          [RIVAL]: { goals: '0', details: { name: 'Rival', customKit: { kitColor1: '14356498', kitColor2: '15921906' } } },
+        },
+      }),
+    )!;
+    expect(withKit.opponentColors).toEqual({ primary: '#db1012', secondary: '#f2f2f2' });
   });
 
   it('descarta partidos sin exactamente un rival', () => {

@@ -43,6 +43,10 @@ export interface ClubRepository {
   /** null desactiva los recordatorios. */
   setReminderMinutes(clubId: string, minutes: number | null): Promise<void>;
   findById(clubId: string): Promise<Club | null>;
+  /** Escudo del club (PNG en base64) o null. Aparte de findById para no cargarlo siempre. */
+  crest(clubId: string): Promise<string | null>;
+  /** Guarda o quita (null) el escudo. Solo un admin del club (lo comprueba la base de datos). */
+  setCrest(clubId: string, pngBase64: string | null, actorDiscordId: string): Promise<void>;
   /** Quita el vínculo del club con un servidor (no el último). Solo un admin del club. */
   disconnectGuild(clubId: string, guildId: string, actorDiscordId: string): Promise<void>;
   /** Conecta un club existente (por identificador) a otro servidor. Solo un admin del club. Devuelve el id. */
@@ -210,6 +214,8 @@ export interface EaRecapPlayer {
 
 /** Datos de un resumen de partido: solo jugadores propios; el rival solo por nombre y marcador. */
 export interface EaRecap extends EaMatchSummary {
+  /** Colores de la equipación del rival (#rrggbb) para su escudo de iniciales; null si no hay. */
+  opponentColors?: { primary: string; secondary: string } | null;
   players: EaRecapPlayer[];
 }
 

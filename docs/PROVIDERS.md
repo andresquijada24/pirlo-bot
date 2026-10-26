@@ -96,7 +96,10 @@ Todos implementan el contrato `StatsProvider` de `src/providers/types.ts`.
   PIRLO BOT, `src/render/`): SVG con el texto como trazos de Inter (SIL OFL 1.1, licencia en
   `src/render/assets/LICENSE-Inter.txt`) convertido a PNG con `sharp`. Solo jugadores propios; el
   rival por nombre y marcador con un escudo genérico de iniciales (sin escudos ni fotos de EA).
-  Si la imagen no se puede generar, se publican las tarjetas de texto. Los recursos se regeneran
+  Si la imagen no se puede generar, se publican las tarjetas de texto. Un admin puede subir el
+  escudo de su club con `/club escudo` (se guarda como PNG de 256 px en `clubs.crest_png`); los
+  rivales siguen con iniciales, pintadas con los colores de su equipación local (datos del
+  partido: `customKit.kitColor1/2`, guardados en `ea_matches.opponent_color1/2`). Los recursos se regeneran
   con `scripts/build-render-assets.py` (logo original de `docs/assets` escalado, sin modificarlo).
 - **Rivales**: nombre, marcador, gamertags y estadísticas se guardan solo dentro del club que jugó
   el partido; nunca entran en rankings ni estadísticas de la plantilla, y sus gamertags no se

@@ -68,6 +68,14 @@ describe('tarjeta del partido', () => {
     expect(empty).toMatch('<title>Club Prueba FC VS Rival Ficticio</title>');
   });
 
+  it('el escudo del rival usa los colores de su equipación', () => {
+    const svg = renderMatchCardSvg({ ...input, recap: { ...recap, opponentColors: { primary: '#db1012', secondary: '#f2f2f2' } } });
+    expect(svg).toMatch('fill="#db1012" stroke="#f2f2f2"');
+    // Colores con formato no válido se ignoran.
+    const bad = renderMatchCardSvg({ ...input, recap: { ...recap, opponentColors: { primary: 'red"/><script>', secondary: '#fff' } } });
+    expect(bad).not.toMatch('<script>');
+  });
+
   it('se convierte a PNG', async () => {
     const png = await svgToPng(renderMatchCardSvg(input));
     expect([...png.slice(0, 8)]).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);

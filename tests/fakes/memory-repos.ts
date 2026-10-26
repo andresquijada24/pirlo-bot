@@ -46,6 +46,7 @@ export function createMemoryRepos() {
     eaMatches: [] as (ProcessedEaMatch & { clubId: string; recapPosted?: boolean })[],
     /** Gamertag de cada ficha por club ("clubId:playerId"), como club_memberships.gamertag. */
     memberGamertags: new Map<string, string>(),
+    crests: new Map<string, string>(),
   };
 
   const activeIn = (clubId: string) => state.memberships.filter((m) => m.clubId === clubId && m.active);
@@ -64,6 +65,15 @@ export function createMemoryRepos() {
       async findById(clubId) {
         const c = state.clubs.find((x) => x.id === clubId);
         return c ? { ...c } : null;
+      },
+      async crest(clubId) {
+        return state.crests.get(clubId) ?? null;
+      },
+      async setCrest(clubId, pngBase64, actorDiscordId) {
+        const isAdmin = activeIn(clubId).some((m) => m.discordUserId === actorDiscordId && m.role === 'admin');
+        if (!isAdmin) throw conflict('Solo un admin del club puede cambiar el escudo.');
+        if (pngBase64 === null) state.crests.delete(clubId);
+        else state.crests.set(clubId, pngBase64);
       },
       async disconnectGuild(clubId, guildId, actorDiscordId) {
         const isAdmin = activeIn(clubId).some((m) => m.discordUserId === actorDiscordId && m.role === 'admin');
@@ -547,6 +557,7 @@ export function createMemoryRepos() {
             goalsAgainst: m.goalsAgainst,
             result: m.result,
             opponentName: m.opponentName,
+            opponentColors: m.opponentColors ?? null,
             players: m.players
               .filter((p) => p.side === 'propio')
               .map((p) => {

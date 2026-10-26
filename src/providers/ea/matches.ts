@@ -44,6 +44,8 @@ export interface ProcessedEaMatch {
   result: EaResult | null;
   opponentEaClubId: string | null;
   opponentName: string | null;
+  /** Colores de la equipación local del rival (#rrggbb), para su escudo de iniciales. */
+  opponentColors: { primary: string; secondary: string } | null;
   players: EaPlayerLine[];
 }
 
@@ -64,6 +66,12 @@ export function eaRating(v: unknown): number | null {
   if (!/^\d{1,2}(\.\d+)?$/.test(s)) return null;
   const n = Math.round(Number(s) * 100) / 100;
   return n >= 0 && n <= 10 ? n : null;
+}
+
+/** Color de EA (entero, en texto o número) a "#rrggbb". */
+export function eaColor(v: unknown): string | null {
+  const n = eaInt(v, 0xffffff);
+  return n === null ? null : `#${n.toString(16).padStart(6, '0')}`;
 }
 
 function eaFlag(v: unknown): boolean | null {
@@ -134,6 +142,9 @@ export function processEaMatch(
           ? 'derrota'
           : 'empate';
   const details = isRecord(opp.details) ? opp.details : {};
+  const kit = isRecord(details.customKit) ? details.customKit : {};
+  const primary = eaColor(kit.kitColor1);
+  const secondary = eaColor(kit.kitColor2) ?? primary;
   const players = isRecord(payload.players) ? payload.players : {};
 
   return {
@@ -147,6 +158,7 @@ export function processEaMatch(
     result,
     opponentEaClubId: /^\d{1,12}$/.test(opponentEaClubId) ? opponentEaClubId : null,
     opponentName: eaText(details.name, 80),
+    opponentColors: primary && secondary ? { primary, secondary } : null,
     players: [
       ...playerLines(players[cached.eaClubId], 'propio'),
       ...playerLines(players[opponentEaClubId], 'rival'),

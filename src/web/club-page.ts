@@ -97,7 +97,6 @@ export async function loadClubPage(
 
 const esc = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
-const show = (v: number | null) => (v === null ? '—' : String(v));
 const HEX = /^#[0-9a-f]{6}$/;
 
 const RESULT = {

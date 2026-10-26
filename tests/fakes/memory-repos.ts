@@ -375,7 +375,7 @@ export function createMemoryRepos() {
               sessions: 1, matchesPlayed: 0, goals: null, assists: null, shots: null, dribbles: null,
               passesMade: null, passesAttempted: null, tacklesMade: null, tacklesAttempted: null,
               interceptions: null, blocks: null, clearances: null, saves: null, ratingPoints: null,
-              ratedMatches: null,
+              ratedMatches: null, cleanSheets: 0,
             };
             r.matchesPlayed = (r.matchesPlayed ?? 0) + 1;
             r.goals = sum(r.goals, p.goals);
@@ -386,6 +386,7 @@ export function createMemoryRepos() {
             r.tacklesMade = sum(r.tacklesMade, p.tacklesMade);
             r.tacklesAttempted = sum(r.tacklesAttempted, p.tacklesAttempted);
             r.saves = sum(r.saves, p.saves);
+            if (p.position === 'goalkeeper' && m.goalsAgainst === 0) r.cleanSheets = (r.cleanSheets ?? 0) + 1;
             r.ratingPoints = sum(r.ratingPoints, p.rating);
             r.ratedMatches = sum(r.ratedMatches, p.rating === null ? null : 1);
             byPlayer.set(key, r);
@@ -655,6 +656,21 @@ export function createMemoryRepos() {
               })
               .sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1) || a.name.localeCompare(b.name)),
           }));
+      },
+      async playerMatches(clubId, eaPlayerIds, limit) {
+        const out = [];
+        for (const m of state.eaMatches.filter((x) => x.clubId === clubId)) {
+          for (const p of m.players.filter((x) => x.side === 'propio' && eaPlayerIds.includes(x.eaPlayerId))) {
+            out.push({
+              matchId: m.matchId, matchType: m.matchType, playedAt: m.playedAt, opponentName: m.opponentName,
+              goalsFor: m.goalsFor, goalsAgainst: m.goalsAgainst, result: m.result, position: p.position,
+              goals: p.goals, assists: p.assists, shots: p.shots, passesMade: p.passesMade,
+              passesAttempted: p.passesAttempted, tacklesMade: p.tacklesMade, tacklesAttempted: p.tacklesAttempted,
+              saves: p.saves, rating: p.rating, manOfTheMatch: p.manOfTheMatch,
+            });
+          }
+        }
+        return out.sort((a, b) => b.playedAt.localeCompare(a.playedAt)).slice(0, limit);
       },
       async recent(clubId, limit) {
         return state.eaMatches

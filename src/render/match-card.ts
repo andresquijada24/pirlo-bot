@@ -138,7 +138,7 @@ function formatWhen(iso: string, timeZone: string): string {
 
 const COLUMNS = [
   { key: 'pos', label: 'POS', x: 520 },
-  { key: 'rating', label: 'NOTA', x: 612 },
+  { key: 'rating', label: 'CALIF.', x: 612 },
   { key: 'goals', label: 'G', x: 690 },
   { key: 'assists', label: 'A', x: 748 },
   { key: 'shots', label: 'TIR', x: 812 },

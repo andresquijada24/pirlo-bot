@@ -1,6 +1,6 @@
 import { aggregate, defensiveActions, rank, type PlayerTotals, type RankingEntry } from '../core/stats/service.js';
 import type { Club, Season } from '../core/types.js';
-import type { EaMatchSummary, Repositories } from '../db/repositories/types.js';
+import type { EaMatchSummary, EaPlayerMatch, Repositories } from '../db/repositories/types.js';
 import { initials } from '../render/match-card.js';
 import { currentVersion, updateTags } from './version.js';
 
@@ -17,7 +17,15 @@ export interface ClubPageData {
   /** Sitio oficial del club (https) o null. */
   website: string | null;
   season: Season | null;
-  record: { played: number; wins: number; draws: number; losses: number; goalsFor: number; goalsAgainst: number };
+  record: {
+    played: number;
+    wins: number;
+    draws: number;
+    losses: number;
+    goalsFor: number;
+    goalsAgainst: number;
+    cleanSheets: number;
+  };
   matches: EaMatchSummary[];
   players: PlayerTotals[];
   leaders: { label: string; note?: string; entries: RankingEntry[]; format?: (n: number) => string }[];
@@ -58,7 +66,7 @@ export async function loadClubPage(
   const season = seasons.find((s) => s.isCurrent) ?? null;
   const matches = allMatches.filter((m) => inSeason(m, season, club.timezone));
 
-  const record = { played: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0 };
+  const record = { played: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0, cleanSheets: 0 };
   for (const m of matches) {
     if (!m.result) continue;
     record.played++;
@@ -67,6 +75,7 @@ export async function loadClubPage(
     else record.losses++;
     record.goalsFor += m.goalsFor ?? 0;
     record.goalsAgainst += m.goalsAgainst ?? 0;
+    if (m.goalsAgainst === 0) record.cleanSheets++;
   }
 
   const names = new Map(roster.map((m) => [m.playerId, m.displayName]));
@@ -92,8 +101,8 @@ export async function loadClubPage(
       { label: '⚽ Top goleador', entries: rank(players, 'goles', 3) },
       { label: '🎯 Top asistidor', entries: rank(players, 'asistencias', 3) },
       { label: '🛡️ Top defensa', note: 'acciones defensivas', entries: rank(players, 'defensa', 3) },
-      { label: '🧤 Top portero', note: 'paradas', entries: rank(players, 'paradas', 3) },
-      { label: '⭐ Nota media', entries: rank(players, 'nota', 3), format: (n) => n.toFixed(2) },
+      { label: '🧤 Top portero', note: 'porterías a cero', entries: rank(players, 'porterias', 3) },
+      { label: '⭐ Mejor calificación', entries: rank(players, 'nota', 3), format: (n) => n.toFixed(2) },
     ],
   };
 }
@@ -127,6 +136,7 @@ type StatLine = Pick<
   | 'blocks'
   | 'clearances'
   | 'saves'
+  | 'cleanSheets'
   | 'avgRating'
 >;
 
@@ -160,6 +170,7 @@ function statCells(p: StatLine): string {
     pctCell(ratio(p.tacklesMade, p.tacklesAttempted)) +
     num(defensiveActions(p as PlayerTotals)) +
     num(p.saves) +
+    num(p.cleanSheets) +
     num(p.avgRating, 2)
   );
 }
@@ -189,6 +200,7 @@ export function teamTotals(players: PlayerTotals[]): StatLine {
     blocks: sum('blocks'),
     clearances: sum('clearances'),
     saves: sum('saves'),
+    cleanSheets: sum('cleanSheets'),
     avgRating: weight > 0 ? rated.reduce((n, p) => n + p.avgRating! * (p.ratedMatches ?? 0), 0) / weight : null,
   };
 }
@@ -263,7 +275,12 @@ th,td{padding:10px 12px;text-align:center;border-top:1px solid var(--line)}
 th{color:var(--muted);font-size:12px;letter-spacing:1px;text-transform:uppercase;border-top:0;background:#0b1225}
 td:first-child,th:first-child{text-align:left}
 td.nd{color:#64748b}
-table.stats{min-width:1000px}
+table.stats{min-width:1080px}
+a.pl{color:var(--text);text-decoration:none;font-weight:600}a.pl:hover{color:var(--accent);text-decoration:underline}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.stat b{display:block;font-size:22px}.stat span{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:1px}
+.mvp{color:#facc15}
 .leaders h3 small{font-weight:500;color:#64748b}
 tfoot td{font-weight:800;border-top:2px solid var(--accent);background:#0b1225}
 .legend{color:var(--muted);font-size:12px;margin:8px 4px 0}
@@ -320,7 +337,7 @@ export function renderClubPage(d: ClubPageData): string {
           ? `<ol>${l.entries
               .map(
                 (e) =>
-                  `<li><span>${e.position}. ${esc(e.totals.name)}</span><b>${esc(l.format ? l.format(e.value) : String(e.value))}</b></li>`,
+                  `<li><span>${e.position}. <a class="pl" href="${playerHref(club.slug, e.totals.key)}">${esc(e.totals.name)}</a></span><b>${esc(l.format ? l.format(e.value) : String(e.value))}</b></li>`,
               )
               .join('')}</ol>`
           : '<div class="meta">Sin datos suficientes.</div>') +
@@ -333,8 +350,8 @@ export function renderClubPage(d: ClubPageData): string {
       `<th>Tiros</th><th title="Goles por cada 100 tiros">Efect.</th>` +
       `<th>Pases</th><th>Acierto</th><th>Errados</th>` +
       `<th>Entradas</th><th>Acierto</th><th title="Entradas ganadas + intercepciones + bloqueos + despejes">Def.</th>` +
-      `<th>Paradas</th><th>Nota</th></tr></thead><tbody>${d.players
-        .map((p) => `<tr><td>${esc(p.name)}</td>${statCells(p)}</tr>`)
+      `<th>Paradas</th><th title="Porterías a cero">P. a 0</th><th>Calif.</th></tr></thead><tbody>${d.players
+        .map((p) => `<tr><td><a class="pl" href="${playerHref(club.slug, p.key)}">${esc(p.name)}</a></td>${statCells(p)}</tr>`)
         .join('')}</tbody><tfoot><tr><td>Total equipo</td>${statCells(teamTotals(d.players))}</tr></tfoot></table></div>` +
       '<p class="legend">Efect. = goles ÷ tiros · Pases y Entradas = completados/intentados · Def. = entradas ganadas + intercepciones + bloqueos + despejes (los que dé la fuente) · — = sin dato</p>'
     : '<div class="card empty">Todavía no hay estadísticas de jugadores.</div>';
@@ -350,7 +367,7 @@ export function renderClubPage(d: ClubPageData): string {
 ${navBar({ href: '/clubes', label: 'Volver a clubes' })}
 <header class="hero">${crest}<div><h1>${esc(club.name)}</h1>
 <div class="sub">${esc(d.season?.name ?? 'Historial')} · EA SPORTS FC Pro Clubs</div>
-<div class="chips"><span class="chip">${r.played} PJ</span><span class="chip w">${r.wins} V</span><span class="chip d">${r.draws} E</span><span class="chip l">${r.losses} D</span><span class="chip">${r.goalsFor}:${r.goalsAgainst} goles</span></div>${
+<div class="chips"><span class="chip">${r.played} PJ</span><span class="chip w">${r.wins} V</span><span class="chip d">${r.draws} E</span><span class="chip l">${r.losses} D</span><span class="chip">${r.goalsFor}:${r.goalsAgainst} goles</span><span class="chip">${r.cleanSheets} P. a 0</span></div>${
     d.website
       ? `<a class="site" href="${esc(d.website)}" rel="noopener noreferrer nofollow" target="_blank">🔗 ${esc(d.website.replace(/^https:\/\//, '').replace(/\/$/, ''))} ↗</a>`
       : ''
@@ -471,4 +488,129 @@ h3{font-size:17px;margin:0 0 6px;font-weight:700}
 .g{font-weight:700;font-size:20px}
 .empty{color:#8a99b0;font-size:15px;margin:8px 0}.empty a{color:#5fb0ff}
 </style></head><body><h3>Ranking de goleadores</h3>${rows}</body></html>`;
+}
+
+// ---------------------------------------------------------------------------
+// Ficha individual del jugador: /club/<slug>/jugador/<clave>
+// ---------------------------------------------------------------------------
+
+/** Enlace a la ficha. La clave es la del agregado (id del jugador o "fuente:id en la fuente"). */
+export function playerHref(slug: string, key: string): string {
+  return `/club/${encodeURIComponent(slug)}/jugador/${encodeURIComponent(key)}`;
+}
+
+const PLAYER_KEY = /^[A-Za-z0-9:_.-]{1,80}$/;
+const POSITION: Record<string, string> = {
+  goalkeeper: 'Portero',
+  defender: 'Defensa',
+  midfielder: 'Centrocampista',
+  forward: 'Delantero',
+};
+
+export interface PlayerPageData {
+  page: ClubPageData;
+  season: PlayerTotals | null;
+  career: PlayerTotals | null;
+  name: string;
+  matches: EaPlayerMatch[];
+}
+
+export async function loadPlayerPage(
+  repos: Pick<Repositories, 'clubs' | 'seasons' | 'ea' | 'stats' | 'memberships'>,
+  slug: string,
+  key: string,
+): Promise<PlayerPageData | null> {
+  if (!PLAYER_KEY.test(key)) return null;
+  const page = await loadClubPage(repos, slug);
+  if (!page) return null;
+  const roster = await repos.memberships.listActive(page.club.id);
+  const names = new Map(roster.map((m) => [m.playerId, m.displayName]));
+  const allRows = await repos.stats.sessionRows(page.club.id, null);
+  const career = aggregate(allRows, names).find((t) => t.key === key) ?? null;
+  const season = page.players.find((t) => t.key === key) ?? null;
+  if (!career && !season) return null;
+  // Partidos de EA de las fichas de EA de este jugador (solo el lado propio).
+  const eaIds = [
+    ...new Set(
+      allRows
+        .filter((r) => r.source === 'ea' && (r.playerId ?? `${r.source}:${r.sourcePlayerId}`) === key)
+        .map((r) => r.sourcePlayerId),
+    ),
+  ];
+  const matches = eaIds.length ? await repos.ea.playerMatches(page.club.id, eaIds, 30) : [];
+  return { page, season, career, name: (season ?? career)!.name, matches };
+}
+
+function statGrid(t: PlayerTotals): string {
+  const cards: [string, string][] = [
+    ['PJ', show(t.matchesPlayed)],
+    ['Goles', show(t.goals)],
+    ['Asistencias', show(t.assists)],
+    ['G + A', show(t.goalContributions)],
+    ['Tiros', show(t.shots)],
+    ['Efectividad', pctText(ratio(t.goals, t.shots))],
+    ['Pases', t.passesMade === null || t.passesAttempted === null ? '—' : `${t.passesMade}/${t.passesAttempted}`],
+    ['Acierto pase', pctText(ratio(t.passesMade, t.passesAttempted))],
+    ['Pases errados', show(missed(t.passesMade, t.passesAttempted))],
+    ['Entradas', t.tacklesMade === null || t.tacklesAttempted === null ? '—' : `${t.tacklesMade}/${t.tacklesAttempted}`],
+    ['Acierto entrada', pctText(ratio(t.tacklesMade, t.tacklesAttempted))],
+    ['Acciones def.', show(defensiveActions(t))],
+    ['Paradas', show(t.saves)],
+    ['Porterías a 0', show(t.cleanSheets)],
+    ['Calificación', t.avgRating === null ? '—' : t.avgRating.toFixed(2)],
+  ];
+  return `<div class="grid">${cards.map(([k, v]) => `<div class="stat"><b>${esc(v)}</b><span>${esc(k)}</span></div>`).join('')}</div>`;
+}
+const show = (n: number | null) => (n === null ? '—' : String(n));
+const pctText = (n: number | null) => (n === null ? '—' : `${n}%`);
+
+export function renderPlayerPage(d: PlayerPageData): string {
+  const { club } = d.page;
+  const base = `/club/${encodeURIComponent(club.slug)}`;
+  const crest = d.page.hasCrest
+    ? `<div class="crest" style="border:0;background:none"><img src="${base}/escudo.png" alt="Escudo de ${esc(club.name)}"></div>`
+    : `<div class="crest">${esc(initials(club.name))}</div>`;
+  const positions = new Map<string, number>();
+  for (const m of d.matches) if (m.position) positions.set(m.position, (positions.get(m.position) ?? 0) + 1);
+  const main = [...positions.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  const mvps = d.matches.filter((m) => m.manOfTheMatch).length;
+  const chips = [
+    main ? `<span class="chip">${esc(POSITION[main] ?? main)}</span>` : '',
+    mvps ? `<span class="chip mvp">⭐ ${mvps} MVP</span>` : '',
+  ].join('');
+
+  const log = d.matches.length
+    ? `<div class="card table"><table><thead><tr><th>Fecha</th><th>Rival</th><th>Res.</th><th>Pos.</th><th>G</th><th>A</th><th>Tiros</th><th>Pases</th><th>Entradas</th><th>Calif.</th></tr></thead><tbody>${d.matches
+        .map((m) => {
+          const res = m.result ? RESULT[m.result] : null;
+          const score = m.goalsFor !== null && m.goalsAgainst !== null ? `${m.goalsFor}–${m.goalsAgainst}` : '—';
+          return (
+            `<tr><td>${esc(when(m.playedAt, club.timezone))}</td><td>${esc(m.opponentName ?? 'Rival')}</td>` +
+            `<td><span class="res ${res?.cls ?? ''}" style="display:inline-grid;width:auto;height:auto;padding:2px 8px">${res?.label ?? '·'} ${score}</span></td>` +
+            `<td>${esc(m.position ? (POSITION[m.position] ?? m.position) : '—')}</td>` +
+            `${num(m.goals)}${num(m.assists)}${num(m.shots)}${ofCell(m.passesMade, m.passesAttempted)}${ofCell(m.tacklesMade, m.tacklesAttempted)}` +
+            `<td>${m.rating === null ? '—' : m.rating.toFixed(1)}${m.manOfTheMatch ? ' <span class="mvp" title="MVP">⭐</span>' : ''}</td></tr>`
+          );
+        })
+        .join('')}</tbody></table></div>`
+    : '<div class="card empty">Sin partidos de EA registrados para este jugador (sus datos vienen por sesión).</div>';
+
+  const title = `${d.name} · ${club.name} · PIRLO BOT`;
+  return `<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(title)}</title>
+<meta name="description" content="${esc(`Ficha de ${d.name} en ${club.name}: estadísticas y partidos.`)}">
+<meta property="og:title" content="${esc(title)}"><meta name="theme-color" content="#020617">
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon.png"><style>${CSS}</style>${updateTags(currentVersion()).meta}</head>
+<body><main class="wrap">
+${navBar({ href: base, label: `Volver a ${club.name}` })}
+<header class="hero">${crest}<div><h1>${esc(d.name)}</h1>
+<div class="sub"><a href="${base}">${esc(club.name)}</a> · EA SPORTS FC Pro Clubs</div>
+<div class="chips">${chips}</div></div></header>
+<h2>${esc(d.page.season?.name ?? 'Temporada')}</h2>${d.season ? statGrid(d.season) : '<div class="card empty">Sin partidos esta temporada.</div>'}
+<h2>Carrera en ${esc(club.name)}</h2>${d.career ? statGrid(d.career) : '<div class="card empty">Sin datos.</div>'}
+<h2>Últimos partidos</h2>${log}
+<footer><img src="/logo.png" alt="">Ficha en <a href="/">PIRLO BOT</a> · — = sin dato</footer>
+</main>${updateTags(currentVersion()).script}</body></html>`;
 }

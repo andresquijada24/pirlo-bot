@@ -12,6 +12,7 @@ on:
     branches: [main]
     paths:
       - 'src/discord/commands/**'
+      - 'src/core/stats/service.ts'
       - 'scripts/register-commands.ts'
 
 permissions:

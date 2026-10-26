@@ -7,6 +7,8 @@ import {
   loadTopScorers,
   notFoundPage,
   renderClubPage,
+  loadPlayerPage,
+  renderPlayerPage,
   renderClubsDirectory,
   renderScorersWidget,
 } from './web/club-page.js';
@@ -128,6 +130,18 @@ export function createApp(deps: AppDeps) {
       return c.html(renderClubPage(data), 200, { ...PAGE_HEADERS, 'cache-control': 'public, max-age=300' });
     } catch (err) {
       deps.log?.error({ err }, 'No se pudo generar la página del club');
+      return c.html(notFoundPage(), 500, PAGE_HEADERS);
+    }
+  });
+  app.get('/club/:slug/jugador/:key', async (c) => {
+    const notFound = () => c.html(notFoundPage(), 404, PAGE_HEADERS);
+    if (!deps.repos) return notFound();
+    try {
+      const data = await loadPlayerPage(deps.repos, c.req.param('slug').toLowerCase(), c.req.param('key'));
+      if (!data) return notFound();
+      return c.html(renderPlayerPage(data), 200, { ...PAGE_HEADERS, 'cache-control': 'public, max-age=300' });
+    } catch (err) {
+      deps.log?.error({ err }, 'No se pudo generar la ficha del jugador');
       return c.html(notFoundPage(), 500, PAGE_HEADERS);
     }
   });

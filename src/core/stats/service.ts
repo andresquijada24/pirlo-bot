@@ -32,6 +32,8 @@ export interface SessionStatRow {
   blocks: number | null;
   clearances: number | null;
   saves: number | null;
+  /** Porterías a cero (solo EA, jugando de portero). */
+  cleanSheets: number | null;
   ratingPoints: number | null;
   ratedMatches: number | null;
 }
@@ -58,13 +60,14 @@ export interface PlayerTotals {
   blocks: number | null;
   clearances: number | null;
   saves: number | null;
+  cleanSheets: number | null;
   avgRating: number | null;
   ratedMatches: number | null;
 }
 
 const SUMMED = [
   'matchesPlayed', 'goals', 'assists', 'shots', 'dribbles', 'passesMade', 'passesAttempted',
-  'tacklesMade', 'tacklesAttempted', 'interceptions', 'blocks', 'clearances', 'saves',
+  'tacklesMade', 'tacklesAttempted', 'interceptions', 'blocks', 'clearances', 'saves', 'cleanSheets',
   'ratingPoints', 'ratedMatches',
 ] as const;
 type Summed = (typeof SUMMED)[number];
@@ -122,6 +125,7 @@ export function aggregate(rows: SessionStatRow[], names: ReadonlyMap<string, str
       blocks: s.blocks,
       clearances: s.clearances,
       saves: s.saves,
+      cleanSheets: s.cleanSheets,
       avgRating:
         s.ratingPoints !== null && s.ratedMatches !== null && s.ratedMatches > 0
           ? round(s.ratingPoints / s.ratedMatches, 2)
@@ -162,7 +166,7 @@ export const RANKING_METRICS = {
   ga: { label: 'Goles + asistencias', value: (t) => t.goalContributions },
   partidos: { label: 'Partidos jugados', value: (t) => t.matchesPlayed },
   nota: {
-    label: 'Nota media',
+    label: 'Calificación',
     value: (t) => t.avgRating,
     minimum: { value: (t) => t.ratedMatches, at: MIN_RATED_MATCHES, label: 'partidos con nota' },
     format: (n) => n.toFixed(2),
@@ -184,6 +188,7 @@ export const RANKING_METRICS = {
   tiros: { label: 'Tiros', value: (t) => t.shots },
   regates: { label: 'Regates', value: (t) => t.dribbles },
   paradas: { label: 'Paradas', value: (t) => t.saves },
+  porterias: { label: 'Porterías a cero', value: (t) => t.cleanSheets },
   defensa: { label: 'Acciones defensivas', value: defensiveActions },
 } satisfies Record<string, RankingMetric>;
 export type RankingMetricId = keyof typeof RANKING_METRICS;

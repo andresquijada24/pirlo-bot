@@ -40,7 +40,7 @@ function mvp(players: EaRecapPlayer[]): string {
   const chosen = players.find((p) => p.manOfTheMatch);
   if (chosen) return `${escapeMd(chosen.name)}${chosen.rating !== null ? ` (${chosen.rating.toFixed(1)})` : ''}`;
   const best = players.filter((p) => p.rating !== null).sort((a, b) => b.rating! - a.rating!)[0];
-  return best ? `${escapeMd(best.name)} (${best.rating!.toFixed(1)}, mejor nota)` : '—';
+  return best ? `${escapeMd(best.name)} (${best.rating!.toFixed(1)}, mejor calificación)` : '—';
 }
 
 export function recapEmbed(r: EaRecap, clubName: string): APIEmbed {

@@ -192,6 +192,7 @@ describe('estadísticas detalladas de la plantilla', () => {
         tacklesAttempted: 6,
         avgRating: 8,
         ratedMatches: 5,
+        cleanSheets: null,
       },
       {
         ...base,
@@ -206,6 +207,7 @@ describe('estadísticas detalladas de la plantilla', () => {
         tacklesAttempted: null,
         avgRating: 6,
         ratedMatches: 3,
+        cleanSheets: null,
       },
     ]);
     expect(t).toEqual({
@@ -221,6 +223,7 @@ describe('estadísticas detalladas de la plantilla', () => {
       blocks: null,
       clearances: null,
       saves: null,
+      cleanSheets: null,
       avgRating: 7.25,
     });
   });
@@ -232,7 +235,7 @@ describe('estadísticas detalladas de la plantilla', () => {
     expect(html).toMatch('<th>Errados</th>');
     expect(html).toMatch('<td>Total equipo</td>');
     expect(html).toMatch('<th>Paradas</th>');
-    for (const top of ['Top goleador', 'Top asistidor', 'Top defensa', 'Top portero']) expect(html).toMatch(top);
+    for (const top of ['Top goleador', 'Top asistidor', 'Top defensa', 'Top portero', 'Mejor calificación']) expect(html).toMatch(top);
   });
 
   it('acciones defensivas: suma solo lo que da la fuente', async () => {
@@ -240,5 +243,23 @@ describe('estadísticas detalladas de la plantilla', () => {
     const t = { tacklesMade: 5, interceptions: null, blocks: 2, clearances: null } as never;
     expect(defensiveActions(t)).toBe(7);
     expect(defensiveActions({ tacklesMade: null, interceptions: null, blocks: null, clearances: null } as never)).toBeNull();
+  });
+});
+
+describe('ficha individual del jugador', () => {
+  it('el nombre enlaza a su ficha con temporada, carrera y partidos; los rivales no tienen ficha', async () => {
+    const { app } = await setup();
+    const club = await (await app.request('/club/club-prueba')).text();
+    expect(club).toMatch('href="/club/club-prueba/jugador/ea%3A1"');
+    const res = await app.request('/club/club-prueba/jugador/ea%3A1');
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toMatch('<h1>JugadorFicticio</h1>');
+    expect(html).toMatch('Carrera en Club &lt;Prueba&gt;');
+    expect(html).toMatch('Rival Ficticio');
+    expect(html).toMatch('Volver a Club &lt;Prueba&gt;');
+    expect(html).not.toMatch('<script>');
+    expect((await app.request('/club/club-prueba/jugador/ea%3A2')).status).toBe(404);
+    expect((await app.request('/club/club-prueba/jugador/%3Cscript%3E')).status).toBe(404);
   });
 });

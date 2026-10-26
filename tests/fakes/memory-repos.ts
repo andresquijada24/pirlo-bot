@@ -483,6 +483,13 @@ export function createMemoryRepos() {
           )
         );
       },
+      async gamertags(clubId) {
+        const names = [
+          ...state.externalPlayers.filter((e) => e.clubId === clubId).map((e) => e.gamertag),
+          ...state.sessionRows.filter((r) => r.clubId === clubId).map((r) => r.name),
+        ];
+        return [...new Map(names.map((n) => [n.toLowerCase(), n])).values()];
+      },
       async accountsOf(discordUserId) {
         return state.memberships
           .filter((m) => m.active && m.discordUserId === discordUserId)

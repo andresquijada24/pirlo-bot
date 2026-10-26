@@ -391,6 +391,8 @@ export interface ExternalPlayerRepository {
    * proveedor). Sin distinguir mayúsculas. Sirve para no vincular nombres que el club no conoce.
    */
   knowsGamertag(clubId: string, gamertag: string): Promise<boolean>;
+  /** Gamertags conocidos del club (fichas del proveedor y sesiones), sin repetir. */
+  gamertags(clubId: string): Promise<string[]>;
   /** Fichas activas de un usuario de Discord en todos los clubes (para «Mi cuenta»). */
   accountsOf(discordUserId: string): Promise<DiscordAccountMembership[]>;
 }

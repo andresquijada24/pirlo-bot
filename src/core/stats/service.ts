@@ -225,6 +225,16 @@ export function rank(totals: PlayerTotals[], metricId: RankingMetricId, limit = 
 
 export type SeasonScope = 'actual' | 'todas';
 
+/** Tipo de partido para filtrar: liga, copa (playoffs, torneos y relámpagos) o amistosos. */
+export const MATCH_KINDS = {
+  liga: { label: 'Liga', types: ['leagueMatch'] },
+  copa: { label: 'Copa', types: ['playoffMatch'] },
+  amistosos: { label: 'Amistosos', types: ['friendlyMatch'] },
+} as const;
+export type MatchKind = keyof typeof MATCH_KINDS;
+export const matchKindOf = (v: string | undefined): MatchKind | null =>
+  v && Object.hasOwn(MATCH_KINDS, v) ? (v as MatchKind) : null;
+
 /** Temporada a consultar: la actual si existe; "todas" (o sin temporada actual) = historial. */
 export async function resolveSeason(
   repos: Repositories,
@@ -246,9 +256,14 @@ export async function playerStats(
   ctx: ClubContext,
   member: Membership,
   season: Season | null,
+  kind: MatchKind | null = null,
 ): Promise<PlayerTotals | null> {
   assertCan(ctx, 'stats.view');
-  const rows = await repos.stats.sessionRows(ctx.club.id, season?.id ?? null);
+  const rows = await repos.stats.sessionRows(
+    ctx.club.id,
+    season?.id ?? null,
+    kind ? MATCH_KINDS[kind].types : undefined,
+  );
   const mine = rows.filter((r) => r.playerId === member.playerId);
   if (mine.length === 0) return null;
   const [totals] = aggregate(mine, new Map([[member.playerId, member.displayName]]));
@@ -261,10 +276,11 @@ export async function ranking(
   metricId: RankingMetricId,
   season: Season | null,
   limit = 10,
+  kind: MatchKind | null = null,
 ): Promise<RankingEntry[]> {
   assertCan(ctx, 'stats.view');
   const [rows, names] = await Promise.all([
-    repos.stats.sessionRows(ctx.club.id, season?.id ?? null),
+    repos.stats.sessionRows(ctx.club.id, season?.id ?? null, kind ? MATCH_KINDS[kind].types : undefined),
     memberNames(repos, ctx.club.id),
   ]);
   return rank(aggregate(rows, names), metricId, limit);

@@ -7,10 +7,13 @@ import {
   MIN_PASSES,
   MIN_RATED_MATCHES,
   MIN_TACKLES,
+  MATCH_KINDS,
+  matchKindOf,
   playerStats,
   RANKING_METRICS,
   ranking,
   resolveSeason,
+  type MatchKind,
   type PlayerTotals,
   type RankingMetricId,
   type SeasonScope,
@@ -37,6 +40,14 @@ const seasonOption: APIApplicationCommandStringOption = {
   ],
 };
 
+const kindOption: APIApplicationCommandStringOption = {
+  type: OT.String,
+  name: 'tipo',
+  description: 'Solo liga, copa o amistosos (por defecto, todos los partidos)',
+  required: false,
+  choices: (Object.keys(MATCH_KINDS) as MatchKind[]).map((k) => ({ name: MATCH_KINDS[k].label, value: k })),
+};
+
 const publishOption: APIApplicationCommandBooleanOption = {
   type: OT.Boolean,
   name: 'publicar',
@@ -45,7 +56,8 @@ const publishOption: APIApplicationCommandBooleanOption = {
 };
 
 const scopeOf = (value: string | undefined): SeasonScope => (value === 'todas' ? 'todas' : 'actual');
-const seasonLabel = (s: Season | null) => (s ? `Temporada: ${s.name}` : 'Historial completo');
+const seasonLabel = (s: Season | null, kind: MatchKind | null = null) =>
+  (s ? `Temporada: ${s.name}` : 'Historial completo') + (kind ? ` · ${MATCH_KINDS[kind].label}` : '');
 const ratio = (made: number | null, attempted: number | null, pctValue: number | null) =>
   made === null && attempted === null
     ? '—'
@@ -86,6 +98,7 @@ export const statsCommand: SlashCommand = {
     options: [
       { type: OT.User, name: 'usuario', description: 'Jugador (si no se indica, eres tú)', required: false },
       seasonOption,
+      kindOption,
       publishOption,
       clubOption,
     ],
@@ -106,7 +119,8 @@ export const statsCommand: SlashCommand = {
 
     const scope = scopeOf(optString(ctx.command, 'temporada'));
     const season = await resolveSeason(ctx.repos, c, scope);
-    const totals = await playerStats(ctx.repos, c, member, season);
+    const kind = matchKindOf(optString(ctx.command, 'tipo'));
+    const totals = await playerStats(ctx.repos, c, member, season, kind);
     const ephemeral = optBoolean(ctx.command, 'publicar') !== true;
 
     if (!totals) {
@@ -114,7 +128,9 @@ export const statsCommand: SlashCommand = {
         scope === 'actual'
           ? '\nPrueba con `temporada: Todas` para ver el historial.'
           : '\nSi juega con otro gamertag, un DT puede vincularlo con `/plantilla gamertag`.';
-      return reply(`Todavía no hay estadísticas de **${escapeMd(member.displayName)}** (${seasonLabel(season)}).${hint}`);
+      return reply(
+        `Todavía no hay estadísticas de **${escapeMd(member.displayName)}** (${seasonLabel(season, kind)}).${hint}`,
+      );
     }
 
     return reply(null, {
@@ -123,7 +139,7 @@ export const statsCommand: SlashCommand = {
         embed({
           title: `${escapeMd(member.displayName)} · ${escapeMd(c.club.name)}`,
           fields: statsFields(totals),
-          footer: { text: `${seasonLabel(season)} · Datos por sesión · "—" = sin dato` },
+          footer: { text: `${seasonLabel(season, kind)} · Datos por sesión · "—" = sin dato` },
         }),
       ],
     });
@@ -149,6 +165,7 @@ export const rankingCommand: SlashCommand = {
         })),
       },
       seasonOption,
+      kindOption,
       publishOption,
       clubOption,
     ],
@@ -161,7 +178,8 @@ export const rankingCommand: SlashCommand = {
     if (!metric) throw new DomainError('VALIDATION', 'Estadística desconocida.');
 
     const season = await resolveSeason(ctx.repos, c, scopeOf(optString(ctx.command, 'temporada')));
-    const entries = await ranking(ctx.repos, c, metricId, season);
+    const kind = matchKindOf(optString(ctx.command, 'tipo'));
+    const entries = await ranking(ctx.repos, c, metricId, season, 10, kind);
     const format = 'format' in metric ? metric.format : String;
     const minimum = 'minimum' in metric ? metric.minimum : undefined;
 
@@ -171,7 +189,7 @@ export const rankingCommand: SlashCommand = {
       return `${badge} **${name}** — ${format(e.value)}`;
     });
     const notes = [
-      seasonLabel(season),
+      seasonLabel(season, kind),
       minimum ? `mínimo ${minimum.at} ${minimum.label}` : null,
       entries.some((e) => !e.totals.linked) ? '· = sin vincular en Discord' : null,
     ].filter(Boolean);

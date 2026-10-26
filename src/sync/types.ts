@@ -1,4 +1,4 @@
-import type { ExternalDeletion, ExternalPlayer, ExternalSession, ProviderId } from '../providers/types.js';
+import type { ExternalDeletion, ExternalMatch, ExternalPlayer, ExternalSession, ProviderId } from '../providers/types.js';
 
 export type SessionApplyResult = 'insertada' | 'actualizada' | 'sin_cambios';
 
@@ -40,4 +40,7 @@ export interface SyncRepository {
   applyPlayers(clubId: string, provider: ProviderId, players: ExternalPlayer[]): Promise<number>;
   applySession(clubId: string, provider: ProviderId, session: ExternalSession): Promise<SessionApplyResult>;
   applyDeletion(clubId: string, provider: ProviderId, deletion: ExternalDeletion): Promise<boolean>;
+  /** Versión en origen más reciente del calendario guardado (null: nunca se importó). */
+  lastMatchVersion(clubId: string, provider: ProviderId): Promise<string | null>;
+  applyMatch(clubId: string, provider: ProviderId, match: ExternalMatch): Promise<SessionApplyResult>;
 }

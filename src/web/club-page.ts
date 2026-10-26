@@ -12,7 +12,10 @@ import { icon, type IconName } from './icons.js';
  * HTML generado en el servidor, sin JavaScript ni recursos externos.
  */
 
-/** Pestañas por tipo de partido (EA): todos, liga, copa (playoffs) o amistosos. */
+/**
+ * Pestañas por tipo de partido: todos, liga, copa (playoffs, torneos y relámpagos) o amistosos.
+ * EA informa el tipo de cada partido; en los clubes por sesión sale de su calendario.
+ */
 export const MATCH_FILTERS = {
   todos: { label: 'Todos', types: null },
   liga: { label: 'Liga', types: ['leagueMatch'] },
@@ -133,13 +136,16 @@ export async function loadClubPage(
   const club = await repos.clubs.findPublic(slug);
   if (!club) return null;
 
-  const [seasons, allMatches, crest, roster, website] = await Promise.all([
+  const [seasons, eaMatches, calendar, crest, roster, website] = await Promise.all([
     repos.seasons.list(club.id),
     repos.ea.recent(club.id, 200),
+    // Clubes por sesión (Marítimo): partidos de su calendario, con competición y marcador.
+    repos.ea.calendar(club.id, 200).catch(() => []),
     repos.clubs.crest(club.id),
     repos.memberships.listActive(club.id),
     repos.clubs.website(club.id).catch(() => null),
   ]);
+  const allMatches = [...eaMatches, ...calendar].sort((a, b) => b.playedAt.localeCompare(a.playedAt));
   const season = seasons.find((s) => s.isCurrent) ?? null;
   const seasonMatches = allMatches.filter((m) => inSeason(m, season, club.timezone));
   const types = MATCH_FILTERS[filter].types as readonly EaMatchSummary['matchType'][] | null;
@@ -357,7 +363,7 @@ h2{font-size:15px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)
 .leaders li{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--line)}
 .leaders li:first-child{border-top:0}
 .leaders b{color:var(--accent)}
-.table{overflow-x:auto}
+.table{overflow-x:auto;padding-bottom:16px}
 table{width:100%;border-collapse:collapse;font-size:14px;min-width:560px}
 th,td{padding:10px 12px;text-align:center;border-top:1px solid var(--line)}
 th{color:var(--muted);font-size:12px;letter-spacing:1px;text-transform:uppercase;border-top:0;background:#0b1225}
@@ -394,8 +400,8 @@ header.player .who{flex:1;min-width:0}
 .guide ol{margin:12px 0 6px;padding-left:20px;line-height:1.6}
 code{background:#ffffff14;padding:1px 6px;border-radius:6px}
 .leaders h3 small{font-weight:500;color:#64748b}
-tfoot td{font-weight:800;border-top:2px solid var(--accent);background:#0b1225}
-.legend{color:var(--muted);font-size:12px;margin:8px 4px 0}
+tfoot td{font-weight:800;border-top:2px solid var(--accent);background:#0b1225;padding-top:14px;padding-bottom:14px}
+.legend{color:var(--muted);font-size:12px;margin:14px 4px 0}
 .empty{padding:20px;color:var(--muted);text-align:center}
 footer{margin-top:40px;color:var(--muted);font-size:13px;text-align:center}
 footer img{width:22px;height:22px;vertical-align:middle;border-radius:6px;margin-right:6px}
@@ -417,7 +423,7 @@ const HOME_ICON =
 
 /** Barra superior: "Volver" al nivel anterior y la casita para el menú principal (sin JavaScript). */
 function filterTabs(base: string, d: Pick<ClubPageData, 'filter' | 'counts'>): string {
-  // Sin partidos de EA (p. ej. clubes con datos por sesión) las pestañas no aportan nada.
+  // Sin ningún partido con tipo conocido las pestañas no aportan nada.
   if (d.counts.todos === 0) return '';
   return `<nav class="tabs" aria-label="Tipo de partido">${(Object.keys(MATCH_FILTERS) as MatchFilter[])
     .map((f) => {

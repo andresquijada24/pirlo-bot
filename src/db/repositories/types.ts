@@ -300,6 +300,11 @@ export interface EaRepository {
   /** Guarda un partido procesado; false si ya existía. */
   apply(clubId: string, match: ProcessedEaMatch): Promise<boolean>;
   recent(clubId: string, limit: number): Promise<EaMatchSummary[]>;
+  /**
+   * Partidos jugados del calendario de un proveedor por sesión (Marítimo), con el mismo formato
+   * que los de EA: competición convertida a tipo (torneo y relámpago = copa) y marcador.
+   */
+  calendar(clubId: string, limit: number): Promise<EaMatchSummary[]>;
   /** Historial de partidos de unos jugadores de EA del club (más recientes primero). */
   playerMatches(clubId: string, eaPlayerIds: string[], limit: number): Promise<EaPlayerMatch[]>;
   /** Reclama partidos recientes sin anunciar (cada uno solo una vez). Devuelve sus ids. */
@@ -314,7 +319,7 @@ export interface StatsRepository {
   sessionRows(
     clubId: string,
     seasonId: string | null,
-    /** Solo partidos de EA de estos tipos (sin proveedores por sesión, que no distinguen tipo). */
+    /** Solo partidos de estos tipos (las sesiones sin tipo conocido quedan fuera). */
     matchTypes?: readonly ProcessedEaMatch['matchType'][],
   ): Promise<SessionStatRow[]>;
 }

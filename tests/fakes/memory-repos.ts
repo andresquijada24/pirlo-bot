@@ -10,7 +10,7 @@ import type { AuditEntry, EaLink, Repositories } from '../../src/db/repositories
 import type { CachedMatch } from '../../src/providers/ea/ingest.js';
 import type { ProcessedEaMatch } from '../../src/providers/ea/matches.js';
 import type { SessionStatRow } from '../../src/core/stats/service.js';
-import type { ProviderId } from '../../src/providers/types.js';
+import type { ExternalMatch, ProviderId } from '../../src/providers/types.js';
 import type { SyncRunSummary } from '../../src/sync/types.js';
 import type { Callup, CallupResponse, Lineup } from '../../src/core/types.js';
 
@@ -35,7 +35,7 @@ export function createMemoryRepos() {
     seasons: [] as Season[],
     audit: [] as AuditEntry[],
     // playedOn (opcional) solo sirve para probar la reasignación por fechas de temporada.
-    sessionRows: [] as (SessionStatRow & { clubId: string; playedOn?: string })[],
+    sessionRows: [] as (SessionStatRow & { clubId: string; playedOn?: string; matchType?: string | null })[],
     externalPlayers: [] as { clubId: string; gamertag: string; playerId: string | null }[],
     syncRuns: [] as (SyncRunSummary & { clubId: string; provider: ProviderId })[],
     callups: [] as Callup[],
@@ -45,6 +45,7 @@ export function createMemoryRepos() {
     callupMessages: [] as { clubId: string; callupId: string; channelId: string; messageId: string }[],
     eaCache: new Map<string, CachedMatch>(),
     eaLinks: [] as EaLink[],
+    providerMatches: [] as (ExternalMatch & { clubId: string; source: ProviderId })[],
     eaMatches: [] as (ProcessedEaMatch & { clubId: string; recapPosted?: boolean })[],
     /** Gamertag de cada ficha por club ("clubId:playerId"), como club_memberships.gamertag. */
     memberGamertags: new Map<string, string>(),
@@ -372,9 +373,11 @@ export function createMemoryRepos() {
 
     stats: {
       async sessionRows(clubId, seasonId, matchTypes) {
-        const sessions = matchTypes ? [] : state.sessionRows
+        // Como v_player_session_season_stats: con filtro, solo las sesiones con tipo conocido.
+        const sessions = state.sessionRows
           .filter((r) => r.clubId === clubId && (seasonId === null || r.seasonId === seasonId))
-          .map(({ clubId: _c, playedOn: _p, ...r }) => r);
+          .filter((r) => !matchTypes || (!!r.matchType && (matchTypes as readonly string[]).includes(r.matchType)))
+          .map(({ clubId: _c, playedOn: _p, matchType: _t, ...r }) => r);
         // Como v_ea_player_season_stats: solo el lado propio, vinculado por el gamertag de la ficha.
         // Simplificación: aquí los partidos de EA cuentan en cualquier temporada que se pida.
         void seasonId;
@@ -689,6 +692,24 @@ export function createMemoryRepos() {
         }
         return out.sort((a, b) => b.playedAt.localeCompare(a.playedAt)).slice(0, limit);
       },
+      async calendar(clubId, limit) {
+        const TYPE = { liga: 'leagueMatch', amistoso: 'friendlyMatch', copa: 'playoffMatch', torneo: 'playoffMatch', relampago: 'playoffMatch' } as const;
+        return state.providerMatches
+          .filter((m) => m.clubId === clubId && m.goalsFor !== null && m.goalsAgainst !== null)
+          .filter((m) => ['finalizado', 'archivado'].includes(m.state))
+          .sort((a, b) => b.startsAt.localeCompare(a.startsAt))
+          .slice(0, limit)
+          .map((m) => ({
+            matchId: `${m.source}:${m.externalId}`,
+            matchType: TYPE[m.competition],
+            playedAt: m.startsAt,
+            goalsFor: m.goalsFor,
+            goalsAgainst: m.goalsAgainst,
+            result: m.goalsFor! > m.goalsAgainst! ? 'victoria' : m.goalsFor === m.goalsAgainst ? 'empate' : 'derrota',
+            opponentName: m.opponent,
+            opponentColors: null,
+          }));
+      },
       async recent(clubId, limit) {
         return state.eaMatches
           .filter((m) => m.clubId === clubId)
@@ -777,6 +798,22 @@ export function createMemoryRepos() {
       },
       async applyDeletion() {
         return true;
+      },
+      async lastMatchVersion(clubId, provider) {
+        const v = state.providerMatches
+          .filter((m) => m.clubId === clubId && m.source === provider)
+          .map((m) => m.updatedAt)
+          .sort();
+        return v.at(-1) ?? null;
+      },
+      async applyMatch(clubId, provider, match) {
+        const prev = state.providerMatches.find(
+          (m) => m.clubId === clubId && m.source === provider && m.externalId === match.externalId,
+        );
+        if (prev && prev.updatedAt === match.updatedAt) return 'sin_cambios';
+        if (prev) Object.assign(prev, match);
+        else state.providerMatches.push({ clubId, source: provider, ...match });
+        return prev ? 'actualizada' : 'insertada';
       },
     },
   };

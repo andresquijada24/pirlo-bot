@@ -91,6 +91,11 @@ function fakeRepo(opts: { provider?: 'maritimo' | 'manual' | null; cursor?: stri
       calls.push(`delete:${clubId}:${d.kind}:${d.externalId}`);
       return true;
     },
+    lastMatchVersion: async () => null,
+    applyMatch: async (clubId, _p, m) => {
+      calls.push(`match:${clubId}:${m.externalId}`);
+      return 'insertada';
+    },
   };
   return { repo, calls, finished, seen };
 }
@@ -198,5 +203,39 @@ describe('runSync', () => {
       code: 'CONFLICT',
     });
     expect(since).toEqual([]);
+  });
+
+  it('importa el calendario desde su propia versión; si falla, las sesiones siguen valiendo', async () => {
+    const match = {
+      externalId: 'p1',
+      competition: 'liga' as const,
+      name: null,
+      opponent: 'Rival',
+      startsAt: '2026-10-01T23:00:00Z',
+      state: 'finalizado',
+      goalsFor: 2,
+      goalsAgainst: 0,
+      updatedAt: '2026-10-02T00:00:00Z',
+    };
+    const asked: (string | null)[] = [];
+    const { provider } = fakeProvider({ sessions: [session('s1', '2026-10-01T00:00:00Z')] });
+    provider.matchesSince = async (since) => {
+      asked.push(since);
+      return { items: [match, match], serverTime: '2026-10-24T15:00:00Z' };
+    };
+    const ok = fakeRepo({ cursor: '2026-10-20T00:00:00Z' });
+    ok.repo.lastMatchVersion = async () => '2026-09-30T00:00:00Z';
+    const res = await runSync({ repo: ok.repo, provider, clubId: CLUB });
+    expect(res).toMatchObject({ status: 'ok', inserted: 1, matches: 1 });
+    expect(asked).toEqual(['2026-09-30T00:00:00Z']);
+    expect(ok.calls).toContain(`match:${CLUB}:p1`);
+
+    provider.matchesSince = async () => {
+      throw new ProviderError('request', 'Marítimo rechazó la consulta a /partidos (404).');
+    };
+    const bad = fakeRepo();
+    const res2 = await runSync({ repo: bad.repo, provider, clubId: CLUB });
+    expect(res2).toMatchObject({ status: 'ok', inserted: 1, matchesError: 'Marítimo rechazó la consulta a /partidos (404).' });
+    expect(bad.finished[0]).toMatchObject({ status: 'ok' });
   });
 });

@@ -2,13 +2,14 @@ import type { z } from 'zod';
 import {
   ProviderError,
   type ExternalDeletion,
+  type ExternalMatch,
   type ExternalPlayer,
   type ExternalSession,
   type ProviderCapabilities,
   type Pull,
   type StatsProvider,
 } from '../types.js';
-import { eliminadoSchema, estadoSchema, jugadorSchema, pageSchema, sesionSchema } from './schema.js';
+import { eliminadoSchema, estadoSchema, jugadorSchema, pageSchema, partidoSchema, sesionSchema } from './schema.js';
 
 /**
  * MaritimoStatsProvider — consume la API de SOLO LECTURA api_v1 de maritimo.app.
@@ -124,6 +125,24 @@ export class MaritimoStatsProvider implements StatsProvider {
     return {
       serverTime,
       items: items.map((e) => ({ kind: e.tipo, externalId: e.id, deletedAt: e.eliminado_at })),
+    };
+  }
+
+  async matchesSince(since: string | null): Promise<Pull<ExternalMatch>> {
+    const { items, serverTime } = await this.pullAll('/partidos', partidoSchema, since);
+    return {
+      serverTime,
+      items: items.map((p) => ({
+        externalId: p.id,
+        competition: p.competicion,
+        name: p.nombre,
+        opponent: p.rival,
+        startsAt: p.inicio,
+        state: p.estado,
+        goalsFor: p.goles_favor,
+        goalsAgainst: p.goles_contra,
+        updatedAt: p.actualizado_at,
+      })),
     };
   }
 

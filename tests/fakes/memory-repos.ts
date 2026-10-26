@@ -557,6 +557,7 @@ export function createMemoryRepos() {
             goalsAgainst: m.goalsAgainst,
             result: m.result,
             opponentName: m.opponentName,
+            opponentColors: m.opponentColors ?? null,
             players: m.players
               .filter((p) => p.side === 'propio')
               .map((p) => {

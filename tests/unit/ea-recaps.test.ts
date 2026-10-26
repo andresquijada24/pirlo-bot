@@ -194,6 +194,7 @@ describe('imágenes en el resumen', () => {
         result: 'victoria',
         opponentEaClubId: '222',
         opponentName: 'Rival Ficticio',
+        opponentColors: null,
         players: [],
       });
       env.state.channels.push({ clubId, guildId: GUILD, purpose: 'resultados', channelId: CHANNEL });

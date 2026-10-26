@@ -951,6 +951,10 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
             goalsAgainst: z.number().nullable(),
             result: z.enum(['victoria', 'empate', 'derrota']).nullable(),
             opponentName: z.string().nullable(),
+            opponentColors: z
+              .object({ primary: z.string().regex(/^#[0-9a-f]{6}$/), secondary: z.string().regex(/^#[0-9a-f]{6}$/) })
+              .nullable()
+              .default(null),
             players: z.array(
               z.object({
                 name: z.string(),

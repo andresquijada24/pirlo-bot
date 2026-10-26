@@ -214,6 +214,8 @@ export interface EaRecapPlayer {
 
 /** Datos de un resumen de partido: solo jugadores propios; el rival solo por nombre y marcador. */
 export interface EaRecap extends EaMatchSummary {
+  /** Colores de la equipación del rival (#rrggbb) para su escudo de iniciales; null si no hay. */
+  opponentColors?: { primary: string; secondary: string } | null;
   players: EaRecapPlayer[];
 }
 

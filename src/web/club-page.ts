@@ -251,6 +251,44 @@ export function renderClubPage(d: ClubPageData): string {
 </main></body></html>`;
 }
 
+/** Directorio de clubes con la página publicada. */
+export function renderClubsDirectory(clubs: { slug: string; name: string; hasCrest: boolean }[]): string {
+  const items = clubs.length
+    ? clubs
+        .map((c) => {
+          const href = `/club/${encodeURIComponent(c.slug)}`;
+          const crest = c.hasCrest
+            ? `<img src="${href}/escudo.png" alt="" width="56" height="56">`
+            : `<span>${esc(initials(c.name))}</span>`;
+          return `<a class="club" href="${href}"><span class="mini">${crest}</span><span class="cname">${esc(c.name)}</span><span class="go">›</span></a>`;
+        })
+        .join('')
+    : '<div class="empty">Todavía ningún club ha publicado su página. Un admin puede hacerlo con <code>/club web</code>.</div>';
+  return `<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Clubes · PIRLO BOT</title>
+<meta name="description" content="Clubes de EA SPORTS FC Pro Clubs con su página en PIRLO BOT.">
+<meta name="theme-color" content="#020617"><link rel="icon" href="/favicon.png"><style>${CSS}
+.clubs{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.club{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:16px;background:var(--card);border:1px solid var(--line);color:var(--text);text-decoration:none}
+.club:hover{border-color:var(--accent)}
+.mini{width:56px;height:56px;flex:none;border-radius:14px;display:grid;place-items:center;font-weight:800;background:#0f172a;border:2px solid var(--line)}
+.mini img{width:56px;height:56px;object-fit:contain}
+.cname{flex:1;font-weight:700;font-size:17px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.go{color:var(--accent);font-size:24px}
+.top{display:flex;align-items:center;gap:10px;color:var(--text);text-decoration:none;font-weight:800;letter-spacing:2px}
+.top img{width:40px;height:40px;border-radius:10px}
+code{background:#ffffff14;padding:2px 6px;border-radius:6px}
+</style></head>
+<body><main class="wrap">
+<a class="top" href="/"><img src="/logo.png" alt="">PIRLO BOT</a>
+<h1 style="margin-top:28px">Clubes</h1>
+<div class="sub">Clubes de EA SPORTS FC Pro Clubs que publicaron su página en PIRLO BOT.</div>
+<h2>Páginas publicadas</h2><div class="clubs">${items}</div>
+<footer>Cada club decide si publica su página. <a href="/">Volver a PIRLO BOT</a></footer>
+</main></body></html>`;
+}
+
 export function notFoundPage(): string {
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Club no encontrado · PIRLO BOT</title><style>${CSS}</style></head><body><main class="wrap" style="text-align:center;padding-top:80px"><h1>Club no encontrado</h1><p class="sub">Esta página no existe o el club no la ha publicado.</p><p><a href="/">Volver a PIRLO BOT</a></p></main></body></html>`;
 }

@@ -38,6 +38,7 @@ const PURPOSE_LABELS: Record<ChannelPurpose, string> = {
   resultados: 'Resultados',
   rankings: 'Rankings',
   recordatorios: 'Recordatorios',
+  ourproclub: 'Our Pro Club (donde publica sus estadísticas)',
 };
 
 const PROVIDER_LABELS: Record<string, string> = {

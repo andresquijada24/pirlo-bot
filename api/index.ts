@@ -13,6 +13,8 @@ import { runEaProcessing } from '../src/jobs/ea-processing.js';
 import { runEaRecaps } from '../src/jobs/ea-recaps.js';
 import { svgToPng } from '../src/render/match-card.js';
 import { runSessionRecaps } from '../src/jobs/session-recaps.js';
+import { runOurProClub } from '../src/jobs/ourproclub.js';
+import { createChannelReader } from '../src/discord/channel-reader.js';
 import { renderSessionCardSvg } from '../src/render/session-card.js';
 import { createGuildApi } from '../src/discord/onboarding.js';
 import { ownerIdsFrom } from '../src/core/platform.js';
@@ -110,7 +112,18 @@ const app = createApp({
             logger.error({ err }, 'Fallo en los resúmenes de EA');
             return undefined;
           });
-          // Resumen de cada sesión nueva de los proveedores por sesión (Marítimo).
+          // Espejo de Our Pro Club (canal elegido por cada club): avisos de partido y sesiones.
+          const ourproclub = await runOurProClub({
+            repos,
+            reader: createChannelReader(env.DISCORD_BOT_TOKEN),
+            poster,
+            blockedGuilds,
+            log: logger,
+          }).catch((err: unknown) => {
+            logger.error({ err }, 'Fallo en el espejo de Our Pro Club');
+            return undefined;
+          });
+          // Resumen de cada sesión nueva de los proveedores por sesión (Marítimo, Our Pro Club).
           const sessionRecaps = await runSessionRecaps({
             repos,
             poster,
@@ -126,6 +139,7 @@ const app = createApp({
             ...(ea ? { ea } : {}),
             ...(eaRecaps ? { eaRecaps } : {}),
             ...(sessionRecaps ? { sessionRecaps } : {}),
+            ...(ourproclub ? { ourproclub } : {}),
           };
         }
       : null,

@@ -30,6 +30,7 @@ import type { ReminderResult } from './jobs/reminders.js';
 import type { EaProcessingResult } from './jobs/ea-processing.js';
 import type { EaRecapResult } from './jobs/ea-recaps.js';
 import type { SessionRecapResult } from './jobs/session-recaps.js';
+import type { OurProClubResult } from './jobs/ourproclub.js';
 import type { ChannelPoster } from './discord/poster.js';
 import type { BinaryDownloader, Downloader } from './discord/commands/types.js';
 
@@ -63,7 +64,12 @@ export interface AppDeps {
     /** Recordatorios y procesamiento de partidos de EA; null si no hay base de datos. */
     tick?:
       | (() => Promise<
-          ReminderResult & { ea?: EaProcessingResult; eaRecaps?: EaRecapResult; sessionRecaps?: SessionRecapResult }
+          ReminderResult & {
+            ea?: EaProcessingResult;
+            eaRecaps?: EaRecapResult;
+            sessionRecaps?: SessionRecapResult;
+            ourproclub?: OurProClubResult;
+          }
         >)
       | null;
   };

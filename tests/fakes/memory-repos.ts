@@ -6,7 +6,7 @@ import type {
   Membership,
   Season,
 } from '../../src/core/types.js';
-import type { AuditEntry, EaLink, Repositories } from '../../src/db/repositories/types.js';
+import type { AuditEntry, EaLink, Repositories, SessionRecap } from '../../src/db/repositories/types.js';
 import type { CachedMatch } from '../../src/providers/ea/ingest.js';
 import type { ProcessedEaMatch } from '../../src/providers/ea/matches.js';
 import type { SessionStatRow } from '../../src/core/stats/service.js';
@@ -46,6 +46,7 @@ export function createMemoryRepos() {
     eaCache: new Map<string, CachedMatch>(),
     eaLinks: [] as EaLink[],
     schedulerKeyHash: null as string | null,
+    sessionRecaps: [] as { clubId: string; posted: boolean; recap: SessionRecap }[],
     providerMatches: [] as (ExternalMatch & { clubId: string; source: ProviderId })[],
     eaMatches: [] as (ProcessedEaMatch & { clubId: string; recapPosted?: boolean })[],
     /** Gamertag de cada ficha por club ("clubId:playerId"), como club_memberships.gamertag. */
@@ -373,6 +374,26 @@ export function createMemoryRepos() {
     },
 
     stats: {
+      async claimSessionRecaps(clubId, limit) {
+        const ids = state.sessionRecaps
+          .filter((r) => r.clubId === clubId && !r.posted)
+          .slice(0, limit);
+        for (const r of ids) r.posted = true;
+        return ids.map((r) => r.recap.sessionId);
+      },
+      async releaseSessionRecaps(clubId, sessionIds) {
+        for (const r of state.sessionRecaps) {
+          if (r.clubId === clubId && sessionIds.includes(r.recap.sessionId)) r.posted = false;
+        }
+      },
+      async clubsWithPendingRecaps() {
+        return [...new Set(state.sessionRecaps.filter((r) => !r.posted).map((r) => r.clubId))];
+      },
+      async sessionRecaps(clubId, sessionIds) {
+        return state.sessionRecaps
+          .filter((r) => r.clubId === clubId && sessionIds.includes(r.recap.sessionId))
+          .map((r) => r.recap);
+      },
       async sessionRows(clubId, seasonId, matchTypes) {
         // Como v_player_session_season_stats: con filtro, solo las sesiones con tipo conocido.
         const sessions = state.sessionRows

@@ -314,7 +314,50 @@ export interface EaRepository {
   recaps(clubId: string, matchIds: string[]): Promise<EaRecap[]>;
 }
 
+/** Un jugador del club en una sesión (resumen de Our Pro Club vía el proveedor). */
+export interface SessionRecapPlayer {
+  /** Gamertag tal como lo publica la fuente. */
+  name: string;
+  playerId: string | null;
+  matchesPlayed: number | null;
+  rating: number | null;
+  goals: number | null;
+  assists: number | null;
+  shots: number | null;
+  dribbles: number | null;
+  passesMade: number | null;
+  passesAttempted: number | null;
+  tacklesMade: number | null;
+  tacklesAttempted: number | null;
+  interceptions: number | null;
+  blocks: number | null;
+  clearances: number | null;
+  saves: number | null;
+  /** Calificación media del jugador en la temporada de la sesión (para comparar); null si no hay. */
+  seasonRating: number | null;
+}
+
+export interface SessionRecap {
+  sessionId: string;
+  playedOn: string;
+  publishedAt: string | null;
+  matchesPlayed: number | null;
+  wins: number | null;
+  draws: number | null;
+  losses: number | null;
+  /** Partidos sin goles recibidos; null si la fuente no informa goles en contra (Marítimo). */
+  cleanSheets?: number | null;
+  players: SessionRecapPlayer[];
+}
+
 export interface StatsRepository {
+  /** Reserva hasta `limit` sesiones nuevas sin anunciar (cada una se anuncia una sola vez). */
+  claimSessionRecaps(clubId: string, limit: number): Promise<string[]>;
+  /** Devuelve sesiones reservadas que no se pudieron publicar (error temporal). */
+  releaseSessionRecaps(clubId: string, sessionIds: string[]): Promise<void>;
+  sessionRecaps(clubId: string, sessionIds: string[]): Promise<SessionRecap[]>;
+  /** Clubes con sesiones sin anunciar. */
+  clubsWithPendingRecaps(): Promise<string[]>;
   /** Totales por temporada a nivel sesión. seasonId null = todas (incluye sesiones sin temporada). */
   sessionRows(
     clubId: string,

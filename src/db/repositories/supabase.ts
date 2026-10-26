@@ -669,6 +669,147 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
   };
 
   const stats: StatsRepository = {
+    async claimSessionRecaps(clubId, limit) {
+      const ids = check(await db.rpc('claim_session_recaps', { p_club: clubId, p_limit: limit }));
+      return z.array(z.string().uuid()).parse(ids ?? []);
+    },
+    async releaseSessionRecaps(clubId, sessionIds) {
+      if (sessionIds.length === 0) return;
+      check(await db.rpc('release_session_recaps', { p_club: clubId, p_ids: sessionIds }));
+    },
+    async clubsWithPendingRecaps() {
+      const rows = check(
+        await db
+          .from('sessions')
+          .select('club_id')
+          .is('recap_posted_at', null)
+          .eq('is_duplicate', false)
+          .neq('source', 'manual')
+          .limit(200),
+      );
+      return [...new Set(z.array(z.object({ club_id: z.string().uuid() })).parse(rows).map((r) => r.club_id))];
+    },
+    async sessionRecaps(clubId, sessionIds) {
+      if (sessionIds.length === 0) return [];
+      const sessions = z
+        .array(
+          z.object({
+            id: z.string().uuid(),
+            season_id: z.string().uuid().nullable(),
+            played_on: z.string(),
+            published_at: z.string().nullable(),
+            matches_played: z.number().nullable(),
+            wins: z.number().nullable(),
+            draws: z.number().nullable(),
+            losses: z.number().nullable(),
+          }),
+        )
+        .parse(
+          check(
+            await db
+              .from('sessions')
+              .select('id, season_id, played_on, published_at, matches_played, wins, draws, losses')
+              .eq('club_id', clubId)
+              .in('id', sessionIds),
+          ),
+        );
+      const n = z.number().nullable();
+      const stats = z
+        .array(
+          z.object({
+            session_id: z.string().uuid(),
+            player_id: z.string().uuid().nullable(),
+            source_player_id: z.string(),
+            source_player_name: z.string(),
+            matches_played: n,
+            rating: n,
+            goals: n,
+            assists: n,
+            shots: n,
+            dribbles: n,
+            passes_made: n,
+            passes_attempted: n,
+            tackles_made: n,
+            tackles_attempted: n,
+            interceptions: n,
+            blocks: n,
+            clearances: n,
+            saves: n,
+          }),
+        )
+        .parse(
+          check(
+            await db
+              .from('player_session_stats')
+              .select(
+                'session_id, player_id, source_player_id, source_player_name, matches_played, rating, goals, assists, shots, dribbles, passes_made, passes_attempted, tackles_made, tackles_attempted, interceptions, blocks, clearances, saves',
+              )
+              .eq('club_id', clubId)
+              .in('session_id', sessionIds),
+          ),
+        );
+      // Media de temporada de cada jugador (suma de puntos / partidos calificados de la vista).
+      const seasonIds = [...new Set(sessions.map((x) => x.season_id).filter((x): x is string => x !== null))];
+      const avg = new Map<string, number>();
+      if (seasonIds.length) {
+        const rows = z
+          .array(
+            z.object({
+              season_id: z.string().uuid().nullable(),
+              source_player_id: z.string(),
+              rating_points: z.coerce.number().nullable(),
+              rated_matches: z.coerce.number().nullable(),
+            }),
+          )
+          .parse(
+            check(
+              await db
+                .from('v_player_session_season_stats')
+                .select('season_id, source_player_id, rating_points, rated_matches')
+                .eq('club_id', clubId)
+                .in('season_id', seasonIds),
+            ),
+          );
+        const sums = new Map<string, [number, number]>();
+        for (const r of rows) {
+          if (r.rating_points === null || !r.rated_matches) continue;
+          const k = `${r.season_id}:${r.source_player_id}`;
+          const cur = sums.get(k) ?? [0, 0];
+          sums.set(k, [cur[0] + r.rating_points, cur[1] + r.rated_matches]);
+        }
+        for (const [k, [pts, m]] of sums) if (m > 0) avg.set(k, pts / m);
+      }
+      return sessions.map((x) => ({
+        sessionId: x.id,
+        playedOn: x.played_on,
+        publishedAt: x.published_at,
+        matchesPlayed: x.matches_played,
+        wins: x.wins,
+        draws: x.draws,
+        losses: x.losses,
+        players: stats
+          .filter((r) => r.session_id === x.id)
+          .map((r) => ({
+            name: r.source_player_name,
+            playerId: r.player_id,
+            matchesPlayed: r.matches_played,
+            rating: r.rating,
+            goals: r.goals,
+            assists: r.assists,
+            shots: r.shots,
+            dribbles: r.dribbles,
+            passesMade: r.passes_made,
+            passesAttempted: r.passes_attempted,
+            tacklesMade: r.tackles_made,
+            tacklesAttempted: r.tackles_attempted,
+            interceptions: r.interceptions,
+            blocks: r.blocks,
+            clearances: r.clearances,
+            saves: r.saves,
+            seasonRating: avg.get(`${x.season_id}:${r.source_player_id}`) ?? null,
+          })),
+      }));
+    },
     async sessionRows(clubId, seasonId, matchTypes) {
       const out: SessionStatRow[] = [];
       // Proveedores por sesión (Marítimo…) y partidos de EA procesados (solo el lado propio).

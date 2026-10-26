@@ -68,6 +68,9 @@ describe('página web del club', () => {
     expect(html).not.toMatch('GamertagRival');
     expect(html).not.toMatch('<script');
     expect(res.headers.get('content-security-policy')).toMatch("default-src 'none'");
+    // Navegación: volver al directorio y casita al menú principal.
+    expect(html).toMatch('href="/clubes"');
+    expect(html).toMatch('class="navbtn home" href="/"');
   });
 
   it('escudo: 404 sin escudo; PNG si el club lo subió', async () => {
@@ -101,6 +104,8 @@ describe('directorio de clubes', () => {
     expect(html).toMatch('href="/club/club-prueba"');
     expect(html).toMatch('Club &lt;Prueba&gt;');
     expect(res.headers.get('content-security-policy')).toMatch("default-src 'none'");
+    expect(html).toMatch('class="navbtn home" href="/"');
+    expect(await (await app.request('/club/no-existe')).text()).toMatch('class="navbtn home" href="/"');
   });
 
   it('la página principal enlaza el directorio', async () => {

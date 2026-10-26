@@ -80,3 +80,23 @@ describe('subir la foto desde la web', () => {
     expect(res.headers.get('location')).toBe(`${url}?error=imagen`);
   });
 });
+
+describe('origen del formulario', () => {
+  it('acepta el Origin «null» que envían los navegadores con no-referrer (lo protege el CSRF), rechaza otros orígenes', async () => {
+    const { app, player, sessionFor } = await setup();
+    const url = `/club/club-foto/jugador/${player.playerId}/foto`;
+    const token = sessionFor(PLAYER);
+    const body = () => {
+      const f = new FormData();
+      f.append('csrf', csrfFor(userSessionKey(SECRET), token));
+      f.append('imagen', new File([new Uint8Array([1, 2, 3])], 'x.png', { type: 'image/png' }));
+      return f;
+    };
+    const ok = await app.request(url, { method: 'POST', body: body(), headers: { cookie: `pirlo_sesion=${token}`, origin: 'null' } });
+    expect(ok.status).toBe(303);
+    const evil = await app.request(url, { method: 'POST', body: body(), headers: { cookie: `pirlo_sesion=${token}`, origin: 'https://evil.example' } });
+    expect(evil.status).toBe(403);
+    const page = await app.request(url, { headers: { cookie: `pirlo_sesion=${token}` } });
+    expect(page.headers.get('referrer-policy')).toBe('same-origin');
+  });
+});

@@ -47,7 +47,8 @@ const HEADERS = {
   'content-security-policy':
     "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
   'x-content-type-options': 'nosniff',
-  'referrer-policy': 'no-referrer',
+  // same-origin: el navegador envía el Origin real en los formularios (con no-referrer envía «null»).
+  'referrer-policy': 'same-origin',
   'cache-control': 'no-store',
 };
 
@@ -243,7 +244,8 @@ export function registerPanelRoutes(app: Hono, deps: PanelDeps): void {
     const s = session(c.req.header('cookie'));
     if (!secret || !s || !deps.repos) return c.text('No autorizado', 401);
     const origin = c.req.header('origin');
-    if (origin && origin !== deps.origin) return c.text('Origen no permitido', 403);
+    // Sin Origin, o «null» (páginas abiertas antes de este cambio), decide el token anti-CSRF.
+    if (origin && origin !== 'null' && origin !== deps.origin) return c.text('Origen no permitido', 403);
     const form = await c.req.parseBody();
     const csrf = typeof form.csrf === 'string' ? form.csrf : '';
     if (!same(csrf, csrfFor(secret, s.token))) return c.text('Token inválido', 403);

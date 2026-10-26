@@ -40,7 +40,8 @@ const HEADERS = {
   'content-security-policy':
     "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
   'x-content-type-options': 'nosniff',
-  'referrer-policy': 'no-referrer',
+  // same-origin: el navegador envía el Origin real en los formularios (con no-referrer envía «null»).
+  'referrer-policy': 'same-origin',
   'cache-control': 'no-store',
 };
 
@@ -148,7 +149,8 @@ export function registerPhotoUploadRoutes(app: Hono, deps: PhotoUploadDeps): voi
     const id = c.req.param('id');
     if (!secret || !u || !deps.repos) return c.text('Inicia sesión con Discord', 401);
     const origin = c.req.header('origin');
-    if (origin && origin !== deps.origin) return c.text('Origen no permitido', 403);
+    // Sin Origin, o «null» (páginas abiertas antes de este cambio), decide el token anti-CSRF.
+    if (origin && origin !== 'null' && origin !== deps.origin) return c.text('Origen no permitido', 403);
     const declared = Number(c.req.header('content-length') ?? '0');
     if (declared > MAX_BYTES + 64 * 1024) return c.redirect(`/club/${slug}/jugador/${id}/foto?error=grande`, 303);
     const form = await c.req.parseBody().catch(() => ({}) as Record<string, unknown>);

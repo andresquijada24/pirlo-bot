@@ -231,7 +231,7 @@ describe('estadísticas detalladas de la plantilla', () => {
   it('la página muestra las columnas nuevas y la fila de totales', async () => {
     const { app } = await setup();
     const html = await (await app.request('/club/club-prueba')).text();
-    expect(html).toMatch('<th title="Goles por cada 100 tiros">Efect.</th>');
+    expect(html).toMatch('<th title="Acierto de tiro: goles ÷ tiros">Acierto tiro</th>');
     expect(html).toMatch('<th>Errados</th>');
     expect(html).toMatch('<td>Total equipo</td>');
     expect(html).toMatch('<th>Paradas</th>');

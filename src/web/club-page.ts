@@ -407,13 +407,13 @@ export function renderClubPage(d: ClubPageData): string {
 
   const players = d.players.length
     ? `<div class="card table"><table class="stats"><thead><tr><th>Jugador</th><th>PJ</th><th>G</th><th>A</th>` +
-      `<th>Tiros</th><th title="Goles por cada 100 tiros">Efect.</th>` +
-      `<th>Pases</th><th>Acierto</th><th>Errados</th>` +
-      `<th>Entradas</th><th>Acierto</th><th title="Entradas ganadas + intercepciones + bloqueos + despejes">Def.</th>` +
+      `<th>Tiros</th><th title="Acierto de tiro: goles ÷ tiros">Acierto tiro</th>` +
+      `<th>Pases</th><th>Acierto pase</th><th>Errados</th>` +
+      `<th>Entradas</th><th>Acierto entrada</th><th title="Entradas ganadas + intercepciones + bloqueos + despejes">Def.</th>` +
       `<th>Paradas</th><th title="Porterías a cero">P. a 0</th><th>Calif.</th></tr></thead><tbody>${d.players
         .map((p) => `<tr><td><a class="pl" href="${playerHref(club.slug, p.key, d.filter)}">${esc(p.name)}</a></td>${statCells(p)}</tr>`)
         .join('')}</tbody><tfoot><tr><td>Total equipo</td>${statCells(teamTotals(d.players))}</tr></tfoot></table></div>` +
-      '<p class="legend">Efect. = goles ÷ tiros · Pases y Entradas = completados/intentados · Def. = entradas ganadas + intercepciones + bloqueos + despejes (los que dé la fuente) · — = sin dato</p>'
+      '<p class="legend">Acierto tiro = goles ÷ tiros (EA no informa tiros a puerta) · Pases y Entradas = completados/intentados · Def. = entradas ganadas + intercepciones + bloqueos + despejes (los que dé la fuente) · — = sin dato</p>'
     : '<div class="card empty">Todavía no hay estadísticas de jugadores.</div>';
 
   const title = `${club.name} · PIRLO BOT`;
@@ -617,7 +617,7 @@ function statGrid(t: PlayerTotals): string {
     ['Asistencias', show(t.assists)],
     ['G + A', show(t.goalContributions)],
     ['Tiros', show(t.shots)],
-    ['Efectividad', pctText(ratio(t.goals, t.shots))],
+    ['Acierto tiro', pctText(ratio(t.goals, t.shots))],
     ['Pases', t.passesMade === null || t.passesAttempted === null ? '—' : `${t.passesMade}/${t.passesAttempted}`],
     ['Acierto pase', pctText(ratio(t.passesMade, t.passesAttempted))],
     ['Pases errados', show(missed(t.passesMade, t.passesAttempted))],

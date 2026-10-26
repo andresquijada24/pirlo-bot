@@ -20,7 +20,7 @@ export const PHOTO_GUIDE = [
   '**4.** Pásala al móvil o al PC: app de **PlayStation** o **Xbox** (Biblioteca de capturas), o la carpeta de capturas en PC.',
   '**5.** Aquí en Discord escribe `/plantilla foto` y adjunta la captura en **imagen**.',
   '',
-  'PIRLO recorta la imagen centrada en tu jugador y la pone en tu ficha. Para tener ficha con foto debes estar en la plantilla (`/vincular`) con tu gamertag de EA vinculado.',
+  'Para que salga tu tarjeta tal cual, recorta la captura a la tarjeta en el móvil antes de subirla (o súbela desde tu ficha en la web, que tiene un marco para encuadrarla). Si subes la captura completa, PIRLO la recorta centrada en tu jugador. Para tener ficha con foto debes estar en la plantilla (`/vincular`) con tu gamertag de EA vinculado.',
   'Un DT o admin puede subirla por ti con `/plantilla foto usuario:@jugador`.',
 ].join('\n');
 const MAX_EMBED_DESCRIPTION = 4000;

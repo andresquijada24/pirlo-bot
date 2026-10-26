@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import type { Hono } from 'hono';
 import type { Repositories } from '../db/repositories/types.js';
 import { isDomainError } from '../core/errors.js';
-import { normalizePhoto } from '../render/photo.js';
+import { normalizePhoto, parseCrop } from '../render/photo.js';
 import {
   cookie,
   cookies,
@@ -38,7 +38,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const MAX_BYTES = 4 * 1024 * 1024;
 const HEADERS = {
   'content-security-policy':
-    "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+    "default-src 'none'; img-src 'self' data: blob:; script-src 'self'; connect-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
   'x-content-type-options': 'nosniff',
   // same-origin: el navegador envía el Origin real en los formularios (con no-referrer envía «null»).
   'referrer-policy': 'same-origin',
@@ -133,7 +133,8 @@ export function registerPhotoUploadRoutes(app: Hono, deps: PhotoUploadDeps): voi
           `<form method="post" enctype="multipart/form-data" action="${back}/foto">` +
           `<input type="hidden" name="csrf" value="${esc(csrfFor(userSessionKey(deps.clientSecret), u.token))}">` +
           '<label class="file">Captura de The Grounds (PNG o JPG, máx. 4 MB)<input type="file" name="imagen" accept="image/png,image/jpeg,image/webp" required></label>' +
-          '<button class="btn" type="submit">Subir foto</button></form>',
+          CROP +
+          '<button class="btn" type="submit">Subir foto</button></form><script src="/foto.js" defer></script>',
         slug,
         back,
       ),
@@ -164,7 +165,7 @@ export function registerPhotoUploadRoutes(app: Hono, deps: PhotoUploadDeps): voi
     if (!(file instanceof File) || file.size === 0) return c.redirect(`${back}/foto?error=vacia`, 303);
     if (file.size > MAX_BYTES) return c.redirect(`${back}/foto?error=grande`, 303);
     try {
-      const jpg = await normalizePhoto(new Uint8Array(await file.arrayBuffer()));
+      const jpg = await normalizePhoto(new Uint8Array(await file.arrayBuffer()), parseCrop(form));
       await deps.repos.memberships.setPhoto(ctx.club.id, ctx.target.id, jpg, u.userId);
     } catch (err) {
       if (!isDomainError(err)) deps.log?.error({ err }, 'No se pudo guardar la foto desde la web');
@@ -187,7 +188,12 @@ const GUIDE =
   '<li>Ponte de frente a la cámara y quita los menús de la pantalla.</li>' +
   '<li>Haz una captura: <b>PS5</b> botón Crear → Captura · <b>Xbox</b> botón Compartir · <b>PC</b> tecla de captura.</li>' +
   '<li>Pásala a este dispositivo (app de PlayStation o Xbox, o la carpeta de capturas) y súbela aquí.</li></ol>' +
-  '<p class="meta">PIRLO la recorta centrada en tu jugador.</p>';
+  '<p class="meta">Al elegirla, encuadra tu tarjeta con el marco: muévelo y cambia su tamaño desde la esquina. La ficha la muestra tal cual.</p>';
+
+/** Vista previa con el marco de recorte (lo maneja /foto.js; sin JavaScript se recorta solo). */
+const CROP =
+  '<div id="recorte" hidden><img alt="Vista previa de la captura"><div class="marco"><span class="asa" aria-label="Cambiar tamaño"></span></div></div>' +
+  ['x', 'y', 'w', 'h'].map((k) => `<input type="hidden" name="recorte_${k}" value="">`).join('');
 
 function page(title: string, body: string, slug: string, back?: string): string {
   return `<!doctype html>
@@ -206,6 +212,10 @@ h1{font-size:26px;margin:18px 0 12px}.meta{color:var(--muted);font-size:14px}
 .file{display:block;margin:16px 0;color:var(--muted);font-size:14px}.file input{display:block;margin-top:8px;color:var(--text)}
 .err{background:#ef44441a;border:1px solid #ef444455;border-radius:12px;padding:10px 14px}
 code{background:#ffffff14;padding:1px 6px;border-radius:6px}
+#recorte{position:relative;overflow:hidden;border-radius:10px;margin:0 0 16px;user-select:none;touch-action:none;line-height:0}
+#recorte img{width:100%;height:auto;border-radius:10px;display:block}
+.marco{position:absolute;border:2px solid var(--accent);border-radius:8px;box-shadow:0 0 0 9999px #020617b3;cursor:move;touch-action:none}
+.asa{position:absolute;right:-4px;bottom:-4px;width:22px;height:22px;border-radius:50%;background:var(--accent);border:3px solid #020617;cursor:nwse-resize;touch-action:none}
 </style>${updateTags(currentVersion()).meta}</head>
 <body><main class="wrap"><p><a href="${back ?? `/club/${esc(slug)}`}">← Volver a la ficha</a></p><div class="card"><h1>${title}</h1>${body}</div></main></body></html>`;
 }

@@ -124,6 +124,23 @@ export function createMemoryRepos() {
       async crest(clubId) {
         return state.crests.get(clubId) ?? null;
       },
+      async withoutCrest(limit) {
+        return state.clubs
+          .filter((c) => c.status === 'activo' && !state.crests.has(c.id))
+          .slice(0, limit)
+          .map((c) => ({
+            clubId: c.id,
+            guildIds: state.clubGuilds
+              .filter((g) => g.clubId === c.id)
+              .map((g) => g.guildId)
+              .filter((gid) => state.clubGuilds.filter((x) => x.guildId === gid).length === 1),
+          }));
+      },
+      async setAutoCrest(clubId, pngBase64) {
+        if (state.crests.has(clubId)) return false;
+        state.crests.set(clubId, pngBase64);
+        return true;
+      },
       async setCrest(clubId, pngBase64, actorDiscordId) {
         const isAdmin = activeIn(clubId).some((m) => m.discordUserId === actorDiscordId && m.role === 'admin');
         if (!isAdmin) throw conflict('Solo un admin del club puede cambiar el escudo.');

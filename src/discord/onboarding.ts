@@ -3,6 +3,7 @@ import { CHANNEL_PURPOSES, type ChannelPurpose } from '../core/types.js';
 import type { Repositories } from '../db/repositories/types.js';
 import { REFERENCE_GUILD_ID } from '../jobs/reminders.js';
 import { requestApproval } from '../core/platform.js';
+import { normalizeCrest } from '../render/crest.js';
 
 /**
  * Alta automática de un club cuando alguien añade PIRLO BOT a su servidor desde la web.
@@ -21,6 +22,8 @@ import { requestApproval } from '../core/platform.js';
 export interface GuildApi {
   /** Canales de texto del servidor (id y nombre). */
   textChannels(guildId: string): Promise<{ id: string; name: string }[]>;
+  /** Ícono del servidor (bytes PNG, hasta 256 px) o null si no tiene. */
+  guildIcon?(guildId: string): Promise<Uint8Array | null>;
   /** Nombre de un servidor donde está el bot (null si no se puede leer). */
   guildName?(guildId: string): Promise<string | null>;
   /** Mensaje privado a un usuario. */
@@ -141,6 +144,15 @@ export async function onboardGuild(
     .catch((err: unknown) =>
       deps.log?.error({ err }, 'No se pudo enviar la bienvenida por privado'),
     );
+  // Escudo automático: el ícono del servidor (el club puede cambiarlo con /club escudo).
+  if (api.guildIcon) {
+    try {
+      const icon = await api.guildIcon(input.guildId);
+      if (icon) await repos.clubs.setAutoCrest(clubId, await normalizeCrest(icon));
+    } catch (err) {
+      deps.log?.error({ err, guildId: input.guildId }, 'No se pudo poner el escudo automático');
+    }
+  }
   return { status: 'creado', slug, channels };
 }
 
@@ -182,6 +194,18 @@ export function createGuildApi(
     return (await res.json()) as unknown;
   };
   return {
+    async guildIcon(guildId) {
+      if (!SNOWFLAKE.test(guildId)) return null;
+      const g = (await call('GET', `/guilds/${guildId}`)) as { icon?: unknown };
+      if (typeof g.icon !== 'string' || !/^(a_)?[0-9a-f]{32}$/.test(g.icon)) return null;
+      // Solo el CDN de Discord, en PNG (también para íconos animados) y con tamaño acotado.
+      const res = await fetchFn(`https://cdn.discordapp.com/icons/${guildId}/${g.icon}.png?size=256`, {
+        signal: AbortSignal.timeout(timeoutMs * 2),
+      });
+      if (!res.ok) return null;
+      const buf = new Uint8Array(await res.arrayBuffer());
+      return buf.byteLength > 0 && buf.byteLength <= 2_000_000 ? buf : null;
+    },
     async guildName(guildId) {
       if (!SNOWFLAKE.test(guildId)) return null;
       const g = (await call('GET', `/guilds/${guildId}`)) as { name?: unknown };

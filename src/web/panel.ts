@@ -4,6 +4,7 @@ import type { Club } from '../core/types.js';
 import type { AdminClubRow, Repositories } from '../db/repositories/types.js';
 import type { GuildApi } from '../discord/onboarding.js';
 import { currentVersion, updateTags } from './version.js';
+import { runAutoCrests } from '../jobs/auto-crests.js';
 
 /**
  * Panel interno de PIRLO BOT (/panel): solo para los dueños del proyecto.
@@ -124,6 +125,13 @@ export function registerPanelRoutes(app: Hono, deps: PanelDeps): void {
     try {
       const clubs = await deps.repos.clubs.listAdmin();
       await fillGuildNames(deps, clubs);
+      // Escudos automáticos pendientes (ícono del servidor); con plazo para no frenar el panel.
+      if (deps.api?.guildIcon) {
+        await Promise.race([
+          runAutoCrests({ repos: deps.repos, api: deps.api, limit: 5 }).catch(() => undefined),
+          new Promise((r) => setTimeout(r, 3_000)),
+        ]);
+      }
       const msg = c.req.query('ok') ?? null;
       return c.html(renderPanel(clubs, csrfFor(deps.clientSecret, s.token), msg), 200, HEADERS);
     } catch (err) {

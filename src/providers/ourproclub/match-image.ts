@@ -41,9 +41,10 @@ const COLUMNS = {
   saves: 1840,
 } as const;
 const WIDE = new Set(['passes', 'possession', 'tackles']);
-const FIRST_ROW_Y = 293;
-const ROW_STEP = 52;
-const MAX_ROWS = 11;
+/** Zona de la tabla bajo la cabecera (PLAYER, RAT…) donde se buscan las filas. */
+const TABLE_TOP = 262;
+const TABLE_BOTTOM = 1075;
+const MAX_ROWS = 14;
 const DIGITS = '0123456789';
 
 /** Imagen en escala de grises con el canal más brillante de cada píxel (el texto es blanco o de color). */
@@ -129,6 +130,47 @@ function brightBox(g: Gray, b: Box, threshold: number): Box | null {
       }
   if (maxX < 0) return null;
   return { left: minX, top: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
+}
+
+/**
+ * Centro (y, en coordenadas de 1920×1080) de cada fila de la tabla. La separación entre filas
+ * cambia según cuántos jugadores haya, así que se buscan las bandas de texto de la columna de
+ * calificación (siempre tiene valor) en lugar de suponer una distancia fija.
+ */
+export function findRows(g: Gray): number[] {
+  const x0 = Math.round(995 * g.scale);
+  const x1 = Math.round(1037 * g.scale);
+  const y0 = Math.round(TABLE_TOP * g.scale);
+  const y1 = Math.min(g.height, Math.round(TABLE_BOTTOM * g.scale));
+  const rows: number[] = [];
+  const gap = Math.max(2, Math.round(5 * g.scale));
+  let start = -1;
+  let last = -1;
+  const close = () => {
+    const h = last - start + 1;
+    // Una cifra mide unos 15 px; se descartan rayas y manchas del fondo.
+    if (h >= 8 * g.scale && h <= 40 * g.scale) rows.push((start + last) / 2 / g.scale);
+    start = -1;
+  };
+  for (let y = y0; y < y1; y++) {
+    let lit = false;
+    for (let x = x0; x < x1 && !lit; x++) lit = g.data[y * g.width + x]! > 110;
+    if (lit) {
+      if (start < 0) start = y;
+      last = y;
+    } else if (start >= 0 && y - last > gap) close();
+  }
+  if (start >= 0) close();
+  // Las filas van seguidas y a distancia constante (40–75 px según cuántos jugadores haya):
+  // lo que venga después de un salto distinto es el fondo de la imagen, no la tabla.
+  const table = rows.slice(0, 1);
+  for (let i = 1; i < rows.length; i++) {
+    const step = rows[i]! - rows[i - 1]!;
+    const first = table.length > 1 ? table[1]! - table[0]! : step;
+    if (step < 40 || step > 75 || Math.abs(step - first) > first * 0.15) break;
+    table.push(rows[i]!);
+  }
+  return table;
 }
 
 const clean = (s: string) => s.replace(/\s+/g, '').trim();
@@ -278,9 +320,7 @@ export async function readMatchImage(
   const humans = vs ? { home: Number(vs[1]), away: Number(vs[2]) } : null;
 
   const players: MatchResultPlayer[] = [];
-  for (let r = 0; r < MAX_ROWS; r++) {
-    const y = FIRST_ROW_Y + ROW_STEP * r;
-    if ((y + 30) * g.scale > g.height) break;
+  for (const y of findRows(g).slice(0, MAX_ROWS)) {
     const ratingText = clean(
       await ocr.read(await cell(g, box(g, 985, y - 14, 1045, y + 14), { threshold: 130 }), {
         chars: `${DIGITS}.`,

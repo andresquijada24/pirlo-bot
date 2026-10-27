@@ -143,6 +143,41 @@ describe('publicación del resumen de sesión', () => {
     expect(String(sent[0]!.body.content)).toMatch('/club/club-sesion');
   });
 
+  it('sesión anunciada sin jugadores: espera a sus números; pasado el plazo, publica igual', async () => {
+    const { env, clubId } = await setup();
+    env.state.sessionRecaps[0]!.recap = recap({ players: [], publishedAt: '2026-10-27T02:33:48Z' });
+    env.state.channels.push({ clubId, guildId: GUILD, purpose: 'resultados', channelId: CHANNEL });
+    const { sent, poster } = recorder();
+    const at = (iso: string) => () => Date.parse(iso);
+    const run = (now: () => number) =>
+      runSessionRecaps({ repos: env.repos, poster, blockedGuilds: new Set(), render, now });
+    expect(await run(at('2026-10-27T02:34:02Z'))).toEqual({ posted: 0, failed: 0 });
+    expect(env.state.sessionRecaps[0]!.posted).toBe(false); // sigue pendiente
+    // Llegan los jugadores: se publica completa.
+    env.state.sessionRecaps[0]!.recap = recap({ publishedAt: '2026-10-27T02:33:48Z' });
+    expect((await run(at('2026-10-27T02:36:00Z'))).posted).toBe(1);
+
+    const late = await setup();
+    late.env.state.sessionRecaps[0]!.recap = recap({
+      players: [],
+      publishedAt: '2026-10-27T02:00:00Z',
+    });
+    late.env.state.channels.push({
+      clubId: late.clubId,
+      guildId: GUILD,
+      purpose: 'resultados',
+      channelId: CHANNEL,
+    });
+    const r = await runSessionRecaps({
+      repos: late.env.repos,
+      poster,
+      blockedGuilds: new Set(),
+      render,
+      now: at('2026-10-27T02:31:00Z'),
+    });
+    expect(r.posted).toBe(1);
+  });
+
   it('nunca publica en el servidor de referencia ni en los bloqueados', async () => {
     for (const guild of [REFERENCE_GUILD_ID, '900000000000000099']) {
       const { env, clubId } = await setup(guild);

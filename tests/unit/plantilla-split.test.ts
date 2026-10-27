@@ -14,8 +14,8 @@ const m = (name: string, role: ClubRole, playerId = name): Membership => ({
   discordUserId: null,
 });
 
-describe('plantilla: jugadores y cuerpo técnico', () => {
-  it('un admin o DT sale en la plantilla solo si ha jugado; si no, en el cuerpo técnico', () => {
+describe('plantilla: solo quien forma parte real del equipo', () => {
+  it('un admin o DT sale en la plantilla solo si ha jugado; si no, queda fuera', () => {
     const roster = [
       m('Zeta', 'jugador'),
       m('AdminQueJuega', 'admin'),

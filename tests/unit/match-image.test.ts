@@ -70,7 +70,11 @@ describe('partido del club a partir de la lectura', () => {
   });
 
   it('sin seguridad no hay partido: club no reconocido o números que no cuadran', () => {
-    expect(toClubMatch(read(), ['Otro Club'], null)).toBeNull();
+    const reasons: string[] = [];
+    expect(toClubMatch(read(), ['Otro Club'], null, (r) => reasons.push(r))).toBeNull();
+    expect(reasons).toEqual([
+      'el club no aparece en el marcador («KUNDNAV FC» contra «MARITIMO CF»)',
+    ]);
     // 5 goles de jugadores con 4 del club: lectura errónea.
     expect(toClubMatch(read({ players: [player('Raalro', 5)] }), ['Marítimo CF'], null)).toBeNull();
     expect(

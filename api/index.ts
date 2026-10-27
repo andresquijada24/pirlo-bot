@@ -122,8 +122,8 @@ const app = createApp({
             reader: createChannelReader(env.DISCORD_BOT_TOKEN),
             poster,
             blockedGuilds,
-            readImage: async (png, known) =>
-              readMatchImage(png, (ocr ??= await createTesseractOcr()), known),
+            readImage: async (png, known, reject) =>
+              readMatchImage(png, (ocr ??= await createTesseractOcr()), known, reject),
             log: logger,
           })
             .catch((err: unknown) => {

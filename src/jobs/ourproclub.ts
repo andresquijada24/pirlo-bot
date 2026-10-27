@@ -63,11 +63,18 @@ export async function runOurProClub(deps: {
   reader: ChannelReader;
   poster: ChannelPoster;
   /** Lector de la imagen de partido (OCR). Sin él solo se publica el aviso de texto. */
-  readImage?: (png: Uint8Array, knownPlayers: string[]) => Promise<MatchImageRead | null>;
+  readImage?: (
+    png: Uint8Array,
+    knownPlayers: string[],
+    reject: (reason: string) => void,
+  ) => Promise<MatchImageRead | null>;
   render?: (input: ResultCardInput) => Promise<Uint8Array>;
   blockedGuilds: ReadonlySet<string>;
   now?: () => number;
-  log?: { error: (obj: object, msg: string) => void };
+  log?: {
+    error: (obj: object, msg: string) => void;
+    warn?: (obj: object, msg: string) => void;
+  };
 }): Promise<OurProClubResult> {
   const { repos, reader, poster } = deps;
   const now = deps.now ?? Date.now;
@@ -85,8 +92,16 @@ export async function runOurProClub(deps: {
     try {
       const png = await reader.image(url);
       const known = await repos.externalPlayers.gamertags(club.id);
-      const read = await deps.readImage(png, known);
-      return read ? toClubMatch(read, [club.name], localDay(m.timestamp, club.timezone)) : null;
+      // Motivo del descarte en los registros, para poder corregir el lector.
+      const reject = (reason: string) =>
+        (deps.log?.warn ?? deps.log?.error)?.(
+          { clubId: club.id, messageId: m.id, reason },
+          'Lectura de imagen de partido descartada',
+        );
+      const read = await deps.readImage(png, known, reject);
+      return read
+        ? toClubMatch(read, [club.name], localDay(m.timestamp, club.timezone), reject)
+        : null;
     } catch (err) {
       deps.log?.error({ err, clubId: club.id }, 'No se pudo leer la imagen de partido');
       return null;

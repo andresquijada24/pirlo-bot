@@ -465,6 +465,18 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
       );
       return row ? z.object({ photo_jpg: z.string().nullable() }).parse(row).photo_jpg : null;
     },
+    async playedIds(clubId) {
+      const tables = ['player_session_stats', 'player_match_stats', 'external_players'] as const;
+      const results = await Promise.all(
+        tables.map((t) =>
+          db.from(t).select('player_id').eq('club_id', clubId).not('player_id', 'is', null).limit(5000),
+        ),
+      );
+      const ids = new Set<string>();
+      for (const r of results)
+        for (const row of check(r) as { player_id: string | null }[]) if (row.player_id) ids.add(row.player_id);
+      return ids;
+    },
     async withPhoto(clubId) {
       const rows = check(
         await db

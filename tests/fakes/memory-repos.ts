@@ -225,6 +225,14 @@ export function createMemoryRepos() {
         const m = activeIn(clubId).find((x) => x.playerId === playerId);
         return m ? (state.photos.get(m.id) ?? null) : null;
       },
+      async playedIds(clubId) {
+        return new Set(
+          [
+            ...state.sessionRows.filter((r) => r.clubId === clubId).map((r) => r.playerId),
+            ...state.externalPlayers.filter((e) => e.clubId === clubId).map((e) => e.playerId),
+          ].filter((id): id is string => !!id),
+        );
+      },
       async withPhoto(clubId) {
         return new Set(activeIn(clubId).filter((m) => state.photos.has(m.id)).map((m) => m.playerId));
       },

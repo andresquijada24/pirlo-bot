@@ -466,7 +466,13 @@ export function createSupabaseRepositories(db: SupabaseClient): Repositories {
       return row ? z.object({ photo_jpg: z.string().nullable() }).parse(row).photo_jpg : null;
     },
     async playedIds(clubId) {
-      const tables = ['player_session_stats', 'player_match_stats', 'external_players'] as const;
+      // Sesiones, partidos, fichas del proveedor y partidos de EA (por gamertag vinculado).
+      const tables = [
+        'player_session_stats',
+        'player_match_stats',
+        'external_players',
+        'v_ea_player_season_stats',
+      ] as const;
       const results = await Promise.all(
         tables.map((t) =>
           db.from(t).select('player_id').eq('club_id', clubId).not('player_id', 'is', null).limit(5000),

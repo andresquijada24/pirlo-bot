@@ -10,7 +10,6 @@ import { embed, escapeMd, ok, reply } from '../responses.js';
 import { clubOption, contextFor, mention, ROLE_LABELS, roleChoices } from './common.js';
 import type { CommandContext, SlashCommand } from './types.js';
 
-const ROLE_ORDER: ClubRole[] = ['admin', 'dt', 'capitan', 'jugador'];
 
 /** Instructivo para subir la foto (se muestra con /plantilla foto sin imagen). */
 export const PHOTO_GUIDE = [
@@ -26,17 +25,24 @@ export const PHOTO_GUIDE = [
 const MAX_EMBED_DESCRIPTION = 4000;
 
 /**
- * Plantilla: jugadores y capitanes siempre; admins y DT solo si han jugado con el club (tienen
- * estadísticas). Los que no juegan (`staff`) no se muestran en la plantilla.
+ * Plantilla: solo quien forma parte real del equipo. Jugadores y capitanes siempre; admins y DT
+ * solo si han jugado con el club (tienen estadísticas). En la plantilla nadie sale como «Admin»:
+ * el admin que juega sale como jugador, y el DT que juega lleva la marca de capitán (C), igual
+ * que los capitanes. Los permisos de cada uno no cambian.
  */
+export function rosterLabel(role: ClubRole): { captain: boolean; label: string } {
+  const captain = role === 'capitan' || role === 'dt';
+  return { captain, label: captain ? 'Capitán' : 'Jugador' };
+}
+
 export function splitRoster(roster: Membership[], played: ReadonlySet<string>) {
-  const sorted = [...roster].sort(
-    (a, b) =>
-      ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role) ||
-      a.displayName.localeCompare(b.displayName, 'es'),
-  );
   const plays = (m: Membership) =>
     m.role === 'jugador' || m.role === 'capitan' || played.has(m.playerId);
+  const sorted = [...roster].sort(
+    (a, b) =>
+      Number(rosterLabel(b.role).captain) - Number(rosterLabel(a.role).captain) ||
+      a.displayName.localeCompare(b.displayName, 'es'),
+  );
   return { players: sorted.filter(plays), staff: sorted.filter((m) => !plays(m)) };
 }
 
@@ -162,7 +168,8 @@ export const plantillaCommand: SlashCommand = {
         const line = (m: Membership) => {
           const num = m.shirtNumber !== null ? `\`#${m.shirtNumber}\` ` : '';
           const pos = m.positions.length ? ` · ${m.positions.join('/')}` : '';
-          return `${num}**${escapeMd(m.displayName)}** · ${ROLE_LABELS[m.role]}${pos} · ${mention(m.discordUserId)}`;
+          const { captain, label } = rosterLabel(m.role);
+          return `${num}**${escapeMd(m.displayName)}**${captain ? ' (C)' : ''} · ${label}${pos} · ${mention(m.discordUserId)}`;
         };
         let description = players.map(line).join('\n') || 'Todavía no hay jugadores.';
         if (description.length > MAX_EMBED_DESCRIPTION) {

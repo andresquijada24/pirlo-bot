@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { splitRoster } from '../../src/discord/commands/plantilla.js';
+import { rosterLabel, splitRoster } from '../../src/discord/commands/plantilla.js';
 import type { ClubRole, Membership } from '../../src/core/types.js';
 
 // Datos ficticios, solo para pruebas.
@@ -15,22 +15,34 @@ const m = (name: string, role: ClubRole, playerId = name): Membership => ({
 });
 
 describe('plantilla: solo quien forma parte real del equipo', () => {
-  it('un admin o DT sale en la plantilla solo si ha jugado; si no, queda fuera', () => {
+  it('admins y DT solo si han jugado; capitanes (C) primero', () => {
     const roster = [
       m('Zeta', 'jugador'),
       m('AdminQueJuega', 'admin'),
       m('AdminSinJugar', 'admin'),
-      m('Dt', 'dt'),
+      m('DtQueJuega', 'dt'),
+      m('DtSinJugar', 'dt'),
       m('Capi', 'capitan'),
     ];
-    const { players, staff } = splitRoster(roster, new Set(['AdminQueJuega']));
-    expect(players.map((p) => p.displayName)).toEqual(['AdminQueJuega', 'Capi', 'Zeta']);
-    expect(staff.map((p) => p.displayName)).toEqual(['AdminSinJugar', 'Dt']);
+    const { players } = splitRoster(roster, new Set(['AdminQueJuega', 'DtQueJuega']));
+    expect(players.map((p) => p.displayName)).toEqual([
+      'Capi',
+      'DtQueJuega',
+      'AdminQueJuega',
+      'Zeta',
+    ]);
+  });
+
+  it('nadie sale como «Admin»: el admin es jugador y el DT lleva la marca de capitán', () => {
+    expect(rosterLabel('admin')).toEqual({ captain: false, label: 'Jugador' });
+    expect(rosterLabel('dt')).toEqual({ captain: true, label: 'Capitán' });
+    expect(rosterLabel('capitan')).toEqual({ captain: true, label: 'Capitán' });
+    expect(rosterLabel('jugador')).toEqual({ captain: false, label: 'Jugador' });
   });
 
   it('en cuanto juega (tiene estadísticas), pasa a la plantilla', () => {
     const roster = [m('Nuevo', 'admin')];
-    expect(splitRoster(roster, new Set()).staff).toHaveLength(1);
+    expect(splitRoster(roster, new Set()).players).toHaveLength(0);
     expect(splitRoster(roster, new Set(['Nuevo'])).players).toHaveLength(1);
   });
 });

@@ -27,7 +27,7 @@ const MAX_EMBED_DESCRIPTION = 4000;
 
 /**
  * Plantilla: jugadores y capitanes siempre; admins y DT solo si han jugado con el club (tienen
- * estadísticas). Los que no juegan aparecen aparte, como cuerpo técnico.
+ * estadísticas). Los que no juegan (`staff`) no se muestran en la plantilla.
  */
 export function splitRoster(roster: Membership[], played: ReadonlySet<string>) {
   const sorted = [...roster].sort(
@@ -157,16 +157,14 @@ export const plantillaCommand: SlashCommand = {
           listRoster(ctx.repos, c),
           ctx.repos.memberships.playedIds(c.club.id).catch(() => new Set<string>()),
         ]);
-        const { players, staff } = splitRoster(roster, played);
+        // Solo los que forman parte real del equipo: los admins y DT que no juegan no salen.
+        const { players } = splitRoster(roster, played);
         const line = (m: Membership) => {
           const num = m.shirtNumber !== null ? `\`#${m.shirtNumber}\` ` : '';
           const pos = m.positions.length ? ` · ${m.positions.join('/')}` : '';
           return `${num}**${escapeMd(m.displayName)}** · ${ROLE_LABELS[m.role]}${pos} · ${mention(m.discordUserId)}`;
         };
-        let description = [
-          players.map(line).join('\n') || 'Todavía no hay jugadores.',
-          ...(staff.length ? ['', '**Cuerpo técnico**', ...staff.map(line)] : []),
-        ].join('\n');
+        let description = players.map(line).join('\n') || 'Todavía no hay jugadores.';
         if (description.length > MAX_EMBED_DESCRIPTION) {
           description = description.slice(0, MAX_EMBED_DESCRIPTION - 1) + '…';
         }
@@ -175,9 +173,7 @@ export const plantillaCommand: SlashCommand = {
             embed({
               title: `Plantilla · ${escapeMd(c.club.name)}`,
               description,
-              footer: {
-                text: `${players.length} jugador(es)${staff.length ? ` · ${staff.length} en el cuerpo técnico` : ''}`,
-              },
+              footer: { text: `${players.length} jugador(es)` },
             }),
           ],
         });

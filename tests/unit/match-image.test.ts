@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
+  parseRating,
   readMatchImage,
   resolvePlayerName,
   similarity,
@@ -45,6 +46,9 @@ describe('nombres leídos de la imagen', () => {
     expect(resolvePlayerName('apirloSs OO ES', known)).toBe('apirlo5');
     expect(resolvePlayerName('Radlro BB @®', known)).toBe('Raalro');
     expect(resolvePlayerName('nedus OO ©', known)).toBe('nedus');
+    // Gamertag partido por el lector o con espacio.
+    expect(resolvePlayerName('willl_ mich', ['willl_mich', 'nedus'])).toBe('willl_mich');
+    expect(resolvePlayerName('RM CAAMs ©', ['RM CAAMs', 'nedus'])).toBe('RM CAAMs');
     // Desconocido: primera palabra tal cual.
     expect(resolvePlayerName('Fichaje99 @', known)).toBe('Fichaje99');
     expect(resolvePlayerName('  ', known)).toBeNull();
@@ -70,7 +74,11 @@ describe('partido del club a partir de la lectura', () => {
   });
 
   it('sin seguridad no hay partido: club no reconocido o números que no cuadran', () => {
-    expect(toClubMatch(read(), ['Otro Club'], null)).toBeNull();
+    const reasons: string[] = [];
+    expect(toClubMatch(read(), ['Otro Club'], null, (r) => reasons.push(r))).toBeNull();
+    expect(reasons).toEqual([
+      'el club no aparece en el marcador («KUNDNAV FC» contra «MARITIMO CF»)',
+    ]);
     // 5 goles de jugadores con 4 del club: lectura errónea.
     expect(toClubMatch(read({ players: [player('Raalro', 5)] }), ['Marítimo CF'], null)).toBeNull();
     expect(
@@ -108,6 +116,23 @@ describe('partido del club a partir de la lectura', () => {
   });
 });
 
+describe('calificación', () => {
+  it('siempre con un decimal; si el punto se pierde, se recupera', () => {
+    expect([
+      parseRating('7.7'),
+      parseRating('77'),
+      parseRating('100'),
+      parseRating('10.0'),
+    ]).toEqual([7.7, 7.7, 10, 10]);
+    expect([parseRating('7'), parseRating(''), parseRating('11.5'), parseRating('0.0')]).toEqual([
+      null,
+      null,
+      null,
+      null,
+    ]);
+  });
+});
+
 describe('filas de la tabla', () => {
   it('encuentra cada fila por sí sola (la separación cambia según los jugadores)', async () => {
     // Lector ficticio: todo «legible»; así solo cuenta cuántas filas se detectan.
@@ -121,9 +146,10 @@ describe('filas de la tabla', () => {
       'partido-hutch-3-0.png',
       'partido-oooupii-0-0.png',
       'partido-gln-santos-0-10.png',
+      'amistoso-mecha-brs-2-1.png',
     ])
       counts.push((await readMatchImage(fixture(f), ocr))?.players.length ?? -1);
-    expect(counts).toEqual([3, 2, 2, 2]);
+    expect(counts).toEqual([3, 2, 2, 2, 11]);
   });
 });
 
@@ -140,10 +166,10 @@ const withOcr = tesseract ? it : it.skip;
 
 // [nombre, calif., goles, asistencias, tiros, regates, pases completados, intentados,
 //  entradas ganadas, intentadas, intercepciones, bloqueos, despejes, paradas]
-type Row = [string, ...number[]];
+type Row = [string, ...(number | null)[]];
 const EXPECTED: Record<
   string,
-  { home: boolean; score: [number, number]; rival: string; rows: Row[] }
+  { home: boolean; score: [number, number]; rival: string; competition?: string; rows: Row[] }
 > = {
   'partido-kundnav-4-4.png': {
     home: false,
@@ -182,7 +208,62 @@ const EXPECTED: Record<
       ['Raalro', 6.3, 0, 0, 1, 17, 24, 29, 1, 2, 0, 0, 0, 0],
     ],
   },
+  // Amistosos de 11 jugadores: filas más separadas, cifras de color y guiones finos. EA no da
+  // regates, intercepciones, bloqueos ni despejes en amistosos: sin dato (null), no 0.
+  'amistoso-mecha-brs-2-1.png': {
+    home: false,
+    score: [1, 2],
+    rival: 'MECHA BRS',
+    competition: 'AMISTOSO',
+    rows: [
+      ['apirlo5', 8.0, 0, 0, 0, null, 22, 31, 3, 5, null, null, null, 0],
+      ['fIakjto', 7.9, 0, 0, 1, null, 9, 13, 2, 3, null, null, null, 0],
+      ['nedus', 7.8, 0, 0, 0, null, 16, 24, 2, 2, null, null, null, 0],
+      ['Kamikazeeeplay', 7.7, 0, 1, 0, null, 8, 13, 4, 11, null, null, null, 0],
+      ['willl_mich', 7.2, 0, 0, 0, null, 13, 24, 2, 2, null, null, null, 0],
+      ['ReisHjN', 7.2, 1, 0, 2, null, 12, 13, 1, 4, null, null, null, 0],
+      ['ChinoMaKina', 6.9, 0, 0, 0, null, 7, 10, 0, 4, null, null, null, 0],
+      ['Raalro', 6.7, 0, 0, 0, null, 6, 7, 1, 1, null, null, null, 0],
+      ['Cabimas123', 6.5, 0, 0, 0, null, 10, 14, 1, 1, null, null, null, 0],
+      ['MigueVinotinto9', 5.9, 0, 0, 1, null, 9, 12, 0, 4, null, null, null, 0],
+      ['RM CAAMs', 5.4, 0, 0, 0, null, 2, 3, 0, 0, null, null, null, 3],
+    ],
+  },
+  'amistoso-yerb4teros-1-0.png': {
+    home: true,
+    score: [1, 0],
+    rival: 'YERB4TEROS GG',
+    competition: 'AMISTOSO',
+    rows: [
+      ['Gabogame3821877', 7.7, 0, 0, 0, null, 19, 25, 2, 6, null, null, null, 0],
+      ['ChinoMaKina', 7.5, 0, 0, 0, null, 15, 16, 1, 2, null, null, null, 0],
+      ['apirlo5', 7.3, 0, 0, 0, null, 17, 25, 2, 4, null, null, null, 0],
+      ['nedus', 7.2, 0, 0, 1, null, 15, 18, 0, 0, null, null, null, 0],
+      ['MigueVinotinto9', 7.0, 1, 0, 3, null, 7, 14, 1, 8, null, null, null, 0],
+      ['Cabimas123', 7.0, 0, 0, 0, null, 17, 21, 1, 2, null, null, null, 0],
+      ['Kamikazeeeplay', 7.0, 0, 0, 0, null, 13, 15, 1, 4, null, null, null, 0],
+      ['mmls0390', 6.9, 0, 0, 0, null, 10, 12, 1, 1, null, null, null, 0],
+      ['fIakjto', 6.8, 0, 0, 0, null, 13, 14, 0, 0, null, null, null, 0],
+      ['ReisHjN', 6.3, 0, 0, 0, null, 14, 16, 1, 2, null, null, null, 0],
+      ['RM CAAMs', 6.1, 0, 0, 0, null, 9, 11, 0, 0, null, null, null, 1],
+    ],
+  },
 };
+
+// Gamertags conocidos del club (como los que PIRLO tiene de sus fichas y sesiones).
+const KNOWN = [
+  'Raalro',
+  'apirlo5',
+  'nedus',
+  'willl_mich',
+  'RM CAAMs',
+  'fIakjto',
+  'Kamikazeeeplay',
+  'ChinoMaKina',
+  'Cabimas123',
+  'ReisHjN',
+  'mmls0390',
+];
 
 describe('lectura real de imágenes de Our Pro Club', () => {
   withOcr(
@@ -191,7 +272,7 @@ describe('lectura real de imágenes de Our Pro Club', () => {
       const ocr = await tesseract!();
       try {
         for (const [file, exp] of Object.entries(EXPECTED)) {
-          const r = await readMatchImage(fixture(file), ocr, ['Raalro', 'apirlo5', 'nedus']);
+          const r = await readMatchImage(fixture(file), ocr, KNOWN);
           expect(r !== null).toBe(true);
           const m = toClubMatch(r!, ['Marítimo CF'], '2026-10-26');
           expect(m !== null).toBe(true);
@@ -202,7 +283,7 @@ describe('lectura real de imágenes de Our Pro Club', () => {
             ...exp.score,
             o0(exp.rival),
           ]);
-          expect(m!.competition).toBe('LIGA');
+          expect(m!.competition).toBe(exp.competition ?? 'LIGA');
           expect(
             m!.players.map((p) => [
               p.name,

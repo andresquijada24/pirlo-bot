@@ -205,6 +205,24 @@ async function readTeamName(g: Gray, ocr: Ocr, x0: number, x1: number): Promise<
   return t.length >= 2 ? t : null;
 }
 
+/** ¿La celda contiene solo un guion? (trazo corto y plano; una cifra mide unos 15 px de alto). */
+export function isDash(g: Gray, b: Box): boolean {
+  const lit = brightBox(g, b, 130);
+  if (!lit) return false;
+  return lit.height <= 5 * g.scale && lit.width >= 3 * g.scale && lit.width <= 16 * g.scale;
+}
+
+/**
+ * Calificación: siempre con un decimal (6.1, 10.0). Si el punto se pierde al leer (cifras de color
+ * sobre fondo oscuro), «77» es 7.7 y «100» es 10.0.
+ */
+export function parseRating(t: string): number | null {
+  const m = /^(\d{1,2})\.?(\d)$/.exec(t);
+  if (!m) return null;
+  const v = Number(`${m[1]}.${m[2]}`);
+  return v > 0 && v <= 10 ? v : null;
+}
+
 /** «-» = 0; «17/21» = [17, 21]; vacío o ilegible = undefined. */
 function num(t: string): number | null | undefined {
   if (/^-+$/.test(t)) return 0;
@@ -262,9 +280,14 @@ export function resolvePlayerName(raw: string, known: readonly string[]): string
   const scored = known
     .map((name) => {
       const n = name.toLowerCase();
+      // El lector a veces parte el gamertag («willl_ mich») o el gamertag tiene espacio
+      // («RM CAAMs»): se compara también con el comienzo del texto sin espacios.
+      const compact = text.toLowerCase().replace(/\s+/g, '');
+      const bare = n.replace(/\s+/g, '');
       const d = Math.min(
         distance(n, token),
         distance(n, token.slice(0, n.length)) + (token.length > n.length ? 1 : 0),
+        distance(bare, compact.slice(0, bare.length)),
       );
       const max = n.length <= 3 ? 0 : n.length <= 8 ? 2 : 3;
       return { name, d, ok: d <= max };
@@ -292,9 +315,15 @@ export async function readMatchImage(
   png: Uint8Array,
   ocr: Ocr,
   knownPlayers: readonly string[] = [],
+  /** Recibe el motivo cuando la lectura se descarta (para los registros; sin datos personales). */
+  reject: (reason: string) => void = () => undefined,
 ): Promise<MatchImageRead | null> {
+  const no = (reason: string) => {
+    reject(reason);
+    return null;
+  };
   const g = await toGray(png);
-  if (!g) return null;
+  if (!g) return no('la imagen no tiene la composición de Our Pro Club (16:9)');
 
   const [homeScore, awayScore] = [
     await readScore(g, ocr, 700, 870),
@@ -302,7 +331,10 @@ export async function readMatchImage(
   ];
   const homeName = await readTeamName(g, ocr, 40, 560);
   const awayName = await readTeamName(g, ocr, 1350, 1900);
-  if (homeScore === null || awayScore === null || !homeName || !awayName) return null;
+  if (homeScore === null || awayScore === null || !homeName || !awayName)
+    return no(
+      `marcador o equipos ilegibles (local ${homeScore ?? '?'} «${homeName ?? '?'}», visitante ${awayScore ?? '?'} «${awayName ?? '?'}»)`,
+    );
 
   const details = (
     await ocr.read(await cell(g, box(g, 60, 305, 580, 355), { threshold: 150 }), {
@@ -320,7 +352,8 @@ export async function readMatchImage(
   const humans = vs ? { home: Number(vs[1]), away: Number(vs[2]) } : null;
 
   const players: MatchResultPlayer[] = [];
-  for (const y of findRows(g).slice(0, MAX_ROWS)) {
+  const rows = findRows(g).slice(0, MAX_ROWS);
+  for (const y of rows) {
     const ratingText = clean(
       await ocr.read(await cell(g, box(g, 985, y - 14, 1045, y + 14), { threshold: 130 }), {
         chars: `${DIGITS}.`,
@@ -328,9 +361,11 @@ export async function readMatchImage(
       }),
     );
     // La calificación siempre existe (6.1, 10.0…): sin ella, la tabla terminó.
-    if (!/^\d{1,2}\.\d$/.test(ratingText)) break;
-    const rating = Number(ratingText);
-    if (rating <= 0 || rating > 10) return null;
+    const rating = parseRating(ratingText);
+    if (rating === null)
+      return no(`calificación ilegible («${ratingText}») en la fila a y=${Math.round(y)}`);
+    if (rating <= 0 || rating > 10)
+      return no(`calificación imposible en la fila a y=${Math.round(y)}`);
 
     const name = resolvePlayerName(
       await ocr.read(await cell(g, box(g, 645, y - 22, 975, y + 2), { threshold: 150 }), {
@@ -338,21 +373,21 @@ export async function readMatchImage(
       }),
       knownPlayers,
     );
-    if (!name) return null;
+    if (!name) return no(`nombre ilegible en la fila a y=${Math.round(y)}`);
 
     const values: Record<string, string> = {};
     for (const [key, x] of Object.entries(COLUMNS)) {
       if (key === 'rating') continue;
       const half = WIDE.has(key) ? 55 : 30;
-      values[key] = clean(
-        await ocr.read(
-          await cell(g, box(g, x - half, y - 14, x + half, y + 14), { threshold: 130 }),
-          {
-            chars: `${DIGITS}/-`,
-            mode: 'line',
-          },
-        ),
+      const b = box(g, x - half, y - 14, x + half, y + 14);
+      const text = clean(
+        await ocr.read(await cell(g, b, { threshold: 130 }), {
+          chars: `${DIGITS}/-`,
+          mode: 'line',
+        }),
       );
+      // El guion de «sin dato» es tan fino que a veces el lector no lo ve: se reconoce por su forma.
+      values[key] = text === '' && isDash(g, b) ? '-' : text;
     }
     const n = (k: string) => num(values[k] ?? '');
     const p = (k: string) => pair(values[k] ?? '');
@@ -369,9 +404,10 @@ export async function readMatchImage(
       'saves',
     ];
     if (single.some((k) => n(k) === undefined) || passes === undefined || tackles === undefined)
-      return null;
+      return no(`celda ilegible en la fila a y=${Math.round(y)}: ${JSON.stringify(values)}`);
     // Completados nunca más que intentados.
-    if ((passes && passes[0] > passes[1]) || (tackles && tackles[0] > tackles[1])) return null;
+    if ((passes && passes[0] > passes[1]) || (tackles && tackles[0] > tackles[1]))
+      return no(`completados mayores que intentados en la fila a y=${Math.round(y)}`);
     players.push({
       name,
       rating,
@@ -389,7 +425,8 @@ export async function readMatchImage(
       saves: n('saves')!,
     });
   }
-  if (players.length === 0) return null;
+  if (players.length === 0)
+    return no(`sin filas de jugadores (filas detectadas: ${findRows(g).length})`);
   return {
     home: { name: homeName, score: homeScore },
     away: { name: awayName, score: awayScore },
@@ -407,18 +444,27 @@ export function toClubMatch(
   read: MatchImageRead,
   clubNames: readonly string[],
   playedOn: string | null,
+  reject: (reason: string) => void = () => undefined,
 ): MatchResult | null {
   const score = (side: string) => Math.max(0, ...clubNames.map((n) => similarity(n, side)));
   const homeSim = score(read.home.name);
   const awaySim = score(read.away.name);
   const best = Math.max(homeSim, awaySim);
-  if (best < 0.75 || Math.abs(homeSim - awaySim) < 0.2) return null;
+  if (best < 0.75 || Math.abs(homeSim - awaySim) < 0.2) {
+    reject(`el club no aparece en el marcador («${read.home.name}» contra «${read.away.name}»)`);
+    return null;
+  }
   const home = homeSim > awaySim;
   const [us, them] = home ? [read.home, read.away] : [read.away, read.home];
   const sum = (f: (p: MatchResultPlayer) => number | null) =>
     read.players.reduce((a, p) => a + (f(p) ?? 0), 0);
   // Los goles de los jugadores del club nunca superan los del club (puede haber autogoles a favor).
-  if (sum((p) => p.goals) > us.score || sum((p) => p.assists) > us.score) return null;
+  if (sum((p) => p.goals) > us.score || sum((p) => p.assists) > us.score) {
+    reject(
+      `goles o asistencias de jugadores (${sum((p) => p.goals)}/${sum((p) => p.assists)}) mayores que los goles del club (${us.score})`,
+    );
+    return null;
+  }
   return {
     playedOn,
     competition: read.competition,
@@ -431,6 +477,16 @@ export function toClubMatch(
     goalsFor: us.score,
     goalsAgainst: them.score,
     opponentName: them.name,
-    players: read.players,
+    // En los amistosos EA no da estadísticas avanzadas: ahí «-» es «sin dato», no 0.
+    players:
+      read.competition === 'AMISTOSO'
+        ? read.players.map((p) => ({
+            ...p,
+            dribbles: null,
+            interceptions: null,
+            blocks: null,
+            clearances: null,
+          }))
+        : read.players,
   };
 }

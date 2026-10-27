@@ -108,6 +108,25 @@ describe('partido del club a partir de la lectura', () => {
   });
 });
 
+describe('filas de la tabla', () => {
+  it('encuentra cada fila por sí sola (la separación cambia según los jugadores)', async () => {
+    // Lector ficticio: todo «legible»; así solo cuenta cuántas filas se detectan.
+    const ocr: Ocr = {
+      read: async (_png, { chars }) =>
+        chars?.includes('.') ? '7.0' : chars === '0123456789' ? '1' : chars ? '-' : 'Jugador',
+    };
+    const counts: number[] = [];
+    for (const f of [
+      'partido-kundnav-4-4.png',
+      'partido-hutch-3-0.png',
+      'partido-oooupii-0-0.png',
+      'partido-gln-santos-0-10.png',
+    ])
+      counts.push((await readMatchImage(fixture(f), ocr))?.players.length ?? -1);
+    expect(counts).toEqual([3, 2, 2, 2]);
+  });
+});
+
 // Lectura real con el lector gratuito sobre imágenes reales de Our Pro Club. En CI siempre se
 // ejecuta; en local, solo si tesseract.js está instalado.
 const tesseract = await import('tesseract.js')

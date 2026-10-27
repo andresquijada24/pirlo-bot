@@ -156,6 +156,7 @@ describe('publicación del resumen de sesión', () => {
     // Llegan los jugadores: se publica completa.
     env.state.sessionRecaps[0]!.recap = recap({ publishedAt: '2026-10-27T02:33:48Z' });
     expect((await run(at('2026-10-27T02:36:00Z'))).posted).toBe(1);
+    expect(sent).toHaveLength(1);
 
     const late = await setup();
     late.env.state.sessionRecaps[0]!.recap = recap({

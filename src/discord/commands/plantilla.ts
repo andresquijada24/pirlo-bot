@@ -25,6 +25,21 @@ export const PHOTO_GUIDE = [
 ].join('\n');
 const MAX_EMBED_DESCRIPTION = 4000;
 
+/**
+ * Plantilla: jugadores y capitanes siempre; admins y DT solo si han jugado con el club (tienen
+ * estadísticas). Los que no juegan aparecen aparte, como cuerpo técnico.
+ */
+export function splitRoster(roster: Membership[], played: ReadonlySet<string>) {
+  const sorted = [...roster].sort(
+    (a, b) =>
+      ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role) ||
+      a.displayName.localeCompare(b.displayName, 'es'),
+  );
+  const plays = (m: Membership) =>
+    m.role === 'jugador' || m.role === 'capitan' || played.has(m.playerId);
+  return { players: sorted.filter(plays), staff: sorted.filter((m) => !plays(m)) };
+}
+
 /** Convierte "mc, MCO dc" en ['MC','MCO','DC'] y rechaza códigos desconocidos. */
 export function parsePositions(input: string): PositionCode[] {
   const tokens = input
@@ -138,19 +153,20 @@ export const plantillaCommand: SlashCommand = {
     const c = await contextFor(ctx);
     switch (ctx.command.sub) {
       case 'ver': {
-        const roster = await listRoster(ctx.repos, c);
-        const sorted = [...roster].sort(
-          (a, b) =>
-            ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role) ||
-            a.displayName.localeCompare(b.displayName, 'es'),
-        );
-        let description = sorted
-          .map((m) => {
-            const num = m.shirtNumber !== null ? `\`#${m.shirtNumber}\` ` : '';
-            const pos = m.positions.length ? ` · ${m.positions.join('/')}` : '';
-            return `${num}**${escapeMd(m.displayName)}** · ${ROLE_LABELS[m.role]}${pos} · ${mention(m.discordUserId)}`;
-          })
-          .join('\n');
+        const [roster, played] = await Promise.all([
+          listRoster(ctx.repos, c),
+          ctx.repos.memberships.playedIds(c.club.id).catch(() => new Set<string>()),
+        ]);
+        const { players, staff } = splitRoster(roster, played);
+        const line = (m: Membership) => {
+          const num = m.shirtNumber !== null ? `\`#${m.shirtNumber}\` ` : '';
+          const pos = m.positions.length ? ` · ${m.positions.join('/')}` : '';
+          return `${num}**${escapeMd(m.displayName)}** · ${ROLE_LABELS[m.role]}${pos} · ${mention(m.discordUserId)}`;
+        };
+        let description = [
+          players.map(line).join('\n') || 'Todavía no hay jugadores.',
+          ...(staff.length ? ['', '**Cuerpo técnico**', ...staff.map(line)] : []),
+        ].join('\n');
         if (description.length > MAX_EMBED_DESCRIPTION) {
           description = description.slice(0, MAX_EMBED_DESCRIPTION - 1) + '…';
         }
@@ -158,8 +174,10 @@ export const plantillaCommand: SlashCommand = {
           embeds: [
             embed({
               title: `Plantilla · ${escapeMd(c.club.name)}`,
-              description: description || 'Todavía no hay miembros.',
-              footer: { text: `${roster.length} miembro(s)` },
+              description,
+              footer: {
+                text: `${players.length} jugador(es)${staff.length ? ` · ${staff.length} en el cuerpo técnico` : ''}`,
+              },
             }),
           ],
         });

@@ -104,6 +104,8 @@ export interface MembershipRepository {
   photo(clubId: string, playerId: string): Promise<string | null>;
   /** ¿Qué jugadores del club tienen foto? (ids de jugador) */
   withPhoto(clubId: string): Promise<Set<string>>;
+  /** Jugadores (ids) que han jugado con el club: tienen estadísticas o ficha del proveedor. */
+  playedIds(clubId: string): Promise<Set<string>>;
   /** Guarda o quita (null) la foto. El propio jugador o un admin/DT (lo comprueba la base de datos). */
   setPhoto(clubId: string, membershipId: string, jpgBase64: string | null, actorDiscordId: string): Promise<void>;
 }
